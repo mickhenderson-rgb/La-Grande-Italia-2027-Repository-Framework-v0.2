@@ -1,0 +1,31 @@
+{
+  "Milan":[
+
+    {
+      "style":"Apartment",
+
+      "area":"Brera",
+
+      "parking":"Nearby Garage",
+
+      "booking_source":"Booking.com",
+
+      "budget_low":250,
+
+      "budget_high":340
+    }
+
+  ],
+
+  "Le Noirmont":[
+
+    {
+      "style":"Guesthouse",
+
+      "parking":"Included",
+
+      "booking_source":"Direct"
+    }
+
+  ]
+}

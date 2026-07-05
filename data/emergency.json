@@ -1,0 +1,15 @@
+{
+  "Italy": {
+    "Emergency": "112",
+    "Police": "113",
+    "Ambulance": "118"
+  },
+  "Switzerland": {
+    "Emergency": "112",
+    "Police": "117",
+    "Ambulance": "144"
+  },
+  "Australian Embassy Rome": {
+    "website": "https://italy.embassy.gov.au/"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "horse_riding":{
+
+    "location":"Siena",
+
+    "duration_hours":3,
+
+    "booking_required":true,
+
+    "completed":false
+
+  },
+
+  "murano_workshop":{
+
+    "location":"Murano",
+
+    "duration_hours":2.5
+
+  },
+
+  "cooking_class":{
+
+    "location":"Locorotondo"
+
+  },
+
+  "paddleboarding":{
+
+    "location":"Lake Iseo"
+
+  }
+}

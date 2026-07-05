@@ -1,0 +1,22 @@
+{
+  "arrival": {
+    "icon": "✈️",
+    "colour": "#D6EAF8"
+  },
+  "transfer": {
+    "icon": "🚗",
+    "colour": "#FCF3CF"
+  },
+  "rail": {
+    "icon": "🚆",
+    "colour": "#E8DAEF"
+  },
+  "rest": {
+    "icon": "☕",
+    "colour": "#E8F8F5"
+  },
+  "explore": {
+    "icon": "📍",
+    "colour": "#EBF5FB"
+  }
+}

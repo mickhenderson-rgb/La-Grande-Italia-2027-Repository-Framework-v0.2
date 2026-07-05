@@ -1,0 +1,125 @@
+<section class="destination-page">
+
+    <section class="hero">
+
+        <p class="eyebrow">
+
+            {{region}}
+
+        </p>
+
+        <h1>
+
+            {{title}}
+
+        </h1>
+
+        <p>
+
+            {{subtitle}}
+
+        </p>
+
+    </section>
+
+    <section class="card">
+
+        <h2>
+
+            Why This Place Matters
+
+        </h2>
+
+        <p>
+
+            {{overview}}
+
+        </p>
+
+    </section>
+
+    <section class="card">
+
+        <h2>
+
+            Quick Facts
+
+        </h2>
+
+        <table class="table">
+
+            <tr>
+
+                <th>Arrival</th>
+
+                <td>{{arrival}}</td>
+
+            </tr>
+
+            <tr>
+
+                <th>Departure</th>
+
+                <td>{{departure}}</td>
+
+            </tr>
+
+            <tr>
+
+                <th>Nights</th>
+
+                <td>{{nights}}</td>
+
+            </tr>
+
+            <tr>
+
+                <th>Accommodation</th>
+
+                <td>{{accommodation}}</td>
+
+            </tr>
+
+        </table>
+
+    </section>
+
+    <section class="card">
+
+        <h2>
+
+            Today's Navigation
+
+        </h2>
+
+        <div class="route-actions">
+
+            <button onclick="Navigation.open('google',{{lat}},{{lng}})">
+
+                Google Maps
+
+            </button>
+
+            <button onclick="Navigation.open('waze',{{lat}},{{lng}})">
+
+                Waze
+
+            </button>
+
+            <button onclick="Navigation.open('apple',{{lat}},{{lng}})">
+
+                Apple Maps
+
+            </button>
+
+            <button onclick="Navigation.open('osm',{{lat}},{{lng}})">
+
+                OpenStreetMap
+
+            </button>
+
+        </div>
+
+    </section>
+
+</section>

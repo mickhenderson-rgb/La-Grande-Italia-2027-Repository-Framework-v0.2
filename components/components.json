@@ -1,0 +1,27 @@
+{
+  "components": {
+
+    "header":"components/header.html",
+
+    "footer":"components/footer.html",
+
+    "navigation":"components/navigation.html",
+
+    "destinationCard":"components/destination-card.html",
+
+    "hotelCard":"components/hotel-card.html",
+
+    "restaurantCard":"components/restaurant-card.html",
+
+    "bookingCard":"components/booking-card.html",
+
+    "budgetCard":"components/budget-card.html",
+
+    "timelineCard":"components/timeline-card.html",
+
+    "mapCard":"components/map-card.html",
+
+    "noteCard":"components/note-card.html"
+
+  }
+}

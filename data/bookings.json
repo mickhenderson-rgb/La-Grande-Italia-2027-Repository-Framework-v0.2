@@ -1,0 +1,50 @@
+{
+  "flights": [
+    {
+      "item": "Sydney to Milan",
+      "status": "not booked",
+      "reference": "",
+      "notes": "Anchor departure is Monday 23 August 2027."
+    },
+    {
+      "item": "Rome to Sydney",
+      "status": "not booked",
+      "reference": "",
+      "notes": "Final departure from Rome after final overnight stay."
+    }
+  ],
+  "cars": [
+    {
+      "item": "Car Hire 1",
+      "provider": "Hertz",
+      "status": "not booked",
+      "reference": "",
+      "notes": "Collect Milan, return Rome; standard estate preferred."
+    },
+    {
+      "item": "Car Hire 2",
+      "provider": "Hertz",
+      "status": "not booked",
+      "reference": "",
+      "notes": "Collect Palermo, return Sorrento or Naples."
+    }
+  ],
+  "rail": [
+    {
+      "item": "Rome to Palermo sleeper",
+      "status": "not booked",
+      "reference": "",
+      "notes": "Sleeper compartment preferred."
+    },
+    {
+      "item": "Sorrento / Naples to Rome",
+      "status": "not booked",
+      "reference": "",
+      "notes": "Final train back to Rome before departure."
+    }
+  ],
+  "accommodation": [],
+  "activities": [],
+  "restaurants": [],
+  "notes": "Fill in as bookings are confirmed."
+}

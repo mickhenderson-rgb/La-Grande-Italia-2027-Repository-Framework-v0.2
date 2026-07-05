@@ -1,0 +1,30 @@
+{
+  "Milan":{
+    "average_high":28,
+    "average_low":18,
+    "sunrise":"06:33",
+    "sunset":"20:09"
+  },
+
+  "Le Noirmont":{
+    "average_high":21,
+    "average_low":12,
+    "sunrise":"06:39",
+    "sunset":"20:18"
+  },
+
+  "Bergamo":{
+    "average_high":27,
+    "average_low":17
+  },
+
+  "Dolomites":{
+    "average_high":20,
+    "average_low":10
+  },
+
+  "Venice":{
+    "average_high":28,
+    "average_low":20
+  }
+}

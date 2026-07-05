@@ -1,0 +1,46 @@
+{
+  "currency": "AUD",
+  "estimate_low": 31000,
+  "estimate_high": 35500,
+  "categories": {
+    "accommodation": {
+      "low": 13000,
+      "high": 15000
+    },
+    "transport": {
+      "car_hire": {
+        "low": 5000,
+        "high": 7000
+      },
+      "train": {
+        "low": 250,
+        "high": 500
+      },
+      "ferry": {
+        "low": 75,
+        "high": 250
+      },
+      "fuel_tolls_parking": {
+        "low": 1500,
+        "high": 2200
+      }
+    },
+    "food": {
+      "low": 8000,
+      "high": 10500
+    },
+    "activities": {
+      "low": 1500,
+      "high": 2500
+    },
+    "contingency": {
+      "low": 1200,
+      "high": 1800
+    }
+  },
+  "notes": [
+    "Assumes apartment-style accommodation where value is strong.",
+    "First 15 nights may require a larger room configuration.",
+    "Budget should be updated as bookings are entered."
+  ]
+}

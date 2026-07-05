@@ -1,0 +1,19 @@
+{
+  "Franciacorta":[
+
+    {
+      "name":"Bellavista",
+
+      "region":"Lake Iseo",
+
+      "booking_required":true
+    },
+
+    {
+      "name":"Ca' del Bosco",
+
+      "booking_required":true
+    }
+
+  ]
+}

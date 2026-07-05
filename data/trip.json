@@ -1,0 +1,32 @@
+{
+  "project": {
+    "name": "La Grande Italia 2027",
+    "subtitle": "The Henderson Grand Tour",
+    "version": "1.0",
+    "status": "Development",
+    "departure_date": "2027-08-23",
+    "arrival_city": "Milan",
+    "return_city": "Rome",
+    "duration_days": 51,
+    "duration_nights": 48,
+    "currency": "AUD",
+    "primary_language": "English (Australian)"
+  },
+
+  "travellers": {
+    "phase_1": {
+      "adults": 4,
+      "room_configuration": "1 Double, 1 Single, 1 Rollaway"
+    },
+    "phase_2": {
+      "adults": 3,
+      "room_configuration": "1 Double, 1 Single"
+    }
+  },
+
+  "rental_cars": {
+    "provider": "Hertz",
+    "status": "President's Circle",
+    "points": 14000
+  }
+}

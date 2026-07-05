@@ -1,0 +1,29 @@
+{
+  "documents": [
+    "Passport",
+    "Travel Insurance",
+    "Driver Licence",
+    "International Driving Permit",
+    "Credit Cards"
+  ],
+  "electronics": [
+    "Phone",
+    "Power Bank",
+    "Universal Adapter",
+    "Charging Cables",
+    "Camera"
+  ],
+  "clothing": [
+    "Walking Shoes",
+    "Light Jacket",
+    "Rain Jacket",
+    "Smart Casual Outfit",
+    "Swimwear"
+  ],
+  "vehicle": [
+    "Phone Mount",
+    "USB Charger",
+    "Reusable Water Bottles",
+    "Microfibre Cloth"
+  ]
+}

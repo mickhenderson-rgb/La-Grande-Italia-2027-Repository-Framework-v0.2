@@ -1,0 +1,25 @@
+{
+  "Milan":{
+
+    "sunrise":"Duomo rooftop",
+
+    "sunset":"Navigli",
+
+    "night":"Brera"
+
+  },
+
+  "Bergamo":{
+
+    "sunrise":"Città Alta",
+
+    "sunset":"Venetian Walls"
+
+  },
+
+  "Dolomites":{
+
+    "golden_hour":"Passo Gardena"
+
+  }
+}

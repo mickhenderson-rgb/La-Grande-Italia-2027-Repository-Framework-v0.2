@@ -1,0 +1,52 @@
+{
+  "pages": [
+    {
+      "id": "home",
+      "title": "Home",
+      "file": "index.html",
+      "icon": "house"
+    },
+    {
+      "id": "executive-summary",
+      "title": "Executive Summary",
+      "file": "pages/01-executive-summary.html",
+      "icon": "compass"
+    },
+    {
+      "id": "master-calendar",
+      "title": "Master Calendar",
+      "file": "pages/02-master-calendar.html",
+      "icon": "calendar"
+    },
+    {
+      "id": "milan",
+      "title": "Milan",
+      "file": "pages/06-milan.html",
+      "icon": "building"
+    },
+    {
+      "id": "le-noirmont",
+      "title": "Le Noirmont",
+      "file": "pages/07-le-noirmont.html",
+      "icon": "mountain"
+    },
+    {
+      "id": "bergamo",
+      "title": "Bergamo",
+      "file": "pages/08-bergamo.html",
+      "icon": "landmark"
+    },
+    {
+      "id": "dolomites",
+      "title": "Dolomites",
+      "file": "pages/09-dolomites.html",
+      "icon": "mountain"
+    },
+    {
+      "id": "venice",
+      "title": "Venice",
+      "file": "pages/10-venice.html",
+      "icon": "waves"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "Northern Italy & Switzerland": {
+    "colour": "#34495E",
+    "destinations": [
+      "Milan",
+      "Le Noirmont",
+      "Bergamo",
+      "Dolomites",
+      "Venice"
+    ]
+  },
+  "Central Italy": {
+    "colour": "#8E6B3A",
+    "destinations": [
+      "Siena",
+      "Rome"
+    ]
+  },
+  "Southern Italy": {
+    "colour": "#6E8B74",
+    "destinations": [
+      "Palermo",
+      "Cefalù",
+      "Syracuse / Ortigia",
+      "Taormina",
+      "Tropea",
+      "Maratea",
+      "Matera",
+      "Locorotondo",
+      "Sorrento"
+    ]
+  }
+}
