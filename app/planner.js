@@ -126,9 +126,9 @@ const Planner = {
     <div class="planner-buttons">
 
        <button
-    onclick="DayView.open(${day.day})">
+    onclick="Day.open(${day.day})"
 
-    Open Day
+    Open Destination
 
 </button>
 

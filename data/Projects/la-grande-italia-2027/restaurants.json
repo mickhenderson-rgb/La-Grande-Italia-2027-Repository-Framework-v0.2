@@ -1,35 +1,7 @@
 {
-  "Milan":[
+  "version": "2.0",
 
-    {
-      "name":"Luini",
+  "schema": "planning-item",
 
-      "type":"Casual",
-
-      "speciality":"Panzerotti",
-
-      "booking":false
-    },
-
-    {
-      "name":"Ratanà",
-
-      "type":"Special Occasion",
-
-      "booking":true
-    }
-
-  ],
-
-  "Le Noirmont":[
-
-    {
-      "name":"Local Farm Restaurant",
-
-      "type":"Regional",
-
-      "booking":false
-    }
-
-  ]
+  "items": []
 }

@@ -5,7 +5,7 @@ COMPASS-TOS
 
 Router
 
-Version 1.1.0
+Version 2.0.0
 
 =========================================================
 */
@@ -13,59 +13,26 @@ Version 1.1.0
 const Router = {
   currentPage: "dashboard",
 
-  routes: {
-    dashboard() {
-      Render.show(Layout.render(Dashboard.render()));
+  navigate(page) {
+    this.currentPage = page;
 
-      Dashboard.initialise();
-    },
+    switch (page) {
+      case "dashboard":
+        Render.show(Layout.render(Dashboard.render()));
 
-    planner() {
-      Render.show(Layout.render("<h2>Planner (Coming Next Build)</h2>"));
-    },
+        Dashboard.initialise();
 
-    destinations() {
-      Render.show(Layout.render("<h2>Destinations (Coming Soon)</h2>"));
-    },
+        break;
 
-    accommodation() {
-      Render.show(Layout.render("<h2>Accommodation</h2>"));
-    },
+      case "planner":
+        Render.show(Layout.render(Planner.render()));
 
-    flights() {
-      Render.show(Layout.render("<h2>Flights</h2>"));
-    },
+        break;
 
-    transport() {
-      Render.show(Layout.render("<h2>Transport</h2>"));
-    },
+      default:
+        Destination.open(page);
 
-    budget() {
-      Render.show(Layout.render("<h2>Budget</h2>"));
-    },
-
-    guide() {
-      Render.show(Layout.render("<h2>Travel Guide</h2>"));
-    },
-
-    settings() {
-      Render.show(Layout.render("<h2>Settings</h2>"));
-    },
-  },
-
-  navigate(route) {
-    if (!this.routes[route]) {
-      console.error(
-        "Unknown Route:",
-
-        route,
-      );
-
-      return;
+        break;
     }
-
-    this.currentPage = route;
-
-    this.routes[route]();
   },
 };
