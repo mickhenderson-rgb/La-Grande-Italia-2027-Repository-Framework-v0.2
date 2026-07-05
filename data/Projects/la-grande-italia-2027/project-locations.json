@@ -1,0 +1,17 @@
+{
+  "version": "1.0",
+
+  "locations": [
+    {
+      "id": "home",
+
+      "type": "home",
+
+      "name": "Home",
+
+      "country": "Australia",
+
+      "editable": false
+    }
+  ]
+}

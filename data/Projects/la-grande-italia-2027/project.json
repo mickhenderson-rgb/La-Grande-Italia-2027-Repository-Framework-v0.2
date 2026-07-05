@@ -1,0 +1,95 @@
+{
+  "project": {
+    "id": "la-grande-italia-2027",
+
+    "name": "La Grande Italia 2027",
+
+    "subtitle": "The Henderson Grand Tour",
+
+    "status": "Planning",
+
+    "version": "1.0",
+
+    "created": "2026-07-05",
+
+    "departureDate": "2027-08-23",
+
+    "returnDate": "2027-10-12",
+
+    "homeCountry": "Australia",
+
+    "currency": "AUD",
+
+    "language": "English",
+
+    "travellers": [
+      {
+        "id": 1,
+        "name": "Traveller 1",
+        "role": "Primary"
+      },
+      {
+        "id": 2,
+        "name": "Traveller 2",
+        "role": "Adult"
+      },
+      {
+        "id": 3,
+        "name": "Traveller 3",
+        "role": "Adult"
+      }
+    ]
+  },
+
+  "settings": {
+    "planningMode": true,
+
+    "travelMode": false,
+
+    "journalMode": false,
+
+    "darkTheme": false,
+
+    "currency": "AUD",
+
+    "distanceUnits": "km",
+
+    "temperatureUnits": "C"
+  },
+
+  "progress": {
+    "flights": "Idea",
+
+    "accommodation": "Research",
+
+    "transport": "Research",
+
+    "activities": "Research",
+
+    "budget": "Planning"
+  },
+
+  "statistics": {
+    "plannedNights": 48,
+
+    "plannedDays": 51,
+
+    "bookedEvents": 0,
+
+    "lockedEvents": 0,
+
+    "completedEvents": 0
+  },
+
+  "projectState": {
+    "lastOpened": "",
+
+    "lastSaved": "",
+
+    "currentDay": 1,
+
+    "selectedEvent": null,
+
+    "selectedDestination": null
+  }
+}

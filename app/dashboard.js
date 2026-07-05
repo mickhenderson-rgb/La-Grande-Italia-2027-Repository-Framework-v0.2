@@ -88,49 +88,7 @@ const Dashboard = {
 
         </div>
 
-    </section>
-
-    <section class="planning">
-
-        <h2>
-
-            Today's Planning
-
-        </h2>
-
-        <ul>
-
-            <li>☐ Book Flights</li>
-
-            <li>☐ Reserve Milan Accommodation</li>
-
-            <li>☐ Compare Car Hire</li>
-
-            <li>☐ Review Budget</li>
-
-        </ul>
-
-    </section>
-
-    <section class="route">
-
-        <h2>
-
-            Current Route
-
-        </h2>
-
-        <p>
-
-Sydney → Milan → Le Noirmont → Bergamo →
-Dolomites → Venice → Siena → Rome →
-Palermo → Cefalù → Syracuse →
-Taormina → Tropea → Maratea →
-Matera → Locorotondo → Sorrento → Rome
-
-        </p>
-
-    </section>
+   ${Planner.render()}
 
 </div>
 

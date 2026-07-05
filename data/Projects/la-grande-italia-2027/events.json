@@ -1,0 +1,91 @@
+{
+  "events": [
+    {
+      "id": "EVT-0001",
+
+      "type": "flight",
+
+      "status": "idea",
+
+      "locked": false,
+
+      "planned": {
+        "date": "2027-08-23",
+        "time": "",
+        "location": "Sydney Airport"
+      },
+
+      "actual": {},
+
+      "details": {
+        "title": "Sydney to Milan",
+        "description": "",
+        "provider": "",
+        "bookingReference": "",
+        "cost": 0,
+        "currency": "AUD"
+      },
+
+      "dependencies": [],
+
+      "notes": ""
+    },
+
+    {
+      "id": "EVT-0002",
+
+      "type": "accommodation",
+
+      "status": "research",
+
+      "locked": false,
+
+      "planned": {
+        "date": "2027-08-25",
+        "location": "Milan"
+      },
+
+      "actual": {},
+
+      "details": {
+        "title": "Accommodation - Milan",
+        "provider": "",
+        "bookingReference": "",
+        "cost": 0,
+        "currency": "EUR"
+      },
+
+      "dependencies": ["EVT-0001"],
+
+      "notes": ""
+    },
+
+    {
+      "id": "EVT-0003",
+
+      "type": "transport",
+
+      "status": "planned",
+
+      "locked": false,
+
+      "planned": {
+        "date": "2027-08-27",
+        "location": "Milan"
+      },
+
+      "actual": {},
+
+      "details": {
+        "title": "Drive Milan to Le Noirmont",
+        "transportMode": "car",
+        "startLocation": "milan",
+        "endLocation": "le-noirmont"
+      },
+
+      "dependencies": ["EVT-0002"],
+
+      "notes": ""
+    }
+  ]
+}

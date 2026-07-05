@@ -1,0 +1,113 @@
+{
+  "version": "1.0",
+
+  "days": [
+    {
+      "day": 1,
+
+      "date": "2027-08-23",
+
+      "title": "Sydney to Milan",
+
+      "location": "sydney",
+
+      "overnight": "flight",
+
+      "locked": true,
+
+      "items": [
+        {
+          "id": "FLT001",
+
+          "type": "flight",
+
+          "title": "International Flight",
+
+          "status": "research",
+
+          "priority": "high"
+        }
+      ]
+    },
+
+    {
+      "day": 2,
+
+      "date": "2027-08-24",
+
+      "title": "Arrival Milan",
+
+      "location": "milan",
+
+      "overnight": "milan",
+
+      "locked": false,
+
+      "items": [
+        {
+          "id": "HOT001",
+
+          "type": "accommodation",
+
+          "title": "Accommodation",
+
+          "status": "research",
+
+          "priority": "high"
+        },
+
+        {
+          "id": "FOOD001",
+
+          "type": "restaurant",
+
+          "title": "First Dinner",
+
+          "status": "idea",
+
+          "priority": "medium"
+        }
+      ]
+    },
+
+    {
+      "day": 3,
+
+      "date": "2027-08-25",
+
+      "title": "Explore Milan",
+
+      "location": "milan",
+
+      "overnight": "milan",
+
+      "locked": false,
+
+      "items": [
+        {
+          "id": "ACT001",
+
+          "type": "activity",
+
+          "title": "Duomo",
+
+          "status": "idea",
+
+          "priority": "medium"
+        },
+
+        {
+          "id": "ACT002",
+
+          "type": "activity",
+
+          "title": "Navigli",
+
+          "status": "idea",
+
+          "priority": "low"
+        }
+      ]
+    }
+  ]
+}

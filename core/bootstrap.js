@@ -5,7 +5,7 @@ COMPASS-TOS
 
 Bootstrap
 
-Version 1.0.0
+Version 1.1.0
 
 =========================================================
 */
@@ -18,39 +18,11 @@ document.addEventListener(
 
     Repository.setStatus("Bootstrapping");
 
-    await RepositoryManager.load(
-      "trip",
+    Project.initialise();
 
-      "data/trip.json",
-    );
+    await Data.loadProject("la-grande-italia-2027");
 
-    await RepositoryManager.load(
-      "navigation",
-
-      "data/navigation.json",
-    );
-
-    await RepositoryManager.load(
-      "destinations",
-
-      "data/destinations.json",
-    );
-
-    await RepositoryManager.load(
-      "bookings",
-
-      "data/bookings.json",
-    );
-
-    await RepositoryManager.load(
-      "budget",
-
-      "data/budget.json",
-    );
-
-    Repository.setStatus("Repository Ready");
-
-    await Application.initialise();
+    Repository.setStatus("Application Ready");
 
     Router.navigate("dashboard");
   },
