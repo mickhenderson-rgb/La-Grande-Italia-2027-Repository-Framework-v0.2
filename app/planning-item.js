@@ -5,28 +5,47 @@ COMPASS-TOS
 
 Planning Item Manager
 
-Version 1.0.0
+Version 2.0.0
 
 =========================================================
 */
 
 const PlanningItem = {
-  open(day, type) {
-    Render.show(Layout.render(this.render(day, type)));
+  currentContext: null,
+  currentType: null,
+
+  open(context, type) {
+    this.currentContext = context || {};
+    this.currentType = type || "planning";
+    Render.show(
+      Layout.render(this.render(this.currentContext, this.currentType)),
+    );
   },
 
-  render(day, type) {
+  render(context, type) {
     return `
 
 <div class="manager">
 
     <section class="hero">
 
-        <h1>${this.title(type)}</h1>
+        <h1>
 
-        <h2>Day ${day.day}</h2>
+            ${this.typeLabel(type)}
 
-        <p>${day.title}</p>
+        </h1>
+
+        <h2>
+
+            ${this.contextTitle(context)}
+
+        </h2>
+
+        <p>
+
+            ${this.contextNote(context)}
+
+        </p>
 
     </section>
 
@@ -38,21 +57,21 @@ const PlanningItem = {
 
             <p>Nothing Selected</p>
 
-            <button>Add</button>
+            <button type="button">Choose</button>
 
         </div>
 
         <div class="manager-card">
 
-            <h2>Shortlist</h2>
+            <h2>Research List</h2>
 
             <ul>
 
-                <li>No Items</li>
+                <li>No items yet</li>
 
             </ul>
 
-            <button>Shortlist</button>
+            <button type="button">Add</button>
 
         </div>
 
@@ -63,27 +82,23 @@ const PlanningItem = {
             <table>
 
                 <tr>
-
-                    <td>Status</td>
-
                     <td>Research</td>
-
+                    <td>Open</td>
                 </tr>
 
                 <tr>
+                    <td>Shortlisted</td>
+                    <td>0</td>
+                </tr>
 
+                <tr>
+                    <td>Booked</td>
+                    <td>0</td>
+                </tr>
+
+                <tr>
                     <td>Locked</td>
-
                     <td>No</td>
-
-                </tr>
-
-                <tr>
-
-                    <td>Completed</td>
-
-                    <td>No</td>
-
                 </tr>
 
             </table>
@@ -104,9 +119,9 @@ const PlanningItem = {
 
     <div class="planner-buttons">
 
-        <button onclick="Day.open(${day.day})">
+        <button type="button" onclick="${this.backAction(context)}">
 
-            ← Return to Day
+            ← Return
 
         </button>
 
@@ -117,7 +132,48 @@ const PlanningItem = {
 `;
   },
 
-  title(type) {
+  backAction(context) {
+    if (context && typeof context.day === "number") {
+      return `Day.open(${context.day})`;
+    }
+
+    if (context && context.kind === "destination" && context.locationId) {
+      return `Destination.open('${context.locationId}', Destination.returnDay)`;
+    }
+
+    if (context && context.locationId) {
+      return `Destination.open('${context.locationId}')`;
+    }
+
+    return `Router.navigate('planner')`;
+  },
+
+  contextTitle(context) {
+    if (context && typeof context.day === "number") {
+      return `Day ${context.day}`;
+    }
+
+    return (
+      context?.label ||
+      context?.title ||
+      context?.name ||
+      this.typeLabel(this.currentType)
+    );
+  },
+
+  contextNote(context) {
+    if (context && typeof context.day === "number") {
+      return context.title || "";
+    }
+
+    if (context && context.locationId) {
+      return `Destination Workspace · ${this.pretty(context.locationId)}`;
+    }
+
+    return "Planning Workspace";
+  },
+
+  typeLabel(type) {
     switch (type) {
       case "transport":
         return "Transport";
@@ -140,5 +196,11 @@ const PlanningItem = {
       default:
         return "Planning";
     }
+  },
+
+  pretty(value) {
+    return String(value || "")
+      .replaceAll("-", " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   },
 };

@@ -5,7 +5,7 @@ COMPASS-TOS
 
 Day Workspace
 
-Version 2.0.0
+Version 3.0.0
 
 =========================================================
 */
@@ -16,7 +16,7 @@ const Day = {
   open(dayNumber) {
     const journey = Project.get("journey");
 
-    if (!journey || !journey.days) {
+    if (!journey || !Array.isArray(journey.days)) {
       return;
     }
 
@@ -32,6 +32,8 @@ const Day = {
   },
 
   render(day) {
+    const summary = this.summary(day);
+
     return `
 
 <div class="day-workspace">
@@ -39,54 +41,82 @@ const Day = {
     <section class="hero">
 
         <h1>
-
             Day ${day.day}
-
         </h1>
 
         <h2>
-
-            ${day.title}
-
+            ${day.title || ""}
         </h2>
 
         <p>
-
-            📍 ${day.location}
-
+            📍 ${this.pretty(day.location)}
         </p>
 
         <p>
-
-            🛏 Overnight
-
-            ${day.overnight}
-
+            🛏 Overnight ${this.pretty(day.overnight)}
         </p>
+
+        <div class="quick-links">
+
+            <button
+                type="button"
+                onclick="PlanningItem.open(Day.current,'accommodation')">
+
+                Accommodation
+
+            </button>
+
+            <button
+                type="button"
+                onclick="PlanningItem.open(Day.current,'activity')">
+
+                Activities
+
+            </button>
+
+            <button
+                type="button"
+                onclick="PlanningItem.open(Day.current,'restaurant')">
+
+                Restaurants
+
+            </button>
+
+        </div>
 
     </section>
 
     <div class="workspace-grid">
 
-        ${this.panel(day, "transport", "🚗", "Transport", "No transport selected")}
+        ${this.panel("🚗", "Transport", summary.transport, `PlanningItem.open(Day.current,'transport')`)}
 
-        ${this.panel(day, "accommodation", "🛏", "Accommodation", "No accommodation selected")}
+        ${this.panel("🛏", "Accommodation", summary.accommodation, `PlanningItem.open(Day.current,'accommodation')`)}
 
-        ${this.panel(day, "activity", "🎯", "Activities", "No activities planned")}
+        ${this.panel("🎯", "Activities", summary.activity, `PlanningItem.open(Day.current,'activity')`)}
 
-        ${this.panel(day, "restaurant", "🍝", "Restaurants", "No restaurants selected")}
+        ${this.panel("🍝", "Restaurants", summary.restaurant, `PlanningItem.open(Day.current,'restaurant')`)}
 
-        ${this.panel(day, "expense", "💰", "Expenses", "No expenses recorded")}
+        ${this.panel("💰", "Expenses", summary.expense, `PlanningItem.open(Day.current,'expense')`)}
 
-        ${this.panel(day, "note", "📝", "Notes", "No notes")}
+        ${this.panel("📝", "Notes", summary.note, `PlanningItem.open(Day.current,'note')`)}
 
     </div>
 
     <div class="planner-buttons">
 
-        <button onclick="Router.navigate('dashboard')">
+        <button
+            type="button"
+            onclick="Router.navigate('planner')">
 
-            ← Dashboard
+            ← Planner
+
+        </button>
+
+        <button
+            type="button"
+            onclick="Router.navigate('dashboard')">
+
+            Dashboard
 
         </button>
 
@@ -97,28 +127,22 @@ const Day = {
 `;
   },
 
-  panel(day, type, icon, title, text) {
+  panel(icon, title, text, action) {
     return `
 
 <div class="workspace-panel">
 
     <h3>
-
-        ${icon}
-
-        ${title}
-
+        ${icon} ${title}
     </h3>
 
     <p>
-
         ${text}
-
     </p>
 
     <button
-
-        onclick="PlanningItem.open(Day.current,'${type}')">
+        type="button"
+        onclick="${action}">
 
         Manage
 
@@ -127,5 +151,32 @@ const Day = {
 </div>
 
 `;
+  },
+
+  summary(day) {
+    const items = Array.isArray(day.items) ? day.items : [];
+
+    return {
+      transport: this.countType(items, "transport"),
+      accommodation: this.countType(items, "accommodation"),
+      activity: this.countType(items, "activity"),
+      restaurant: this.countType(items, "restaurant"),
+      expense: this.countType(items, "expense"),
+      note: this.countType(items, "note"),
+    };
+  },
+
+  countType(items, type) {
+    return items.filter(
+      (item) => String(item.type || "").toLowerCase() === type,
+    ).length
+      ? `${items.filter((item) => String(item.type || "").toLowerCase() === type).length} item(s)`
+      : "No items";
+  },
+
+  pretty(value) {
+    return String(value || "")
+      .replaceAll("-", " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   },
 };

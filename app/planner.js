@@ -5,7 +5,7 @@ COMPASS-TOS
 
 Journey Planner
 
-Version 2.0.0
+Version 3.0.0
 
 =========================================================
 */
@@ -14,7 +14,7 @@ const Planner = {
   render() {
     const journey = Project.get("journey");
 
-    if (!journey || !journey.days) {
+    if (!journey || !Array.isArray(journey.days) || journey.days.length === 0) {
       return `
 
 <div class="planner">
@@ -28,11 +28,36 @@ const Planner = {
 `;
     }
 
+    const stats = this.stats(journey.days);
+
     let html = `
 
 <div class="planner">
 
-    <h2>Journey Timeline</h2>
+    <section class="hero">
+
+        <h1>
+            Journey Planner
+        </h1>
+
+        <h2>
+            ${journey.days.length} Day${journey.days.length === 1 ? "" : "s"}
+        </h2>
+
+        <p>
+            ${stats.totalItems} planning items across the trip.
+        </p>
+
+    </section>
+
+    <div class="status-grid">
+
+        ${this.statBox(journey.days.length, "Days")}
+        ${this.statBox(stats.totalItems, "Items")}
+        ${this.statBox(stats.openItems, "Open")}
+        ${this.statBox(stats.lockedItems, "Locked")}
+
+    </div>
 
 `;
 
@@ -50,9 +75,11 @@ const Planner = {
   },
 
   renderDay(day) {
+    const summary = this.daySummary(day);
+
     let items = "";
 
-    if (day.items) {
+    if (Array.isArray(day.items) && day.items.length > 0) {
       day.items.forEach((item) => {
         items += `
 
@@ -67,7 +94,7 @@ const Planner = {
 
     <div class="planner-item-status">
 
-        ${item.status}
+        ${item.status || "open"}
 
     </div>
 
@@ -75,6 +102,22 @@ const Planner = {
 
 `;
       });
+    } else {
+      items = `
+
+<div class="planner-item">
+
+    <div class="planner-item-title">
+        📌 No items yet
+    </div>
+
+    <div class="planner-item-status">
+        Open
+    </div>
+
+</div>
+
+`;
     }
 
     return `
@@ -84,55 +127,123 @@ const Planner = {
     <div class="planner-day-header">
 
         <div>
-
-            <strong>
-
-                DAY ${day.day}
-
-            </strong>
-
+            <strong>DAY ${day.day}</strong>
         </div>
 
         <div>
-
-            ${day.date}
-
+            ${day.date || ""}
         </div>
 
     </div>
 
     <h3>
-
-        ${day.title}
-
+        ${day.title || ""}
     </h3>
 
     <p>
-
-        📍 ${day.location}
-
+        📍 ${this.pretty(day.location)}
     </p>
 
     <p>
-
-        🛏 Overnight:
-
-        ${day.overnight}
-
+        🛏 Overnight: ${this.pretty(day.overnight)}
     </p>
 
-    ${items}
+    <div class="status-grid">
+
+        ${this.statBox(summary.total, "Items")}
+        ${this.statBox(summary.open, "Open")}
+        ${this.statBox(summary.booked, "Booked")}
+        ${this.statBox(summary.locked, "Locked")}
+
+    </div>
+
+    <div class="planner-items">
+
+        ${items}
+
+    </div>
 
     <div class="planner-buttons">
 
        <button
-    onclick="Day.open(${day.day})"
+            type="button"
+            onclick="Day.open(${day.day})">
 
-    Open Destination
+            Open Day
 
-</button>
+        </button>
 
     </div>
+
+</div>
+
+`;
+  },
+
+  stats(days) {
+    let totalItems = 0;
+    let openItems = 0;
+    let lockedItems = 0;
+
+    days.forEach((day) => {
+      const items = Array.isArray(day.items) ? day.items : [];
+      items.forEach((item) => {
+        totalItems += 1;
+        const status = String(item.status || "open").toLowerCase();
+        if (status === "locked") {
+          lockedItems += 1;
+        } else {
+          openItems += 1;
+        }
+      });
+    });
+
+    return {
+      totalItems,
+      openItems,
+      lockedItems,
+    };
+  },
+
+  daySummary(day) {
+    const items = Array.isArray(day.items) ? day.items : [];
+    let total = items.length;
+    let open = 0;
+    let booked = 0;
+    let locked = 0;
+
+    items.forEach((item) => {
+      const status = String(item.status || "open").toLowerCase();
+
+      if (status === "booked") {
+        booked += 1;
+      } else if (status === "locked") {
+        locked += 1;
+      } else {
+        open += 1;
+      }
+    });
+
+    return {
+      total,
+      open,
+      booked,
+      locked,
+    };
+  },
+
+  statBox(value, label) {
+    return `
+
+<div class="status-box">
+
+    <strong>
+        ${value}
+    </strong>
+
+    <span class="tiny">
+        ${label}
+    </span>
 
 </div>
 
@@ -143,21 +254,22 @@ const Planner = {
     switch (type) {
       case "flight":
         return "✈";
-
       case "accommodation":
         return "🛏";
-
       case "activity":
         return "🎯";
-
       case "restaurant":
         return "🍝";
-
       case "transport":
         return "🚗";
-
       default:
         return "📌";
     }
+  },
+
+  pretty(value) {
+    return String(value || "")
+      .replaceAll("-", " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   },
 };
