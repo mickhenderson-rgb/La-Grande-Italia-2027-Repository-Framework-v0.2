@@ -54,21 +54,18 @@ const Data = {
       await this.loadJSON(`${base}/accommodation.json`),
     );
 
-   
+    Project.load("activities", await this.loadJSON(`${base}/activities.json`));
 
     Project.load(
       "restaurants",
       await this.loadJSON(`${base}/restaurants.json`),
     );
 
-    
-
     // Travel
 
     Project.load("bookings", await this.loadJSON(`${base}/bookings.json`));
 
     Project.load("budget", await this.loadJSON(`${base}/budget.json`));
-
 
     console.log("Project Loaded");
 

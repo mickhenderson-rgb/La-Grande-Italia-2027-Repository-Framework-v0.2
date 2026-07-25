@@ -32,10 +32,6 @@ body {
 ======================================= */
 
 .app-layout {
-  display: grid;
-
-  grid-template-columns: 260px 1fr;
-
   min-height: 100vh;
 }
 
@@ -55,6 +51,20 @@ body {
   justify-content: space-between;
 
   padding: 24px;
+
+  position: fixed;
+
+  top: 0;
+
+  left: 0;
+
+  width: 260px;
+
+  height: 100vh;
+
+  overflow-y: auto;
+
+  z-index: 10;
 }
 
 .sidebar-logo h2 {
@@ -123,6 +133,10 @@ body {
   display: flex;
 
   flex-direction: column;
+
+  margin-left: 260px;
+
+  min-height: 100vh;
 }
 
 /* =======================================
@@ -266,12 +280,12 @@ body {
 }
 
 @media (max-width: 1000px) {
-  .app-layout {
-    grid-template-columns: 1fr;
-  }
-
   .sidebar {
     display: none;
+  }
+
+  .app-main {
+    margin-left: 0;
   }
 
   .summary-grid {
