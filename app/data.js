@@ -56,6 +56,8 @@ const Data = {
 
     Project.load("activities", await this.loadJSON(`${base}/activities.json`));
 
+    Project.load("transport", await this.loadJSON(`${base}/transport.json`));
+
     Project.load(
       "restaurants",
       await this.loadJSON(`${base}/restaurants.json`),

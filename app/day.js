@@ -3,72 +3,180 @@
 
 COMPASS-TOS
 
-Data Manager
+Day Workspace
 
-Version 1.1.0
+Version 3.0.0
 
 =========================================================
 */
 
-const Data = {
-  async loadJSON(path) {
-    try {
-      const response = await fetch(path);
+const Day = {
+  current: null,
 
-      if (!response.ok) {
-        throw new Error(path);
-      }
+  open(dayNumber) {
+    const journey = Project.get("journey");
 
-      return await response.json();
-    } catch (error) {
-      console.error("Unable to load", path);
-
-      return null;
+    if (!journey || !Array.isArray(journey.days)) {
+      return;
     }
+
+    const day = journey.days.find((d) => d.day === dayNumber);
+
+    if (!day) {
+      return;
+    }
+
+    this.current = day;
+
+    Render.show(Layout.render(this.render(day)));
   },
 
-  async loadProject(projectFolder) {
-    console.log("Loading Project:", projectFolder);
+  render(day) {
+    const summary = this.summary(day);
 
-    const base = `data/projects/${projectFolder}`;
+    return `
 
-    // Core
+<div class="day-workspace">
 
-    Project.load("project", await this.loadJSON(`${base}/project.json`));
+    <section class="hero">
 
-    Project.load("journey", await this.loadJSON(`${base}/journey.json`));
+        <h1>
+            Day ${day.day}
+        </h1>
 
-    // Planning
+        <h2>
+            ${day.title || ""}
+        </h2>
 
-    Project.load("events", await this.loadJSON(`${base}/events.json`));
+        <p>
+            📍 ${this.pretty(day.location)}
+        </p>
 
-    Project.load(
-      "locations",
-      await this.loadJSON(`${base}/project-locations.json`),
-    );
+        <p>
+            🛏 Overnight ${this.pretty(day.overnight)}
+        </p>
 
-    // Research
+        <div class="quick-links">
 
-    Project.load(
-      "accommodation",
-      await this.loadJSON(`${base}/accommodation.json`),
-    );
+            <button
+                type="button"
+                onclick="Accommodation.open(Day.current)">
 
-    Project.load("activities", await this.loadJSON(`${base}/activities.json`));
+                Accommodation
 
-    Project.load(
-      "restaurants",
-      await this.loadJSON(`${base}/restaurants.json`),
-    );
+            </button>
 
-    // Travel
+            <button
+                type="button"
+                onclick="Activities.open(Day.current)">
 
-    Project.load("bookings", await this.loadJSON(`${base}/bookings.json`));
+                Activities
 
-    Project.load("budget", await this.loadJSON(`${base}/budget.json`));
+            </button>
 
-    console.log("Project Loaded");
+            <button
+                type="button"
+                onclick="Restaurants.open(Day.current)">
 
-    console.log(Project.get("accommodation"));
+                Restaurants
+
+            </button>
+
+        </div>
+
+    </section>
+
+    <div class="workspace-grid">
+
+        ${this.panel("🚗", "Transport", summary.transport, `Transport.open(Day.current)`)}
+
+        ${this.panel("🛏", "Accommodation", summary.accommodation, `Accommodation.open(Day.current)`)}
+
+        ${this.panel("🎯", "Activities", summary.activity, `Activities.open(Day.current)`)}
+
+        ${this.panel("🍝", "Restaurants", summary.restaurant, `Restaurants.open(Day.current)`)}
+
+        ${this.panel("💰", "Expenses", summary.expense, `PlanningItem.open(Day.current,'expense')`)}
+
+        ${this.panel("📝", "Notes", summary.note, `PlanningItem.open(Day.current,'note')`)}
+
+    </div>
+
+    <div class="planner-buttons">
+
+        <button
+            type="button"
+            onclick="Router.navigate('planner')">
+
+            ← Planner
+
+        </button>
+
+        <button
+            type="button"
+            onclick="Router.navigate('dashboard')">
+
+            Dashboard
+
+        </button>
+
+    </div>
+
+</div>
+
+`;
+  },
+
+  panel(icon, title, text, action) {
+    return `
+
+<div class="workspace-panel">
+
+    <h3>
+        ${icon} ${title}
+    </h3>
+
+    <p>
+        ${text}
+    </p>
+
+    <button
+        type="button"
+        onclick="${action}">
+
+        Manage
+
+    </button>
+
+</div>
+
+`;
+  },
+
+  summary(day) {
+    const items = Array.isArray(day.items) ? day.items : [];
+
+    return {
+      transport: this.countType(items, "transport"),
+      accommodation: this.countType(items, "accommodation"),
+      activity: this.countType(items, "activity"),
+      restaurant: this.countType(items, "restaurant"),
+      expense: this.countType(items, "expense"),
+      note: this.countType(items, "note"),
+    };
+  },
+
+  countType(items, type) {
+    return items.filter(
+      (item) => String(item.type || "").toLowerCase() === type,
+    ).length
+      ? `${items.filter((item) => String(item.type || "").toLowerCase() === type).length} item(s)`
+      : "No items";
+  },
+
+  pretty(value) {
+    return String(value || "")
+      .replaceAll("-", " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   },
 };
