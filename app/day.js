@@ -104,7 +104,7 @@ const Day = {
 
         ${this.panel("🍝", "Restaurants", summary.restaurant, `Restaurants.open(Day.current)`)}
 
-        ${this.panel("💰", "Expenses", summary.expense, `PlanningItem.open(Day.current,'expense')`)}
+        ${this.panel("💰", "Expenses", summary.expense, `Expenses.open(Day.current)`)}
 
         ${this.panel("📔", "Journal", summary.note, `Journal.openDay(Day.current.day)`)}
 

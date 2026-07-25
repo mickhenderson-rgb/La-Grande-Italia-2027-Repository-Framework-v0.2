@@ -72,11 +72,19 @@ const Budget = {
 
         ${this.renderTransportBreakdown(budget.categories.transport, actual.transportByMode, budget.currency)}
 
+        ${this.renderExpensesCard(actual.expenses, budget.currency)}
+
         ${this.renderNotes(budget.notes)}
 
     </div>
 
     <div class="planner-buttons">
+
+        <button type="button" onclick="Budget.edit()">
+
+            Edit Estimate
+
+        </button>
 
         <button type="button" onclick="Router.navigate('dashboard')">
 
@@ -128,13 +136,19 @@ const Budget = {
       transportByMode[bucket] = (transportByMode[bucket] || 0) + amount;
     });
 
+    const expenses = this.getItems(Project.get("expenses")).reduce(
+      (sum, item) => sum + (item.amount || 0),
+      0,
+    );
+
     return {
       accommodation,
       activities,
       food,
       transport,
       transportByMode,
-      total: accommodation + activities + food + transport,
+      expenses,
+      total: accommodation + activities + food + transport + expenses,
     };
   },
 
@@ -143,7 +157,10 @@ const Budget = {
   },
 
   sumPrices(data) {
-    return this.getItems(data).reduce((sum, item) => sum + (item.price?.amount || 0), 0);
+    return this.getItems(data).reduce(
+      (sum, item) => sum + (item.price?.amount || 0),
+      0,
+    );
   },
 
   renderCategory(title, estimate, actualAmount, currency) {
@@ -151,7 +168,12 @@ const Budget = {
 
     const high = estimate.high || 0;
 
-    const status = actualAmount > high ? "Over Estimate" : actualAmount >= low ? "Within Range" : "Under Estimate";
+    const status =
+      actualAmount > high
+        ? "Over Estimate"
+        : actualAmount >= low
+          ? "Within Range"
+          : "Under Estimate";
 
     return `
 
@@ -248,6 +270,46 @@ ${rows}
 `;
   },
 
+  renderExpensesCard(expensesTotal, currency) {
+    return `
+
+<div class="manager-card">
+
+<h2>
+
+Logged Expenses
+
+</h2>
+
+<p>
+
+Day-to-day incidental spending (coffee, tips, parking, etc.), logged per day.
+
+</p>
+
+<table>
+
+<tr>
+
+<td>Total Logged</td>
+
+<td>${this.money(expensesTotal, currency)}</td>
+
+</tr>
+
+</table>
+
+<button type="button" onclick="Expenses.openAll()">
+
+View All Expenses
+
+</button>
+
+</div>
+
+`;
+  },
+
   renderNotes(notes) {
     if (!Array.isArray(notes) || notes.length === 0) {
       return "";
@@ -294,5 +356,165 @@ ${items}
 
   esc(value) {
     return String(value ?? "").replace(/"/g, "&quot;");
+  },
+
+  edit() {
+    const budget = Project.get("budget");
+
+    if (!budget) {
+      return;
+    }
+
+    Render.show(Layout.render(this.renderForm(budget)));
+  },
+
+  renderForm(budget) {
+    return `
+
+<div class="manager">
+
+    <section class="hero">
+
+        <h1>
+
+            Edit Budget Estimate
+
+        </h1>
+
+        <p>
+
+            These are planning estimates only \u2014 actuals are calculated live from
+            Accommodation, Activities, Transport, Restaurants and Expenses.
+
+        </p>
+
+    </section>
+
+    <div class="manager-card form-card">
+
+        <div class="form-grid">
+
+            <label class="form-field">
+                Currency
+                <input type="text" id="bgt-currency" value="${this.esc(budget.currency)}" maxlength="3">
+            </label>
+
+            ${this.rangeFields("bgt-overall", budget.estimate_low, budget.estimate_high, "Overall Estimate")}
+
+            ${this.rangeFields("bgt-accommodation", budget.categories.accommodation.low, budget.categories.accommodation.high, "Accommodation")}
+
+            ${this.rangeFields("bgt-food", budget.categories.food.low, budget.categories.food.high, "Food")}
+
+            ${this.rangeFields("bgt-activities", budget.categories.activities.low, budget.categories.activities.high, "Activities")}
+
+            ${this.rangeFields("bgt-contingency", budget.categories.contingency.low, budget.categories.contingency.high, "Contingency")}
+
+        </div>
+
+        <h3>Transport Breakdown</h3>
+
+        <div class="form-grid">
+
+            ${Object.entries(budget.categories.transport)
+              .map(([key, val]) =>
+                this.rangeFields(
+                  `bgt-transport-${key}`,
+                  val.low,
+                  val.high,
+                  this.pretty(key),
+                ),
+              )
+              .join("")}
+
+        </div>
+
+        <label class="form-field form-field-wide">
+            Notes (one per line)
+            <textarea id="bgt-notes" rows="4">${(budget.notes || []).join("\n")}</textarea>
+        </label>
+
+    </div>
+
+    <div class="planner-buttons">
+
+        <button type="button" onclick="Budget.save()">
+
+            Save
+
+        </button>
+
+        <button type="button" onclick="Budget.open()">
+
+            Cancel
+
+        </button>
+
+    </div>
+
+</div>
+
+`;
+  },
+
+  rangeFields(prefix, low, high, label) {
+    return `
+
+<label class="form-field">
+    ${label} Low
+    <input type="number" id="${prefix}-low" value="${low ?? 0}" min="0">
+</label>
+
+<label class="form-field">
+    ${label} High
+    <input type="number" id="${prefix}-high" value="${high ?? 0}" min="0">
+</label>
+
+`;
+  },
+
+  readRange(prefix) {
+    return {
+      low: parseFloat(document.getElementById(`${prefix}-low`).value) || 0,
+      high: parseFloat(document.getElementById(`${prefix}-high`).value) || 0,
+    };
+  },
+
+  save() {
+    const budget = Project.get("budget");
+
+    if (!budget) {
+      return;
+    }
+
+    budget.currency =
+      document.getElementById("bgt-currency").value.trim() || "EUR";
+
+    const overall = this.readRange("bgt-overall");
+
+    budget.estimate_low = overall.low;
+
+    budget.estimate_high = overall.high;
+
+    budget.categories.accommodation = this.readRange("bgt-accommodation");
+
+    budget.categories.food = this.readRange("bgt-food");
+
+    budget.categories.activities = this.readRange("bgt-activities");
+
+    budget.categories.contingency = this.readRange("bgt-contingency");
+
+    Object.keys(budget.categories.transport).forEach((key) => {
+      budget.categories.transport[key] = this.readRange(`bgt-transport-${key}`);
+    });
+
+    budget.notes = document
+      .getElementById("bgt-notes")
+      .value.split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    Project.update("budget", budget);
+
+    this.open();
   },
 };
