@@ -1,5 +1,80 @@
 {
   "version": "1.0",
-  "schema": "journal",
-  "entries": []
+  "days": [
+    {
+      "day": 1,
+      "date": "2027-01-01",
+      "title": "Origin to Destination A",
+      "location": "origin",
+      "overnight": "flight",
+      "locked": true,
+      "items": [
+        {
+          "id": "FLT001",
+          "type": "flight",
+          "title": "Flight 1",
+          "status": "research",
+          "priority": "high",
+          "departure": {
+            "date": "2027-01-01",
+            "time": "",
+            "location": "Origin Airport"
+          },
+          "arrival": {
+            "date": "",
+            "time": "",
+            "location": "Destination A Airport"
+          }
+        }
+      ]
+    },
+    {
+      "day": 2,
+      "date": "2027-01-02",
+      "title": "Arrival Destination A",
+      "location": "destination-a",
+      "overnight": "destination-a",
+      "locked": false,
+      "items": [
+        {
+          "id": "ACC001",
+          "type": "accommodation",
+          "title": "Accommodation",
+          "status": "research",
+          "priority": "medium"
+        },
+        {
+          "id": "RST001",
+          "type": "restaurant",
+          "title": "First Dinner",
+          "status": "idea",
+          "priority": "low"
+        }
+      ]
+    },
+    {
+      "day": 3,
+      "date": "2027-01-03",
+      "title": "Explore Destination A",
+      "location": "destination-a",
+      "overnight": "destination-a",
+      "locked": false,
+      "items": [
+        {
+          "id": "ACT001",
+          "type": "activity",
+          "title": "Sample Sight 1",
+          "status": "idea",
+          "priority": "medium"
+        },
+        {
+          "id": "ACT002",
+          "type": "activity",
+          "title": "Sample Sight 2",
+          "status": "idea",
+          "priority": "low"
+        }
+      ]
+    }
+  ]
 }

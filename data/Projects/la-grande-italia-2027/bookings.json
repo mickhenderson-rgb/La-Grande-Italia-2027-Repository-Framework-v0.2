@@ -1,46 +1,33 @@
 {
   "flights": [
     {
-      "item": "Sydney to Milan",
+      "item": "Flight 1: Origin to Destination A",
       "status": "not booked",
       "reference": "",
-      "notes": "Anchor departure is Monday 23 August 2027."
+      "notes": "Sample placeholder flight for testing."
     },
     {
-      "item": "Rome to Sydney",
+      "item": "Flight 2: Destination A to Origin",
       "status": "not booked",
       "reference": "",
-      "notes": "Final departure from Rome after final overnight stay."
+      "notes": "Sample placeholder return flight for testing."
     }
   ],
   "cars": [
     {
       "item": "Car Hire 1",
-      "provider": "Hertz",
+      "provider": "Sample Rental Co",
       "status": "not booked",
       "reference": "",
-      "notes": "Collect Milan, return Rome; standard estate preferred."
-    },
-    {
-      "item": "Car Hire 2",
-      "provider": "Hertz",
-      "status": "not booked",
-      "reference": "",
-      "notes": "Collect Palermo, return Sorrento or Naples."
+      "notes": "Sample placeholder car hire for testing."
     }
   ],
   "rail": [
     {
-      "item": "Rome to Palermo sleeper",
+      "item": "Sample Rail Journey",
       "status": "not booked",
       "reference": "",
-      "notes": "Sleeper compartment preferred."
-    },
-    {
-      "item": "Sorrento / Naples to Rome",
-      "status": "not booked",
-      "reference": "",
-      "notes": "Final train back to Rome before departure."
+      "notes": "Sample placeholder rail booking for testing."
     }
   ],
   "accommodation": [],

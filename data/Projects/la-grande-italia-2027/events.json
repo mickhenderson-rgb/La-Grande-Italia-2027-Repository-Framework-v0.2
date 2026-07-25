@@ -10,20 +10,20 @@
       "locked": false,
 
       "planned": {
-        "date": "2027-08-23",
+        "date": "2027-01-01",
         "time": "",
-        "location": "Sydney Airport"
+        "location": "Origin Airport"
       },
 
       "actual": {},
 
       "details": {
-        "title": "Sydney to Milan",
+        "title": "Flight 1: Origin to Destination A",
         "description": "",
         "provider": "",
         "bookingReference": "",
         "cost": 0,
-        "currency": "AUD"
+        "currency": "USD"
       },
 
       "dependencies": [],
@@ -41,18 +41,18 @@
       "locked": false,
 
       "planned": {
-        "date": "2027-08-25",
-        "location": "Milan"
+        "date": "2027-01-02",
+        "location": "Destination A"
       },
 
       "actual": {},
 
       "details": {
-        "title": "Accommodation - Milan",
+        "title": "Accommodation - Destination A",
         "provider": "",
         "bookingReference": "",
         "cost": 0,
-        "currency": "EUR"
+        "currency": "USD"
       },
 
       "dependencies": ["EVT-0001"],
@@ -70,17 +70,17 @@
       "locked": false,
 
       "planned": {
-        "date": "2027-08-27",
-        "location": "Milan"
+        "date": "2027-01-03",
+        "location": "Destination A"
       },
 
       "actual": {},
 
       "details": {
-        "title": "Drive Milan to Le Noirmont",
+        "title": "Sample Transport Leg",
         "transportMode": "car",
-        "startLocation": "milan",
-        "endLocation": "le-noirmont"
+        "startLocation": "destination-a",
+        "endLocation": "destination-a"
       },
 
       "dependencies": ["EVT-0002"],

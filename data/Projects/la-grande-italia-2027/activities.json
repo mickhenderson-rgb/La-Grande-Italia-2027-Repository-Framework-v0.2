@@ -4,35 +4,35 @@
   "items": [
     {
       "id": "ACT-0001",
-      "destination": "franciacorta",
+      "destination": "destination-b",
       "dayRange": [1, 1],
       "type": "activity",
-      "name": "Bellavista Winery Visit",
-      "category": "Winery",
+      "name": "Sample Activity 1",
+      "category": "Tour",
       "status": "Research",
       "locked": false,
-      "provider": "Bellavista",
+      "provider": "Sample Tour Co",
       "website": "",
       "bookingReference": "",
       "price": {
-        "amount": 0,
-        "currency": "EUR",
+        "amount": 40,
+        "currency": "USD",
         "per": "person"
       },
       "location": {
         "locationId": "",
-        "address": "Lake Iseo",
+        "address": "Sample Location, Destination B",
         "latitude": null,
         "longitude": null
       },
       "schedule": {
         "date": "",
         "time": "",
-        "durationMinutes": 0
+        "durationMinutes": 90
       },
       "planning": {
         "priority": "Medium",
-        "notes": "Booking required. Migrated from legacy wineries.json.",
+        "notes": "Placeholder activity for testing. Destination B does not exist in the journey yet - useful for testing cross-referencing.",
         "pros": [],
         "cons": []
       },
@@ -45,35 +45,35 @@
     },
     {
       "id": "ACT-0002",
-      "destination": "franciacorta",
+      "destination": "destination-b",
       "dayRange": [1, 1],
       "type": "activity",
-      "name": "Ca' del Bosco Winery Visit",
-      "category": "Winery",
+      "name": "Sample Activity 2",
+      "category": "Tour",
       "status": "Research",
       "locked": false,
-      "provider": "Ca' del Bosco",
+      "provider": "Sample Tour Co",
       "website": "",
       "bookingReference": "",
       "price": {
-        "amount": 0,
-        "currency": "EUR",
+        "amount": 25,
+        "currency": "USD",
         "per": "person"
       },
       "location": {
         "locationId": "",
-        "address": "Franciacorta",
+        "address": "Sample Location, Destination B",
         "latitude": null,
         "longitude": null
       },
       "schedule": {
         "date": "",
         "time": "",
-        "durationMinutes": 0
+        "durationMinutes": 60
       },
       "planning": {
         "priority": "Medium",
-        "notes": "Booking required. Migrated from legacy wineries.json.",
+        "notes": "Placeholder activity for testing.",
         "pros": [],
         "cons": []
       },

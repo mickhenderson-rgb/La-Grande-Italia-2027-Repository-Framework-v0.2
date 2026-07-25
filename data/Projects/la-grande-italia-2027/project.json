@@ -1,24 +1,24 @@
 {
   "project": {
-    "id": "la-grande-italia-2027",
+    "id": "sample-trip",
 
-    "name": "La Grande Italia 2027",
+    "name": "Sample Trip",
 
-    "subtitle": "The Henderson Grand Tour",
+    "subtitle": "Test Itinerary",
 
     "status": "Planning",
 
     "version": "1.0",
 
-    "created": "2026-07-05",
+    "created": "2027-01-01",
 
-    "departureDate": "2027-08-23",
+    "departureDate": "2027-01-01",
 
-    "returnDate": "2027-10-12",
+    "returnDate": "2027-01-05",
 
-    "homeCountry": "Australia",
+    "homeCountry": "Testland",
 
-    "currency": "AUD",
+    "currency": "USD",
 
     "language": "English",
 
@@ -50,7 +50,7 @@
 
     "darkTheme": false,
 
-    "currency": "AUD",
+    "currency": "USD",
 
     "distanceUnits": "km",
 
@@ -70,9 +70,9 @@
   },
 
   "statistics": {
-    "plannedNights": 48,
+    "plannedNights": 4,
 
-    "plannedDays": 51,
+    "plannedDays": 5,
 
     "bookedEvents": 0,
 

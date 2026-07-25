@@ -1,93 +1,55 @@
 {
   "version": "2.0",
-
   "schema": "planning-item",
-
   "items": [
     {
       "id": "ACC-0001",
-
-      "destination": "milan",
-
+      "destination": "destination-a",
       "dayRange": [2, 3],
-
       "type": "accommodation",
-
-      "name": "",
-
+      "name": "Sample Hotel A",
       "status": "Research",
-
       "selected": false,
-
       "locked": false,
-
-      "provider": "",
-
+      "provider": "Sample Booking Site",
       "website": "",
-
       "bookingReference": "",
-
       "price": {
-        "amount": 0,
-
-        "currency": "EUR",
-
+        "amount": 120,
+        "currency": "USD",
         "per": "night"
       },
-
       "location": {
         "locationId": "",
-
-        "address": "",
-
+        "address": "Sample Street, Destination A",
         "latitude": null,
-
         "longitude": null
       },
-
       "features": {
         "parking": false,
-
-        "breakfast": false,
-
+        "breakfast": true,
         "kitchen": false,
-
         "washingMachine": false,
-
-        "airConditioning": false,
-
-        "wifi": false
+        "airConditioning": true,
+        "wifi": true
       },
-
       "dates": {
-        "checkIn": "",
-
-        "checkOut": "",
-
+        "checkIn": "2027-01-02",
+        "checkOut": "2027-01-04",
         "freeCancellationUntil": ""
       },
-
       "planning": {
         "priority": "High",
-
-        "notes": "",
-
+        "notes": "Sample placeholder accommodation for testing.",
         "pros": [],
-
         "cons": []
       },
-
       "actual": {
         "paid": false,
-
         "checkedIn": false,
-
         "checkedOut": false,
-
         "rating": null,
-
         "review": "",
-
         "wouldStayAgain": null
       }
     }
