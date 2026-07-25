@@ -50,7 +50,7 @@ const Router = {
         break;
 
       case "budget":
-        alert("Budget module will be added in Build 14.");
+        Budget.open();
 
         break;
 
