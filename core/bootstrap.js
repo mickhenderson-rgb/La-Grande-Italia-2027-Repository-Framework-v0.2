@@ -22,6 +22,8 @@ document.addEventListener(
 
     await Data.loadProject("la-grande-italia-2027");
 
+    Dates.recalculateJourney();
+
     Repository.setStatus("Application Ready");
 
     Router.navigate("dashboard");

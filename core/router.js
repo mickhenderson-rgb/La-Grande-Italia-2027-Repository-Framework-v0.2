@@ -60,12 +60,12 @@ const Router = {
         break;
 
       case "settings":
-        alert("Settings will be added later.");
+        Settings.open();
 
         break;
 
       case "flights":
-        alert("Flights module will be added later.");
+        Flights.open();
 
         break;
 
