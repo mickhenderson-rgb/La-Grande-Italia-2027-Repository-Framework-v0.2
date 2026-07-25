@@ -5,7 +5,7 @@ COMPASS-TOS
 
 Data Manager
 
-Version 1.0.0
+Version 1.1.0
 
 =========================================================
 */
@@ -21,61 +21,57 @@ const Data = {
 
       return await response.json();
     } catch (error) {
-      console.error(
-        "Unable to load",
-
-        path,
-      );
+      console.error("Unable to load", path);
 
       return null;
     }
   },
 
   async loadProject(projectFolder) {
-    console.log(
-      "Loading Project:",
-
-      projectFolder,
-    );
+    console.log("Loading Project:", projectFolder);
 
     const base = `data/projects/${projectFolder}`;
 
-    Project.load(
-      "project",
+    // Core
 
-      await this.loadJSON(`${base}/project.json`),
-    );
+    Project.load("project", await this.loadJSON(`${base}/project.json`));
 
-    Project.load(
-      "journey",
+    Project.load("journey", await this.loadJSON(`${base}/journey.json`));
 
-      await this.loadJSON(`${base}/journey.json`),
-    );
+    // Planning
 
-    Project.load(
-      "events",
-
-      await this.loadJSON(`${base}/events.json`),
-    );
+    Project.load("events", await this.loadJSON(`${base}/events.json`));
 
     Project.load(
       "locations",
-
       await this.loadJSON(`${base}/project-locations.json`),
     );
 
-    Project.load(
-      "bookings",
-
-      await this.loadJSON(`${base}/bookings.json`),
-    );
+    // Research
 
     Project.load(
-      "budget",
-
-      await this.loadJSON(`${base}/budget.json`),
+      "accommodation",
+      await this.loadJSON(`${base}/accommodation.json`),
     );
+
+   
+
+    Project.load(
+      "restaurants",
+      await this.loadJSON(`${base}/restaurants.json`),
+    );
+
+    
+
+    // Travel
+
+    Project.load("bookings", await this.loadJSON(`${base}/bookings.json`));
+
+    Project.load("budget", await this.loadJSON(`${base}/budget.json`));
+
 
     console.log("Project Loaded");
+
+    console.log(Project.get("accommodation"));
   },
 };

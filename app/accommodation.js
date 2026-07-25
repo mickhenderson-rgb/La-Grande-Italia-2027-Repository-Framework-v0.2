@@ -5,46 +5,90 @@ COMPASS-TOS
 
 Accommodation Manager
 
-Version 1.0.0
+Version 3.0.0
+
+Build 10C
 
 =========================================================
 */
 
 const Accommodation = {
+  currentDay: null,
+
+  currentDestination: "",
+
+  editingId: null,
+
   open(day) {
-    Render.show(Layout.render(this.render(day)));
+    this.currentDay = day;
+
+    this.currentDestination = String(
+      day.location || day.overnight || "",
+    ).toLowerCase();
+
+    this.editingId = null;
+
+    Render.show(Layout.render(this.render()));
   },
 
-  render(day) {
+  render() {
+    const items = this.getAccommodation();
+
     return `
 
 <div class="manager">
 
-    <div class="hero">
+    <section class="hero">
 
         <h1>
 
-            Accommodation
+            Accommodation Research
 
         </h1>
 
+        <h2>
+
+            ${this.pretty(this.currentDestination)}
+
+        </h2>
+
         <p>
 
-            Day ${day.day}
+            ${items.length} accommodation option${items.length === 1 ? "" : "s"}
 
         </p>
+
+    </section>
+
+    <div class="planner-buttons">
+
+        <button
+            type="button"
+            onclick="Accommodation.add()">
+
+            + Add Accommodation
+
+        </button>
+
+        <button
+            type="button"
+            onclick="Day.open(Accommodation.currentDay.day)">
+
+            ← Back to Day
+
+        </button>
 
     </div>
 
     <div class="manager-grid">
 
-        ${this.currentAccommodation()}
+        ${this.renderCurrent(items)}
 
-        ${this.shortlist()}
+        ${this.renderResearch(items)}
 
-        ${this.bookingStatus()}
+        ${this.renderBooking(items)}
 
-        ${this.notes()}
+        ${this.renderNotes(items)}
 
     </div>
 
@@ -53,8 +97,25 @@ const Accommodation = {
 `;
   },
 
-  currentAccommodation() {
-    return `
+  getAccommodation() {
+    const data = Project.get("accommodation");
+
+    if (!data || !Array.isArray(data.items)) {
+      return [];
+    }
+
+    return data.items.filter((item) => {
+      return (
+        String(item.destination || "").toLowerCase() === this.currentDestination
+      );
+    });
+  },
+
+  renderCurrent(items) {
+    const selected = items.find((item) => item.selected);
+
+    if (!selected) {
+      return `
 
 <div class="manager-card">
 
@@ -66,43 +127,75 @@ Current Accommodation
 
 <p>
 
-None Selected
+No accommodation selected.
 
 </p>
-
-<button>
-
-Choose Accommodation
-
-</button>
 
 </div>
 
 `;
-  },
+    }
 
-  shortlist() {
     return `
 
 <div class="manager-card">
 
 <h2>
 
-Shortlist
+Current Accommodation
 
 </h2>
 
-<ul>
+<strong>
 
-<li>Brera Apartments</li>
+${selected.name || "Unnamed Accommodation"}
 
-<li>Hotel Milano</li>
+</strong>
 
-<li>Airbnb Apartment</li>
+<p>
 
-</ul>
+${selected.provider || ""}
 
-<button>
+</p>
+
+<p>
+
+Status: ${selected.status}
+
+</p>
+
+<p>
+
+${selected.dates?.checkIn || "?"} → ${selected.dates?.checkOut || "?"}
+
+</p>
+
+</div>
+
+`;
+  },
+
+  renderResearch(items) {
+    if (items.length === 0) {
+      return `
+
+<div class="manager-card">
+
+<h2>
+
+Research List
+
+</h2>
+
+<p>
+
+No accommodation has been added for this destination.
+
+</p>
+
+<button
+    type="button"
+    onclick="Accommodation.add()">
 
 Add Accommodation
 
@@ -111,16 +204,126 @@ Add Accommodation
 </div>
 
 `;
+    }
+
+    let html = `
+
+<div class="manager-card">
+
+<h2>
+
+Research List
+
+</h2>
+
+<div class="research-list">
+
+`;
+
+    items.forEach((item) => {
+      html += this.renderItem(item);
+    });
+
+    html += `
+
+</div>
+
+<button
+    type="button"
+    onclick="Accommodation.add()">
+
++ Add Accommodation
+
+</button>
+
+</div>
+
+`;
+
+    return html;
   },
 
-  bookingStatus() {
+  renderItem(item) {
+    const amount =
+      item.price && item.price.amount > 0
+        ? `${item.price.currency} ${item.price.amount} / ${item.price.per || "night"}`
+        : "Price not entered";
+
+    return `
+
+<div class="research-item${item.selected ? " is-selected" : ""}">
+
+    <strong>
+
+        ${item.name || "Unnamed Accommodation"}
+
+    </strong>
+
+    <p>
+
+        ${item.provider || "Unknown Provider"}
+
+    </p>
+
+    <p>
+
+        ${amount}
+
+    </p>
+
+    <p>
+
+        Status:
+        <span class="badge">${item.status}</span>
+        ${item.selected ? '<span class="badge">Selected</span>' : ""}
+
+    </p>
+
+    <div class="research-actions">
+
+        <button
+            type="button"
+            onclick="Accommodation.select('${item.id}')">
+
+            ${item.selected ? "Selected" : "Select"}
+
+        </button>
+
+        <button
+            type="button"
+            onclick="Accommodation.edit('${item.id}')">
+
+            Edit
+
+        </button>
+
+        <button
+            type="button"
+            onclick="Accommodation.remove('${item.id}')">
+
+            Delete
+
+        </button>
+
+    </div>
+
+</div>
+
+`;
+  },
+
+  renderBooking(items) {
+    const booked = items.filter((item) => item.status === "Booked").length;
+
+    const selected = items.filter((item) => item.selected).length;
+
     return `
 
 <div class="manager-card">
 
 <h2>
 
-Booking
+Booking Status
 
 </h2>
 
@@ -128,33 +331,49 @@ Booking
 
 <tr>
 
-<td>Status</td>
+<td>
 
-<td>Research</td>
+Research
 
-</tr>
+</td>
 
-<tr>
+<td>
 
-<td>Booked</td>
+${items.length}
 
-<td>No</td>
-
-</tr>
-
-<tr>
-
-<td>Paid</td>
-
-<td>No</td>
+</td>
 
 </tr>
 
 <tr>
 
-<td>Locked</td>
+<td>
 
-<td>No</td>
+Selected
+
+</td>
+
+<td>
+
+${selected}
+
+</td>
+
+</tr>
+
+<tr>
+
+<td>
+
+Booked
+
+</td>
+
+<td>
+
+${booked}
+
+</td>
 
 </tr>
 
@@ -165,7 +384,9 @@ Booking
 `;
   },
 
-  notes() {
+  renderNotes(items) {
+    const selected = items.find((item) => item.selected);
+
     return `
 
 <div class="manager-card">
@@ -177,15 +398,439 @@ Planning Notes
 </h2>
 
 <textarea
+rows="10"
+readonly>
 
-rows="8"
-
-placeholder="Accommodation notes...">
+${selected ? selected.planning.notes : ""}
 
 </textarea>
 
 </div>
 
 `;
+  },
+
+  add() {
+    this.editingId = null;
+
+    Render.show(Layout.render(this.renderForm(this.blankItem())));
+  },
+
+  edit(id) {
+    const data = Project.get("accommodation");
+
+    if (!data || !Array.isArray(data.items)) {
+      return;
+    }
+
+    const item = data.items.find((x) => x.id === id);
+
+    if (!item) {
+      return;
+    }
+
+    this.editingId = id;
+
+    Render.show(Layout.render(this.renderForm(item)));
+  },
+
+  select(id) {
+    const data = Project.get("accommodation");
+
+    if (!data || !Array.isArray(data.items)) {
+      return;
+    }
+
+    data.items.forEach((item) => {
+      if (
+        String(item.destination || "").toLowerCase() !== this.currentDestination
+      ) {
+        return;
+      }
+
+      if (item.id === id) {
+        item.selected = true;
+
+        if (item.status === "Research") {
+          item.status = "Selected";
+        }
+      } else {
+        item.selected = false;
+      }
+    });
+
+    Project.update("accommodation", data);
+
+    this.open(this.currentDay);
+  },
+
+  remove(id) {
+    const answer = confirm("Remove this accommodation option?");
+
+    if (!answer) {
+      return;
+    }
+
+    const data = Project.get("accommodation");
+
+    if (!data || !Array.isArray(data.items)) {
+      return;
+    }
+
+    data.items = data.items.filter((item) => item.id !== id);
+
+    Project.update("accommodation", data);
+
+    this.open(this.currentDay);
+  },
+
+  blankItem() {
+    const day = this.currentDay || {};
+
+    return {
+      id: "",
+      destination: this.currentDestination,
+      dayRange: [day.day || 1, day.day || 1],
+      type: "accommodation",
+      name: "",
+      status: "Research",
+      selected: false,
+      locked: false,
+      provider: "",
+      website: "",
+      bookingReference: "",
+      price: { amount: 0, currency: "EUR", per: "night" },
+      location: {
+        locationId: "",
+        address: "",
+        latitude: null,
+        longitude: null,
+      },
+      features: {
+        parking: false,
+        breakfast: false,
+        kitchen: false,
+        washingMachine: false,
+        airConditioning: false,
+        wifi: false,
+      },
+      dates: { checkIn: "", checkOut: "", freeCancellationUntil: "" },
+      planning: { priority: "High", notes: "", pros: [], cons: [] },
+      actual: {
+        paid: false,
+        checkedIn: false,
+        checkedOut: false,
+        rating: null,
+        review: "",
+        wouldStayAgain: null,
+      },
+    };
+  },
+
+  renderForm(item) {
+    const isNew = !item.id;
+
+    return `
+
+<div class="manager">
+
+    <section class="hero">
+
+        <h1>
+
+            ${isNew ? "Add Accommodation" : "Edit Accommodation"}
+
+        </h1>
+
+        <h2>
+
+            ${this.pretty(this.currentDestination)}
+
+        </h2>
+
+    </section>
+
+    <div class="manager-card form-card">
+
+        <div class="form-grid">
+
+            <label class="form-field">
+                Name
+                <input type="text" id="acc-name" value="${this.esc(item.name)}" placeholder="e.g. Hotel Milano Scala">
+            </label>
+
+            <label class="form-field">
+                Provider / Site
+                <input type="text" id="acc-provider" value="${this.esc(item.provider)}" placeholder="Booking.com, Airbnb...">
+            </label>
+
+            <label class="form-field">
+                Website / Link
+                <input type="text" id="acc-website" value="${this.esc(item.website)}">
+            </label>
+
+            <label class="form-field">
+                Booking Reference
+                <input type="text" id="acc-reference" value="${this.esc(item.bookingReference)}">
+            </label>
+
+            <label class="form-field">
+                Status
+                <select id="acc-status">
+                    ${this.statusOptions(item.status)}
+                </select>
+            </label>
+
+            <label class="form-field">
+                Priority
+                <select id="acc-priority">
+                    ${this.priorityOptions(item.planning?.priority)}
+                </select>
+            </label>
+
+            <label class="form-field">
+                Price Amount
+                <input type="number" id="acc-price-amount" value="${item.price?.amount ?? 0}" min="0" step="0.01">
+            </label>
+
+            <label class="form-field">
+                Currency
+                <input type="text" id="acc-price-currency" value="${this.esc(item.price?.currency || "EUR")}" maxlength="3">
+            </label>
+
+            <label class="form-field">
+                Per
+                <select id="acc-price-per">
+                    <option value="night" ${item.price?.per === "night" ? "selected" : ""}>Night</option>
+                    <option value="stay" ${item.price?.per === "stay" ? "selected" : ""}>Total Stay</option>
+                </select>
+            </label>
+
+            <label class="form-field">
+                Address
+                <input type="text" id="acc-address" value="${this.esc(item.location?.address)}">
+            </label>
+
+            <label class="form-field">
+                Check In
+                <input type="date" id="acc-checkin" value="${this.esc(item.dates?.checkIn)}">
+            </label>
+
+            <label class="form-field">
+                Check Out
+                <input type="date" id="acc-checkout" value="${this.esc(item.dates?.checkOut)}">
+            </label>
+
+            <label class="form-field">
+                Free Cancellation Until
+                <input type="date" id="acc-cancellation" value="${this.esc(item.dates?.freeCancellationUntil)}">
+            </label>
+
+        </div>
+
+        <h3>Features</h3>
+
+        <div class="form-grid form-grid-checkboxes">
+
+            ${this.checkbox("acc-parking", "Parking", item.features?.parking)}
+            ${this.checkbox("acc-breakfast", "Breakfast", item.features?.breakfast)}
+            ${this.checkbox("acc-kitchen", "Kitchen", item.features?.kitchen)}
+            ${this.checkbox("acc-washing", "Washing Machine", item.features?.washingMachine)}
+            ${this.checkbox("acc-aircon", "Air Conditioning", item.features?.airConditioning)}
+            ${this.checkbox("acc-wifi", "Wifi", item.features?.wifi)}
+
+        </div>
+
+        <label class="form-field form-field-wide">
+            Notes
+            <textarea id="acc-notes" rows="4">${this.esc(item.planning?.notes)}</textarea>
+        </label>
+
+        <label class="form-field form-field-wide">
+            Pros (one per line)
+            <textarea id="acc-pros" rows="3">${(item.planning?.pros || []).join("\n")}</textarea>
+        </label>
+
+        <label class="form-field form-field-wide">
+            Cons (one per line)
+            <textarea id="acc-cons" rows="3">${(item.planning?.cons || []).join("\n")}</textarea>
+        </label>
+
+    </div>
+
+    <div class="planner-buttons">
+
+        <button type="button" onclick="Accommodation.save('${item.id || ""}')">
+
+            Save
+
+        </button>
+
+        <button type="button" onclick="Accommodation.open(Accommodation.currentDay)">
+
+            Cancel
+
+        </button>
+
+    </div>
+
+</div>
+
+`;
+  },
+
+  statusOptions(current) {
+    const statuses = [
+      "Research",
+      "Shortlisted",
+      "Selected",
+      "Booked",
+      "Travel",
+      "Review",
+    ];
+
+    return statuses
+      .map(
+        (status) =>
+          `<option value="${status}" ${status === current ? "selected" : ""}>${status}</option>`,
+      )
+      .join("");
+  },
+
+  priorityOptions(current) {
+    const priorities = ["High", "Medium", "Low"];
+
+    return priorities
+      .map(
+        (priority) =>
+          `<option value="${priority}" ${priority === current ? "selected" : ""}>${priority}</option>`,
+      )
+      .join("");
+  },
+
+  checkbox(id, label, checked) {
+    return `
+
+<label class="form-checkbox">
+    <input type="checkbox" id="${id}" ${checked ? "checked" : ""}>
+    ${label}
+</label>
+
+`;
+  },
+
+  save(id) {
+    const data = Project.get("accommodation");
+
+    if (!data || !Array.isArray(data.items)) {
+      return;
+    }
+
+    const name = document.getElementById("acc-name").value.trim();
+
+    if (!name) {
+      alert("Please enter a name before saving.");
+      return;
+    }
+
+    const pros = document
+      .getElementById("acc-pros")
+      .value.split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const cons = document
+      .getElementById("acc-cons")
+      .value.split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    const isNew = !id;
+
+    const item = isNew ? this.blankItem() : data.items.find((x) => x.id === id);
+
+    if (!item) {
+      return;
+    }
+
+    if (isNew) {
+      item.id = this.nextId(data.items);
+      item.destination = this.currentDestination;
+    }
+
+    item.name = name;
+    item.provider = document.getElementById("acc-provider").value.trim();
+    item.website = document.getElementById("acc-website").value.trim();
+    item.bookingReference = document
+      .getElementById("acc-reference")
+      .value.trim();
+    item.status = document.getElementById("acc-status").value;
+
+    item.price = {
+      amount:
+        parseFloat(document.getElementById("acc-price-amount").value) || 0,
+      currency:
+        document.getElementById("acc-price-currency").value.trim() || "EUR",
+      per: document.getElementById("acc-price-per").value,
+    };
+
+    item.location = item.location || {};
+    item.location.address = document.getElementById("acc-address").value.trim();
+
+    item.dates = {
+      checkIn: document.getElementById("acc-checkin").value,
+      checkOut: document.getElementById("acc-checkout").value,
+      freeCancellationUntil: document.getElementById("acc-cancellation").value,
+    };
+
+    item.features = {
+      parking: document.getElementById("acc-parking").checked,
+      breakfast: document.getElementById("acc-breakfast").checked,
+      kitchen: document.getElementById("acc-kitchen").checked,
+      washingMachine: document.getElementById("acc-washing").checked,
+      airConditioning: document.getElementById("acc-aircon").checked,
+      wifi: document.getElementById("acc-wifi").checked,
+    };
+
+    item.planning = {
+      priority: document.getElementById("acc-priority").value,
+      notes: document.getElementById("acc-notes").value.trim(),
+      pros,
+      cons,
+    };
+
+    if (isNew) {
+      data.items.push(item);
+    }
+
+    Project.update("accommodation", data);
+
+    this.open(this.currentDay);
+  },
+
+  nextId(items) {
+    let max = 0;
+
+    items.forEach((item) => {
+      const match = /ACC-(\d+)/.exec(item.id || "");
+
+      if (match) {
+        max = Math.max(max, parseInt(match[1], 10));
+      }
+    });
+
+    const next = String(max + 1).padStart(4, "0");
+
+    return `ACC-${next}`;
+  },
+
+  esc(value) {
+    return String(value ?? "").replace(/"/g, "&quot;");
+  },
+
+  pretty(value) {
+    return String(value || "")
+      .replaceAll("-", " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   },
 };

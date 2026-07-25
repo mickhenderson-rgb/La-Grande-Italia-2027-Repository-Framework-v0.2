@@ -576,6 +576,128 @@ body {
 }
 
 /* =======================================
+   Research List
+======================================= */
+
+.research-list {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 14px;
+
+  margin-top: 10px;
+}
+
+.research-item {
+  background: #f7f8fa;
+
+  border: 1px solid #e2e5ea;
+
+  border-radius: 10px;
+
+  padding: 14px 16px;
+}
+
+.research-item.is-selected {
+  border-color: #34495e;
+
+  background: #eef2f5;
+}
+
+.research-item p {
+  margin: 4px 0;
+
+  color: #555;
+}
+
+.research-actions {
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 8px;
+
+  margin-top: 10px;
+}
+
+.research-actions button {
+  margin-top: 0;
+
+  padding: 8px 14px;
+
+  font-size: 0.9rem;
+}
+
+/* =======================================
+   Forms
+======================================= */
+
+.form-card {
+  grid-column: 1 / -1;
+}
+
+.form-grid {
+  display: grid;
+
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+
+  gap: 16px;
+
+  margin-top: 10px;
+}
+
+.form-grid-checkboxes {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.form-field {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 6px;
+
+  font-size: 0.9rem;
+
+  color: #444;
+}
+
+.form-field-wide {
+  grid-column: 1 / -1;
+
+  margin-top: 16px;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+  padding: 10px 12px;
+
+  border-radius: 8px;
+
+  border: 1px solid #ccc;
+
+  font: inherit;
+}
+
+.form-field textarea {
+  resize: vertical;
+}
+
+.form-checkbox {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  font-size: 0.9rem;
+
+  color: #444;
+}
+
+/* =======================================
    Destination Workspace
 ======================================= */
 

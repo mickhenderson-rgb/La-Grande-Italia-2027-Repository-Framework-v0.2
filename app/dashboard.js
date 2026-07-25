@@ -88,7 +88,9 @@ const Dashboard = {
 
         </div>
 
-   ${Planner.render()}
+    </section>
+
+    ${Planner.render()}
 
 </div>
 

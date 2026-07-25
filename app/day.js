@@ -60,7 +60,7 @@ const Day = {
 
             <button
                 type="button"
-                onclick="PlanningItem.open(Day.current,'accommodation')">
+                onclick="Accommodation.open(Day.current)">
 
                 Accommodation
 
@@ -90,7 +90,7 @@ const Day = {
 
         ${this.panel("🚗", "Transport", summary.transport, `PlanningItem.open(Day.current,'transport')`)}
 
-        ${this.panel("🛏", "Accommodation", summary.accommodation, `PlanningItem.open(Day.current,'accommodation')`)}
+        ${this.panel("🛏", "Accommodation", summary.accommodation, `Accommodation.open(Day.current)`)}
 
         ${this.panel("🎯", "Activities", summary.activity, `PlanningItem.open(Day.current,'activity')`)}
 
