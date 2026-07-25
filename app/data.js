@@ -69,6 +69,8 @@ const Data = {
 
     Project.load("budget", await this.loadJSON(`${base}/budget.json`));
 
+    Project.load("journal", await this.loadJSON(`${base}/journal.json`));
+
     console.log("Project Loaded");
 
     console.log(Project.get("accommodation"));

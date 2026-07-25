@@ -25,6 +25,12 @@ const Sidebar = {
     },
 
     {
+      id: "destinations",
+      icon: "📍",
+      title: "Destinations",
+    },
+
+    {
       id: "accommodation",
       icon: "🛏",
       title: "Accommodation",
@@ -46,6 +52,12 @@ const Sidebar = {
       id: "budget",
       icon: "💰",
       title: "Budget",
+    },
+
+    {
+      id: "journal",
+      icon: "📔",
+      title: "Journal",
     },
 
     {

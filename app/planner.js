@@ -173,6 +173,14 @@ const Planner = {
 
         </button>
 
+       <button
+            type="button"
+            onclick="Destination.open('${day.location}', {day: ${day.day}})">
+
+            View Destination
+
+        </button>
+
     </div>
 
 </div>

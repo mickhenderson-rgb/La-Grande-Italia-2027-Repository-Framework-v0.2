@@ -19,6 +19,10 @@ const Accommodation = {
 
   editingId: null,
 
+  showAll: false,
+
+  returnDestinationId: null,
+
   open(day) {
     this.currentDay = day;
 
@@ -26,9 +30,53 @@ const Accommodation = {
       day.location || day.overnight || "",
     ).toLowerCase();
 
+    this.showAll = false;
+
+    this.returnDestinationId = null;
+
     this.editingId = null;
 
     Render.show(Layout.render(this.render()));
+  },
+
+  openAll() {
+    this.currentDay = null;
+
+    this.currentDestination = "";
+
+    this.showAll = true;
+
+    this.returnDestinationId = null;
+
+    this.editingId = null;
+
+    Render.show(Layout.render(this.render()));
+  },
+
+  openForDestination(locationId) {
+    this.currentDay = null;
+
+    this.currentDestination = String(locationId || "").toLowerCase();
+
+    this.showAll = false;
+
+    this.returnDestinationId = locationId;
+
+    this.editingId = null;
+
+    Render.show(Layout.render(this.render()));
+  },
+
+  backAction() {
+    if (this.currentDay) {
+      return `Day.open(${this.currentDay.day})`;
+    }
+
+    if (this.returnDestinationId) {
+      return `Destination.open('${this.returnDestinationId}')`;
+    }
+
+    return `Router.navigate('dashboard')`;
   },
 
   render() {
@@ -48,7 +96,7 @@ const Accommodation = {
 
         <h2>
 
-            ${this.pretty(this.currentDestination)}
+            ${this.showAll ? "All Destinations" : this.pretty(this.currentDestination)}
 
         </h2>
 
@@ -72,9 +120,9 @@ const Accommodation = {
 
         <button
             type="button"
-            onclick="Day.open(Accommodation.currentDay.day)">
+            onclick="${this.backAction()}">
 
-            ← Back to Day
+            ← Back
 
         </button>
 
@@ -82,13 +130,13 @@ const Accommodation = {
 
     <div class="manager-grid">
 
-        ${this.renderCurrent(items)}
+        ${this.showAll ? "" : this.renderCurrent(items)}
 
         ${this.renderResearch(items)}
 
         ${this.renderBooking(items)}
 
-        ${this.renderNotes(items)}
+        ${this.showAll ? "" : this.renderNotes(items)}
 
     </div>
 
@@ -102,6 +150,10 @@ const Accommodation = {
 
     if (!data || !Array.isArray(data.items)) {
       return [];
+    }
+
+    if (this.showAll) {
+      return data.items;
     }
 
     return data.items.filter((item) => {
@@ -256,6 +308,7 @@ Research List
     <strong>
 
         ${item.name || "Unnamed Accommodation"}
+        ${this.showAll ? `<span class="badge">${this.pretty(item.destination)}</span>` : ""}
 
     </strong>
 
@@ -281,13 +334,11 @@ Research List
 
     <div class="research-actions">
 
-        <button
-            type="button"
-            onclick="Accommodation.select('${item.id}')">
-
-            ${item.selected ? "Selected" : "Select"}
-
-        </button>
+        ${
+          this.showAll
+            ? ""
+            : `<button type="button" onclick="Accommodation.select('${item.id}')">${item.selected ? "Selected" : "Select"}</button>`
+        }
 
         <button
             type="button"
@@ -461,7 +512,19 @@ ${selected ? selected.planning.notes : ""}
 
     Project.update("accommodation", data);
 
-    this.open(this.currentDay);
+    this.refresh();
+  },
+
+  refresh() {
+    if (this.showAll) {
+      this.openAll();
+    } else if (this.currentDay) {
+      this.open(this.currentDay);
+    } else if (this.returnDestinationId) {
+      this.openForDestination(this.returnDestinationId);
+    } else {
+      this.openAll();
+    }
   },
 
   remove(id) {
@@ -481,7 +544,7 @@ ${selected ? selected.planning.notes : ""}
 
     Project.update("accommodation", data);
 
-    this.open(this.currentDay);
+    this.refresh();
   },
 
   blankItem() {
@@ -544,7 +607,7 @@ ${selected ? selected.planning.notes : ""}
 
         <h2>
 
-            ${this.pretty(this.currentDestination)}
+            ${this.showAll ? "All Destinations" : this.pretty(this.currentDestination)}
 
         </h2>
 
@@ -555,8 +618,18 @@ ${selected ? selected.planning.notes : ""}
         <div class="form-grid">
 
             <label class="form-field">
+                Destination
+                <input type="text" id="acc-destination" value="${this.esc(item.destination)}" placeholder="e.g. milan">
+            </label>
+
+            <label class="form-field">
                 Name
                 <input type="text" id="acc-name" value="${this.esc(item.name)}" placeholder="e.g. Hotel Milano Scala">
+            </label>
+
+            <label class="form-field">
+                Days (from - to)
+                <input type="text" id="acc-day-range" value="${(item.dayRange || []).join(" - ")}" placeholder="e.g. 4 - 6">
             </label>
 
             <label class="form-field">
@@ -666,7 +739,7 @@ ${selected ? selected.planning.notes : ""}
 
         </button>
 
-        <button type="button" onclick="Accommodation.open(Accommodation.currentDay)">
+        <button type="button" onclick="${this.showAll ? "Accommodation.openAll()" : this.currentDay ? "Accommodation.open(Accommodation.currentDay)" : `Accommodation.openForDestination('${this.returnDestinationId}')`}">
 
             Cancel
 
@@ -753,9 +826,32 @@ ${selected ? selected.planning.notes : ""}
       return;
     }
 
+    const destination = document
+      .getElementById("acc-destination")
+      .value.trim()
+      .toLowerCase();
+
+    if (!destination) {
+      alert("Please enter a destination before saving.");
+      return;
+    }
+
     if (isNew) {
       item.id = this.nextId(data.items);
-      item.destination = this.currentDestination;
+    }
+
+    item.destination = destination;
+
+    const rangeParts = document
+      .getElementById("acc-day-range")
+      .value.split("-")
+      .map((n) => parseInt(n.trim(), 10))
+      .filter((n) => !isNaN(n));
+
+    if (rangeParts.length === 2) {
+      item.dayRange = rangeParts;
+    } else if (rangeParts.length === 1) {
+      item.dayRange = [rangeParts[0], rangeParts[0]];
     }
 
     item.name = name;
@@ -805,7 +901,7 @@ ${selected ? selected.planning.notes : ""}
 
     Project.update("accommodation", data);
 
-    this.open(this.currentDay);
+    this.refresh();
   },
 
   nextId(items) {

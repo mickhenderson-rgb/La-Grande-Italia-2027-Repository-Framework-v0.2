@@ -15,14 +15,77 @@ Build 13
 const Transport = {
   currentDay: null,
 
-  workflow: ["Research", "Shortlisted", "Selected", "Booked", "Travel", "Review"],
+  showAll: false,
 
-  modes: ["Drive", "Train", "Ferry", "Flight", "Transfer", "Car Rental", "Other"],
+  currentDestinationFilter: null,
+
+  returnDestinationId: null,
+
+  workflow: [
+    "Research",
+    "Shortlisted",
+    "Selected",
+    "Booked",
+    "Travel",
+    "Review",
+  ],
+
+  modes: [
+    "Drive",
+    "Train",
+    "Ferry",
+    "Flight",
+    "Transfer",
+    "Car Rental",
+    "Other",
+  ],
 
   open(day) {
     this.currentDay = day;
 
+    this.showAll = false;
+
+    this.currentDestinationFilter = null;
+
+    this.returnDestinationId = null;
+
     Render.show(Layout.render(this.render()));
+  },
+
+  openAll() {
+    this.currentDay = null;
+
+    this.showAll = true;
+
+    this.currentDestinationFilter = null;
+
+    this.returnDestinationId = null;
+
+    Render.show(Layout.render(this.render()));
+  },
+
+  openForDestination(locationId) {
+    this.currentDay = null;
+
+    this.showAll = false;
+
+    this.currentDestinationFilter = String(locationId || "").toLowerCase();
+
+    this.returnDestinationId = locationId;
+
+    Render.show(Layout.render(this.render()));
+  },
+
+  backAction() {
+    if (this.currentDay) {
+      return `Day.open(${this.currentDay.day})`;
+    }
+
+    if (this.returnDestinationId) {
+      return `Destination.open('${this.returnDestinationId}')`;
+    }
+
+    return `Router.navigate('dashboard')`;
   },
 
   render() {
@@ -42,7 +105,7 @@ const Transport = {
 
         <h2>
 
-            Day ${this.currentDay.day} · ${this.esc(this.currentDay.title)}
+            ${this.showAll ? "All Days" : this.currentDestinationFilter ? `Transport · ${this.pretty(this.currentDestinationFilter)}` : `Day ${this.currentDay.day} · ${this.esc(this.currentDay.title)}`}
 
         </h2>
 
@@ -66,9 +129,9 @@ const Transport = {
 
         <button
             type="button"
-            onclick="Day.open(Transport.currentDay.day)">
+            onclick="${this.backAction()}">
 
-            ← Back to Day
+            ← Back
 
         </button>
 
@@ -96,11 +159,33 @@ const Transport = {
       return [];
     }
 
+    if (this.showAll) {
+      return data.items;
+    }
+
+    if (this.currentDestinationFilter) {
+      const journey = Project.get("journey");
+
+      const dayNumbers = (
+        journey && Array.isArray(journey.days) ? journey.days : []
+      )
+        .filter(
+          (d) =>
+            String(d.location || "").toLowerCase() ===
+            this.currentDestinationFilter,
+        )
+        .map((d) => d.day);
+
+      return data.items.filter((item) => dayNumbers.includes(item.day));
+    }
+
     return data.items.filter((item) => item.day === this.currentDay.day);
   },
 
   renderBooked(items) {
-    const booked = items.filter((item) => item.status === "Booked" || item.status === "Travel");
+    const booked = items.filter(
+      (item) => item.status === "Booked" || item.status === "Travel",
+    );
 
     if (booked.length === 0) {
       return `
@@ -246,6 +331,7 @@ Research List
     <strong>
 
         ${item.mode || "Transport"}: ${this.esc(item.from)} → ${this.esc(item.to)}
+        ${this.showAll || this.currentDestinationFilter ? `<span class="badge">Day ${item.day}</span>` : ""}
 
     </strong>
 
@@ -380,7 +466,19 @@ ${rows}
 
     Project.update("transport", data);
 
-    this.open(this.currentDay);
+    this.refresh();
+  },
+
+  refresh() {
+    if (this.showAll) {
+      this.openAll();
+    } else if (this.currentDay) {
+      this.open(this.currentDay);
+    } else if (this.currentDestinationFilter) {
+      this.openForDestination(this.returnDestinationId);
+    } else {
+      this.openAll();
+    }
   },
 
   add() {
@@ -420,7 +518,7 @@ ${rows}
 
     Project.update("transport", data);
 
-    this.open(this.currentDay);
+    this.refresh();
   },
 
   blankItem() {
@@ -462,7 +560,7 @@ ${rows}
 
         <h2>
 
-            Day ${this.currentDay.day}
+            ${this.showAll ? "All Days" : this.currentDay ? `Day ${this.currentDay.day}` : this.pretty(this.currentDestinationFilter)}
 
         </h2>
 
@@ -471,6 +569,11 @@ ${rows}
     <div class="manager-card form-card">
 
         <div class="form-grid">
+
+            <label class="form-field">
+                Day Number
+                <input type="number" id="trn-day" value="${item.day || (this.currentDay ? this.currentDay.day : 1)}" min="1">
+            </label>
 
             <label class="form-field">
                 Mode
@@ -560,7 +663,7 @@ ${rows}
 
         </button>
 
-        <button type="button" onclick="Transport.open(Transport.currentDay)">
+        <button type="button" onclick="${this.backAction()}">
 
             Cancel
 
@@ -575,7 +678,10 @@ ${rows}
 
   modeOptions(current) {
     return this.modes
-      .map((mode) => `<option value="${mode}" ${mode === current ? "selected" : ""}>${mode}</option>`)
+      .map(
+        (mode) =>
+          `<option value="${mode}" ${mode === current ? "selected" : ""}>${mode}</option>`,
+      )
       .join("");
   },
 
@@ -623,22 +729,34 @@ ${rows}
       return;
     }
 
+    const dayNumber = parseInt(document.getElementById("trn-day").value, 10);
+
+    if (!dayNumber || dayNumber < 1) {
+      alert("Please enter a valid day number before saving.");
+      return;
+    }
+
     if (isNew) {
       item.id = this.nextId(data.items);
-      item.day = this.currentDay.day;
     }
+
+    item.day = dayNumber;
 
     item.mode = document.getElementById("trn-mode").value;
     item.from = from;
     item.to = to;
     item.provider = document.getElementById("trn-provider").value.trim();
     item.website = document.getElementById("trn-website").value.trim();
-    item.bookingReference = document.getElementById("trn-reference").value.trim();
+    item.bookingReference = document
+      .getElementById("trn-reference")
+      .value.trim();
     item.status = document.getElementById("trn-status").value;
 
     item.price = {
-      amount: parseFloat(document.getElementById("trn-price-amount").value) || 0,
-      currency: document.getElementById("trn-price-currency").value.trim() || "EUR",
+      amount:
+        parseFloat(document.getElementById("trn-price-amount").value) || 0,
+      currency:
+        document.getElementById("trn-price-currency").value.trim() || "EUR",
     };
 
     item.schedule = {
@@ -658,7 +776,7 @@ ${rows}
 
     Project.update("transport", data);
 
-    this.open(this.currentDay);
+    this.refresh();
   },
 
   nextId(items) {
@@ -675,6 +793,12 @@ ${rows}
     const next = String(max + 1).padStart(4, "0");
 
     return `TRN-${next}`;
+  },
+
+  pretty(value) {
+    return String(value || "")
+      .replaceAll("-", " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   },
 
   esc(value) {

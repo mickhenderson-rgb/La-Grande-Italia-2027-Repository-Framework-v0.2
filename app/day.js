@@ -60,6 +60,14 @@ const Day = {
 
             <button
                 type="button"
+                onclick="Destination.open('${day.location}', Day.current)">
+
+                Destination
+
+            </button>
+
+            <button
+                type="button"
                 onclick="Accommodation.open(Day.current)">
 
                 Accommodation
@@ -98,7 +106,7 @@ const Day = {
 
         ${this.panel("💰", "Expenses", summary.expense, `PlanningItem.open(Day.current,'expense')`)}
 
-        ${this.panel("📝", "Notes", summary.note, `PlanningItem.open(Day.current,'note')`)}
+        ${this.panel("📔", "Journal", summary.note, `Journal.openDay(Day.current.day)`)}
 
     </div>
 
@@ -162,8 +170,28 @@ const Day = {
       activity: this.countType(items, "activity"),
       restaurant: this.countType(items, "restaurant"),
       expense: this.countType(items, "expense"),
-      note: this.countType(items, "note"),
+      note: this.journalSummary(day),
     };
+  },
+
+  journalSummary(day) {
+    if (typeof Journal === "undefined") {
+      return "No entry yet";
+    }
+
+    const entry = Journal.getEntry(day.day);
+
+    const hasNotes = entry.notes && entry.notes.trim().length > 0;
+
+    const photoCount = entry.photos.length;
+
+    const checklistCount = entry.checklist.length;
+
+    if (!hasNotes && photoCount === 0 && checklistCount === 0) {
+      return "No entry yet";
+    }
+
+    return `${photoCount} photo(s), ${checklistCount} checklist item(s)`;
   },
 
   countType(items, type) {

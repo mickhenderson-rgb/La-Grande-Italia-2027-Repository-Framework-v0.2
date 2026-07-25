@@ -17,6 +17,8 @@ const Restaurants = {
 
   currentDestination: "",
 
+  returnDestinationId: null,
+
   workflow: [
     "Research",
     "Shortlisted",
@@ -44,7 +46,41 @@ const Restaurants = {
       day.location || day.overnight || "",
     ).toLowerCase();
 
+    this.returnDestinationId = null;
+
     Render.show(Layout.render(this.render()));
+  },
+
+  openForDestination(locationId) {
+    this.currentDay = null;
+
+    this.currentDestination = String(locationId || "").toLowerCase();
+
+    this.returnDestinationId = locationId;
+
+    Render.show(Layout.render(this.render()));
+  },
+
+  backAction() {
+    if (this.currentDay) {
+      return `Day.open(${this.currentDay.day})`;
+    }
+
+    if (this.returnDestinationId) {
+      return `Destination.open('${this.returnDestinationId}')`;
+    }
+
+    return `Router.navigate('dashboard')`;
+  },
+
+  refresh() {
+    if (this.currentDay) {
+      this.open(this.currentDay);
+    } else if (this.returnDestinationId) {
+      this.openForDestination(this.returnDestinationId);
+    } else {
+      Router.navigate("dashboard");
+    }
   },
 
   render() {
@@ -88,7 +124,7 @@ const Restaurants = {
 
         <button
             type="button"
-            onclick="Day.open(Restaurants.currentDay.day)">
+            onclick="${this.backAction()}">
 
             ← Back to Day
 
@@ -409,7 +445,7 @@ ${rows}
 
     Project.update("restaurants", data);
 
-    this.open(this.currentDay);
+    this.refresh();
   },
 
   add() {
@@ -449,7 +485,7 @@ ${rows}
 
     Project.update("restaurants", data);
 
-    this.open(this.currentDay);
+    this.refresh();
   },
 
   blankItem() {
@@ -605,7 +641,7 @@ ${rows}
 
         </button>
 
-        <button type="button" onclick="Restaurants.open(Restaurants.currentDay)">
+        <button type="button" onclick="${this.backAction()}">
 
             Cancel
 
@@ -726,7 +762,7 @@ ${rows}
 
     Project.update("restaurants", data);
 
-    this.open(this.currentDay);
+    this.refresh();
   },
 
   nextId(items) {

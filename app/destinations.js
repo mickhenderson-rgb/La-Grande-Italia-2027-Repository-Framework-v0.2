@@ -21,6 +21,87 @@ const Destination = {
     Render.show(Layout.render(this.render(locationId)));
   },
 
+  openList() {
+    this.current = null;
+    this.returnDay = null;
+
+    Render.show(Layout.render(this.renderList()));
+  },
+
+  renderList() {
+    const journey = Project.get("journey");
+    const days = journey && Array.isArray(journey.days) ? journey.days : [];
+    const seen = new Set();
+    const destinations = [];
+
+    days.forEach((day) => {
+      const id = String(day.location || "").toLowerCase();
+
+      if (id && !seen.has(id)) {
+        seen.add(id);
+        destinations.push(id);
+      }
+    });
+
+    return `
+
+<div class="manager">
+
+    <section class="hero">
+
+        <h1>
+
+            Destinations
+
+        </h1>
+
+        <p>
+
+            ${destinations.length} destination${destinations.length === 1 ? "" : "s"} in the journey.
+
+        </p>
+
+    </section>
+
+    <div class="manager-grid">
+
+        ${destinations
+          .map(
+            (id) => `
+
+<div class="manager-card">
+
+    <h2>${this.pretty(id)}</h2>
+
+    <button type="button" onclick="Destination.open('${id}')">
+
+        Open Destination
+
+    </button>
+
+</div>
+
+`,
+          )
+          .join("")}
+
+    </div>
+
+    <div class="planner-buttons">
+
+        <button type="button" onclick="Router.navigate('dashboard')">
+
+            ← Dashboard
+
+        </button>
+
+    </div>
+
+</div>
+
+`;
+  },
+
   render(locationId) {
     const title = this.pretty(locationId);
     const summary = this.summary(locationId);
@@ -73,9 +154,7 @@ const Destination = {
 
         ${this.card(title, "🚗", "transport", summary.transport, "Compare travel options and connections.")}
 
-        ${this.card(title, "📝", "note", 0, "Capture ideas and reminders.")}
-
-        ${this.card(title, "📖", "journal", 0, "Record what actually happened on the trip.")}
+        ${this.card(title, "📔", "journal", summary.journal, "Notes, checklist and photos for days spent here.")}
 
     </div>
 
@@ -129,7 +208,7 @@ const Destination = {
 
     <button
         type="button"
-        onclick="PlanningItem.open(Destination.context('${type}'),'${type}')">
+        onclick="${this.openAction(type)}">
 
         Open
 
@@ -140,14 +219,28 @@ const Destination = {
 `;
   },
 
-  context(type) {
-    return {
-      kind: "destination",
-      locationId: this.current,
-      label: this.pretty(this.current),
-      title: this.pretty(this.current),
-      sectionType: type,
-    };
+  openAction(type) {
+    const id = this.current;
+
+    switch (type) {
+      case "accommodation":
+        return `Accommodation.openForDestination('${id}')`;
+
+      case "activity":
+        return `Activities.openForDestination('${id}')`;
+
+      case "restaurant":
+        return `Restaurants.openForDestination('${id}')`;
+
+      case "transport":
+        return `Transport.openForDestination('${id}')`;
+
+      case "journal":
+        return `Journal.open()`;
+
+      default:
+        return `Router.navigate('dashboard')`;
+    }
   },
 
   backAction() {
@@ -163,8 +256,55 @@ const Destination = {
       accommodation: this.countItems("accommodation", locationId),
       activities: this.countItems("activities", locationId),
       restaurants: this.countItems("restaurants", locationId),
-      transport: this.countItems("transport", locationId),
+      transport: this.countTransport(locationId),
+      journal: this.countJournal(locationId),
     };
+  },
+
+  dayNumbersForDestination(locationId) {
+    const journey = Project.get("journey");
+
+    const needle = String(locationId || "").toLowerCase();
+
+    if (!journey || !Array.isArray(journey.days)) {
+      return [];
+    }
+
+    return journey.days
+      .filter((d) => String(d.location || "").toLowerCase() === needle)
+      .map((d) => d.day);
+  },
+
+  countTransport(locationId) {
+    const data = Project.get("transport");
+
+    if (!data || !Array.isArray(data.items)) {
+      return 0;
+    }
+
+    const dayNumbers = this.dayNumbersForDestination(locationId);
+
+    return data.items.filter((item) => dayNumbers.includes(item.day)).length;
+  },
+
+  countJournal(locationId) {
+    const data = Project.get("journal");
+
+    if (!data || !Array.isArray(data.entries)) {
+      return 0;
+    }
+
+    const dayNumbers = this.dayNumbersForDestination(locationId);
+
+    return data.entries.filter((entry) => {
+      if (!dayNumbers.includes(entry.day)) {
+        return false;
+      }
+
+      const hasNotes = entry.notes && entry.notes.trim().length > 0;
+
+      return hasNotes || entry.photos.length > 0 || entry.checklist.length > 0;
+    }).length;
   },
 
   countItems(datasetName, locationId) {

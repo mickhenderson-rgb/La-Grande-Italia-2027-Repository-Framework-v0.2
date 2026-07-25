@@ -30,27 +30,22 @@ const Router = {
         break;
 
       case "accommodation":
-        PlanningItem.open(
-          {
-            title: "Accommodation",
-          },
-          "accommodation",
-        );
+        Accommodation.openAll();
 
         break;
 
       case "transport":
-        PlanningItem.open(
-          {
-            title: "Transport",
-          },
-          "transport",
-        );
+        Transport.openAll();
 
         break;
 
       case "budget":
         Budget.open();
+
+        break;
+
+      case "journal":
+        Journal.open();
 
         break;
 
@@ -70,7 +65,7 @@ const Router = {
         break;
 
       case "destinations":
-        alert("Destination research is managed from the Planner.");
+        Destination.openList();
 
         break;
 

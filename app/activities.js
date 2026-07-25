@@ -17,7 +17,16 @@ const Activities = {
 
   currentDestination: "",
 
-  workflow: ["Research", "Shortlisted", "Selected", "Booked", "Travel", "Review"],
+  returnDestinationId: null,
+
+  workflow: [
+    "Research",
+    "Shortlisted",
+    "Selected",
+    "Booked",
+    "Travel",
+    "Review",
+  ],
 
   open(day) {
     this.currentDay = day;
@@ -26,7 +35,41 @@ const Activities = {
       day.location || day.overnight || "",
     ).toLowerCase();
 
+    this.returnDestinationId = null;
+
     Render.show(Layout.render(this.render()));
+  },
+
+  openForDestination(locationId) {
+    this.currentDay = null;
+
+    this.currentDestination = String(locationId || "").toLowerCase();
+
+    this.returnDestinationId = locationId;
+
+    Render.show(Layout.render(this.render()));
+  },
+
+  backAction() {
+    if (this.currentDay) {
+      return `Day.open(${this.currentDay.day})`;
+    }
+
+    if (this.returnDestinationId) {
+      return `Destination.open('${this.returnDestinationId}')`;
+    }
+
+    return `Router.navigate('dashboard')`;
+  },
+
+  refresh() {
+    if (this.currentDay) {
+      this.open(this.currentDay);
+    } else if (this.returnDestinationId) {
+      this.openForDestination(this.returnDestinationId);
+    } else {
+      Router.navigate("dashboard");
+    }
   },
 
   render() {
@@ -70,7 +113,7 @@ const Activities = {
 
         <button
             type="button"
-            onclick="Day.open(Activities.currentDay.day)">
+            onclick="${this.backAction()}">
 
             ← Back to Day
 
@@ -108,7 +151,9 @@ const Activities = {
   },
 
   renderBooked(items) {
-    const booked = items.filter((item) => item.status === "Booked" || item.status === "Travel");
+    const booked = items.filter(
+      (item) => item.status === "Booked" || item.status === "Travel",
+    );
 
     if (booked.length === 0) {
       return `
@@ -390,7 +435,7 @@ ${rows}
 
     Project.update("activities", data);
 
-    this.open(this.currentDay);
+    this.refresh();
   },
 
   add() {
@@ -430,7 +475,7 @@ ${rows}
 
     Project.update("activities", data);
 
-    this.open(this.currentDay);
+    this.refresh();
   },
 
   blankItem() {
@@ -449,7 +494,12 @@ ${rows}
       website: "",
       bookingReference: "",
       price: { amount: 0, currency: "EUR", per: "person" },
-      location: { locationId: "", address: "", latitude: null, longitude: null },
+      location: {
+        locationId: "",
+        address: "",
+        latitude: null,
+        longitude: null,
+      },
       schedule: { date: "", time: "", durationMinutes: 0 },
       planning: { priority: "High", notes: "", pros: [], cons: [] },
       actual: { paid: false, attended: false, rating: null, review: "" },
@@ -587,7 +637,7 @@ ${rows}
 
         </button>
 
-        <button type="button" onclick="Activities.open(Activities.currentDay)">
+        <button type="button" onclick="${this.backAction()}">
 
             Cancel
 
@@ -663,12 +713,16 @@ ${rows}
     item.category = document.getElementById("act-category").value.trim();
     item.provider = document.getElementById("act-provider").value.trim();
     item.website = document.getElementById("act-website").value.trim();
-    item.bookingReference = document.getElementById("act-reference").value.trim();
+    item.bookingReference = document
+      .getElementById("act-reference")
+      .value.trim();
     item.status = document.getElementById("act-status").value;
 
     item.price = {
-      amount: parseFloat(document.getElementById("act-price-amount").value) || 0,
-      currency: document.getElementById("act-price-currency").value.trim() || "EUR",
+      amount:
+        parseFloat(document.getElementById("act-price-amount").value) || 0,
+      currency:
+        document.getElementById("act-price-currency").value.trim() || "EUR",
       per: document.getElementById("act-price-per").value,
     };
 
@@ -678,7 +732,8 @@ ${rows}
     item.schedule = {
       date: document.getElementById("act-date").value,
       time: document.getElementById("act-time").value,
-      durationMinutes: parseInt(document.getElementById("act-duration").value, 10) || 0,
+      durationMinutes:
+        parseInt(document.getElementById("act-duration").value, 10) || 0,
     };
 
     item.planning = {
@@ -694,7 +749,7 @@ ${rows}
 
     Project.update("activities", data);
 
-    this.open(this.currentDay);
+    this.refresh();
   },
 
   nextId(items) {
