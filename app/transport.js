@@ -889,9 +889,11 @@ ${rows}
 
     <a class="map-btn" href="${this.googleMapsUrl(item)}" target="_blank" rel="noopener">Open in Google Maps</a>
 
-    <a class="map-btn" href="${this.wazeUrl(item)}" target="_blank" rel="noopener">Open in Waze</a>
+    <a class="map-btn" href="${this.wazeUrl(item)}" target="_blank" rel="noopener" title="Opens directly on mobile with the Waze app installed. On desktop it will prompt to download.">Open in Waze</a>
 
 </div>
+
+<p class="form-hint">Waze opens directly on mobile with the app installed; on desktop it prompts an app download instead.</p>
 
 `;
   },
