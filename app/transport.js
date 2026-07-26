@@ -536,6 +536,8 @@ ${rows}
       locked: false,
       from: "",
       to: "",
+      fromCoordinates: { latitude: null, longitude: null },
+      toCoordinates: { latitude: null, longitude: null },
       provider: "",
       website: "",
       bookingReference: "",
@@ -597,8 +599,32 @@ ${rows}
             </label>
 
             <label class="form-field">
+                From Latitude
+                <input type="number" id="trn-from-lat" value="${item.fromCoordinates?.latitude ?? ""}" step="0.000001">
+                <span class="form-hint">Optional, more reliable routing</span>
+            </label>
+
+            <label class="form-field">
+                From Longitude
+                <input type="number" id="trn-from-lng" value="${item.fromCoordinates?.longitude ?? ""}" step="0.000001">
+                <span class="form-hint">Optional</span>
+            </label>
+
+            <label class="form-field">
                 To
                 <input type="text" id="trn-to" value="${this.esc(item.to)}">
+            </label>
+
+            <label class="form-field">
+                To Latitude
+                <input type="number" id="trn-to-lat" value="${item.toCoordinates?.latitude ?? ""}" step="0.000001">
+                <span class="form-hint">Optional, more reliable routing</span>
+            </label>
+
+            <label class="form-field">
+                To Longitude
+                <input type="number" id="trn-to-lng" value="${item.toCoordinates?.longitude ?? ""}" step="0.000001">
+                <span class="form-hint">Optional</span>
             </label>
 
             <label class="form-field">
@@ -656,18 +682,21 @@ ${rows}
             </label>
 
             <label class="form-field">
-                Distance (km) — Drive/Walk only
+                Distance (km)
                 <input type="number" id="trn-distance" value="${item.route?.distanceKm ?? 0}" min="0" step="0.1">
+                <span class="form-hint">Drive/Walk only</span>
             </label>
 
             <label class="form-field">
-                Duration (minutes) — Drive/Walk only
+                Duration (Minutes)
                 <input type="number" id="trn-duration" value="${item.route?.durationMinutes ?? 0}" min="0">
+                <span class="form-hint">Drive/Walk only</span>
             </label>
 
             <label class="form-field">
-                Tolls Estimate — Drive only
+                Tolls Estimate
                 <input type="number" id="trn-tolls" value="${item.route?.tollsEstimate ?? 0}" min="0" step="0.01">
+                <span class="form-hint">Drive only</span>
             </label>
 
         </div>
@@ -769,6 +798,9 @@ ${rows}
     item.mode = document.getElementById("trn-mode").value;
     item.from = from;
     item.to = to;
+
+    item.fromCoordinates = this.readCoordinates("trn-from-lat", "trn-from-lng");
+    item.toCoordinates = this.readCoordinates("trn-to-lat", "trn-to-lng");
     item.provider = document.getElementById("trn-provider").value.trim();
     item.website = document.getElementById("trn-website").value.trim();
     item.bookingReference = document
@@ -849,6 +881,7 @@ ${rows}
         ? `${route.distanceKm || 0} km · ${route.durationMinutes || 0} min${route.tollsEstimate > 0 ? ` · Tolls ~${route.tollsCurrency || "EUR"} ${route.tollsEstimate}` : ""}`
         : "No route facts entered yet."
     }
+    ${this.hasCoordinates(item.toCoordinates) ? ` · <span class="badge">📍 Precise routing</span>` : ""}
 
 </p>
 
@@ -863,17 +896,50 @@ ${rows}
 `;
   },
 
+  hasCoordinates(coords) {
+    return coords && coords.latitude !== null && coords.longitude !== null;
+  },
+
+  readCoordinates(latId, lngId) {
+    const latRaw = document.getElementById(latId).value;
+
+    const lngRaw = document.getElementById(lngId).value;
+
+    const latitude = latRaw === "" ? null : parseFloat(latRaw);
+
+    const longitude = lngRaw === "" ? null : parseFloat(lngRaw);
+
+    if (
+      latitude === null ||
+      longitude === null ||
+      isNaN(latitude) ||
+      isNaN(longitude)
+    ) {
+      return { latitude: null, longitude: null };
+    }
+
+    return { latitude, longitude };
+  },
+
   googleMapsUrl(item) {
     const mode = item.mode === "Walk" ? "walking" : "driving";
 
-    const origin = encodeURIComponent(item.from || "");
+    const origin = this.hasCoordinates(item.fromCoordinates)
+      ? `${item.fromCoordinates.latitude},${item.fromCoordinates.longitude}`
+      : encodeURIComponent(item.from || "");
 
-    const destination = encodeURIComponent(item.to || "");
+    const destination = this.hasCoordinates(item.toCoordinates)
+      ? `${item.toCoordinates.latitude},${item.toCoordinates.longitude}`
+      : encodeURIComponent(item.to || "");
 
     return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=${mode}`;
   },
 
   wazeUrl(item) {
+    if (this.hasCoordinates(item.toCoordinates)) {
+      return `https://waze.com/ul?ll=${item.toCoordinates.latitude},${item.toCoordinates.longitude}&navigate=yes`;
+    }
+
     const destination = encodeURIComponent(item.to || "");
 
     return `https://waze.com/ul?q=${destination}&navigate=yes`;
