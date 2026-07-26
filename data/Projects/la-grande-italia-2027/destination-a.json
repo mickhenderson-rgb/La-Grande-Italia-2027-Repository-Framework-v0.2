@@ -9,6 +9,11 @@
 
   "recommendedNights": 2,
 
+  "coordinates": {
+    "latitude": null,
+    "longitude": null
+  },
+
   "status": "Planning",
 
   "overview": {

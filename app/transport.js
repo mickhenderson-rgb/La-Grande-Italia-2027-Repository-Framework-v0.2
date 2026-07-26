@@ -32,6 +32,7 @@ const Transport = {
 
   modes: [
     "Drive",
+    "Walk",
     "Train",
     "Ferry",
     "Flight",
@@ -354,6 +355,8 @@ Research List
 
     </p>
 
+    ${this.renderRouteInfo(item)}
+
     <div class="research-actions">
 
         ${
@@ -538,6 +541,12 @@ ${rows}
       bookingReference: "",
       price: { amount: 0, currency: "EUR" },
       schedule: { date: day.date || "", departTime: "", arriveTime: "" },
+      route: {
+        distanceKm: 0,
+        durationMinutes: 0,
+        tollsEstimate: 0,
+        tollsCurrency: "EUR",
+      },
       planning: { priority: "High", notes: "" },
       actual: { paid: false, completed: false },
     };
@@ -644,6 +653,21 @@ ${rows}
             <label class="form-field">
                 Arrive Time
                 <input type="time" id="trn-arrive" value="${this.esc(item.schedule?.arriveTime)}">
+            </label>
+
+            <label class="form-field">
+                Distance (km) — Drive/Walk only
+                <input type="number" id="trn-distance" value="${item.route?.distanceKm ?? 0}" min="0" step="0.1">
+            </label>
+
+            <label class="form-field">
+                Duration (minutes) — Drive/Walk only
+                <input type="number" id="trn-duration" value="${item.route?.durationMinutes ?? 0}" min="0">
+            </label>
+
+            <label class="form-field">
+                Tolls Estimate — Drive only
+                <input type="number" id="trn-tolls" value="${item.route?.tollsEstimate ?? 0}" min="0" step="0.01">
             </label>
 
         </div>
@@ -765,6 +789,16 @@ ${rows}
       arriveTime: document.getElementById("trn-arrive").value,
     };
 
+    item.route = {
+      distanceKm:
+        parseFloat(document.getElementById("trn-distance").value) || 0,
+      durationMinutes:
+        parseInt(document.getElementById("trn-duration").value, 10) || 0,
+      tollsEstimate:
+        parseFloat(document.getElementById("trn-tolls").value) || 0,
+      tollsCurrency: item.price?.currency || "EUR",
+    };
+
     item.planning = {
       priority: document.getElementById("trn-priority").value,
       notes: document.getElementById("trn-notes").value.trim(),
@@ -793,6 +827,56 @@ ${rows}
     const next = String(max + 1).padStart(4, "0");
 
     return `TRN-${next}`;
+  },
+
+  renderRouteInfo(item) {
+    const isRoutable = item.mode === "Drive" || item.mode === "Walk";
+
+    if (!isRoutable) {
+      return "";
+    }
+
+    const route = item.route || {};
+
+    const hasFacts = route.distanceKm > 0 || route.durationMinutes > 0;
+
+    return `
+
+<p>
+
+    ${
+      hasFacts
+        ? `${route.distanceKm || 0} km · ${route.durationMinutes || 0} min${route.tollsEstimate > 0 ? ` · Tolls ~${route.tollsCurrency || "EUR"} ${route.tollsEstimate}` : ""}`
+        : "No route facts entered yet."
+    }
+
+</p>
+
+<div class="research-actions">
+
+    <a class="map-btn" href="${this.googleMapsUrl(item)}" target="_blank" rel="noopener">Open in Google Maps</a>
+
+    <a class="map-btn" href="${this.wazeUrl(item)}" target="_blank" rel="noopener">Open in Waze</a>
+
+</div>
+
+`;
+  },
+
+  googleMapsUrl(item) {
+    const mode = item.mode === "Walk" ? "walking" : "driving";
+
+    const origin = encodeURIComponent(item.from || "");
+
+    const destination = encodeURIComponent(item.to || "");
+
+    return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=${mode}`;
+  },
+
+  wazeUrl(item) {
+    const destination = encodeURIComponent(item.to || "");
+
+    return `https://waze.com/ul?q=${destination}&navigate=yes`;
   },
 
   pretty(value) {

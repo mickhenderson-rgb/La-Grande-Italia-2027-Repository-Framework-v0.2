@@ -28,6 +28,8 @@ const Data = {
   },
 
   async loadProject(projectFolder) {
+    this.currentProjectFolder = projectFolder;
+
     console.log("Loading Project:", projectFolder);
 
     const base = `data/projects/${projectFolder}`;
@@ -72,6 +74,8 @@ const Data = {
     Project.load("expenses", await this.loadJSON(`${base}/expenses.json`));
 
     Project.load("journal", await this.loadJSON(`${base}/journal.json`));
+
+    Project.load("weather", await this.loadJSON(`${base}/weather.json`));
 
     console.log("Project Loaded");
 
