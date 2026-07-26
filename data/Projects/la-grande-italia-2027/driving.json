@@ -1,36 +1,33 @@
 {
-  "legs":[
-
+  "legs": [
     {
-      "from":"Milan",
-      "to":"Le Noirmont",
+      "from": "Destination A",
+      "to": "Destination B",
 
-      "distance_km":305,
+      "distance_km": 300,
 
-      "drive_hours":4.3,
+      "drive_hours": 4,
 
-      "fuel_estimate_eur":48,
+      "fuel_estimate_usd": 45,
 
-      "tolls_eur":28,
+      "tolls_usd": 25,
 
-      "recommended_departure":"10:00",
+      "recommended_departure": "10:00",
 
-      "arrival_target":"15:00",
+      "arrival_target": "15:00",
 
-      "coffee_stop":"Autogrill north of Milan",
+      "coffee_stop": "Sample rest stop",
 
-      "lunch":"Swiss countryside café"
+      "lunch": "Sample roadside café"
     },
 
     {
-      "from":"Le Noirmont",
+      "from": "Destination B",
+      "to": "Destination C",
 
-      "to":"Bergamo",
+      "distance_km": 250,
 
-      "distance_km":250,
-
-      "drive_hours":3.8
+      "drive_hours": 3.5
     }
-
   ]
 }

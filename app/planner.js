@@ -59,6 +59,16 @@ const Planner = {
 
     </div>
 
+    <div class="planner-buttons">
+
+        <button type="button" onclick="Planner.showAddDayForm(null)">
+
+            + Add Day to End
+
+        </button>
+
+    </div>
+
 `;
 
     journey.days.forEach((day) => {
@@ -181,6 +191,22 @@ const Planner = {
 
         </button>
 
+       <button
+            type="button"
+            onclick="Planner.showAddDayForm(${day.day})">
+
+            + Insert Day After
+
+        </button>
+
+       <button
+            type="button"
+            onclick="Planner.confirmDeleteDay(${day.day})">
+
+            Delete Day
+
+        </button>
+
     </div>
 
 </div>
@@ -279,5 +305,118 @@ const Planner = {
     return String(value || "")
       .replaceAll("-", " ")
       .replace(/\b\w/g, (c) => c.toUpperCase());
+  },
+
+  showAddDayForm(afterDayNumber) {
+    Render.show(Layout.render(this.renderAddDayForm(afterDayNumber)));
+  },
+
+  renderAddDayForm(afterDayNumber) {
+    const isAppend = afterDayNumber === null;
+
+    return `
+
+<div class="manager">
+
+    <section class="hero">
+
+        <h1>
+
+            ${isAppend ? "Add Day to End" : `Insert Day After Day ${afterDayNumber}`}
+
+        </h1>
+
+        <p>
+
+            ${isAppend ? "This will be added as the last day of the trip." : "Every day after this one will be renumbered, and any transport, expenses, journal or booking entries tied to those days will move with them."}
+
+        </p>
+
+    </section>
+
+    <div class="manager-card form-card">
+
+        <div class="form-grid">
+
+            <label class="form-field">
+                Title
+                <input type="text" id="pln-new-title" placeholder="e.g. Explore Destination B">
+            </label>
+
+            <label class="form-field">
+                Location
+                <input type="text" id="pln-new-location" placeholder="e.g. destination-b">
+            </label>
+
+            <label class="form-field">
+                Overnight
+                <input type="text" id="pln-new-overnight" placeholder="Defaults to Location if left blank">
+            </label>
+
+        </div>
+
+    </div>
+
+    <div class="planner-buttons">
+
+        <button type="button" onclick="Planner.saveNewDay(${afterDayNumber === null ? "null" : afterDayNumber})">
+
+            Save Day
+
+        </button>
+
+        <button type="button" onclick="Router.navigate('planner')">
+
+            Cancel
+
+        </button>
+
+    </div>
+
+</div>
+
+`;
+  },
+
+  saveNewDay(afterDayNumber) {
+    const title = document.getElementById("pln-new-title").value.trim();
+
+    const location = document
+      .getElementById("pln-new-location")
+      .value.trim()
+      .toLowerCase();
+
+    const overnight = document
+      .getElementById("pln-new-overnight")
+      .value.trim()
+      .toLowerCase();
+
+    if (!title || !location) {
+      alert("Please enter at least a title and location before saving.");
+      return;
+    }
+
+    JourneyEditor.insertDay(afterDayNumber, { title, location, overnight });
+
+    Router.navigate("planner");
+  },
+
+  confirmDeleteDay(dayNumber) {
+    const linked = JourneyEditor.countLinkedItems(dayNumber);
+
+    const message =
+      linked > 0
+        ? `Day ${dayNumber} has ${linked} linked item(s) (transport, expenses or journal entries). Deleting this day will delete those too, and every later day will be renumbered. Continue?`
+        : `Delete Day ${dayNumber}? Every later day will be renumbered.`;
+
+    const answer = confirm(message);
+
+    if (!answer) {
+      return;
+    }
+
+    JourneyEditor.deleteDay(dayNumber);
+
+    Router.navigate("planner");
   },
 };

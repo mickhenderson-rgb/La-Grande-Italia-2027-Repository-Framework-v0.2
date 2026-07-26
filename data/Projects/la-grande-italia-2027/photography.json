@@ -1,25 +1,16 @@
 {
-  "Milan":{
-
-    "sunrise":"Duomo rooftop",
-
-    "sunset":"Navigli",
-
-    "night":"Brera"
-
+  "Destination A": {
+    "sunrise": "Sample viewpoint 1",
+    "sunset": "Sample viewpoint 2",
+    "night": "Sample old town"
   },
 
-  "Bergamo":{
-
-    "sunrise":"Città Alta",
-
-    "sunset":"Venetian Walls"
-
+  "Destination B": {
+    "sunrise": "Sample hilltop",
+    "sunset": "Sample walls"
   },
 
-  "Dolomites":{
-
-    "golden_hour":"Passo Gardena"
-
+  "Destination C": {
+    "golden_hour": "Sample pass"
   }
 }

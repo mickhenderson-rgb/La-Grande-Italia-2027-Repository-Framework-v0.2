@@ -1,98 +1,20 @@
 {
-  "Milan": {
+  "Destination A": {
     "nights": 2,
-    "focus": ["arrival recovery", "Brera", "Duomo area", "apertivo"],
+    "focus": ["arrival recovery", "sample area 1", "sample area 2"],
     "accommodation_style": "hotel or apartment",
-    "booking_sources": ["Booking.com", "Airbnb", "direct"]
+    "booking_sources": ["Sample Booking Site", "direct"]
   },
-  "Le Noirmont": {
+  "Destination B": {
     "nights": 3,
-    "focus": ["Jura countryside", "small villages", "local food"],
+    "focus": ["sample countryside", "small villages", "local food"],
     "accommodation_style": "guesthouse or apartment",
-    "booking_sources": ["Booking.com", "direct"]
+    "booking_sources": ["Sample Booking Site", "direct"]
   },
-  "Bergamo": {
-    "nights": 4,
-    "focus": ["Bergamo Alta", "Lake Iseo", "Franciacorta", "Vigano San Martino"],
-    "accommodation_style": "apartment or hotel",
-    "booking_sources": ["Booking.com", "Airbnb", "direct"]
-  },
-  "Dolomites": {
-    "nights": 3,
+  "Destination C": {
+    "nights": 2,
     "focus": ["scenic drives", "viewpoints", "easy walks"],
     "accommodation_style": "family hotel or apartment",
-    "booking_sources": ["Booking.com", "direct"]
-  },
-  "Venice": {
-    "nights": 4,
-    "focus": ["historic centre", "Murano", "Verona day trip"],
-    "accommodation_style": "apartment or boutique hotel",
-    "booking_sources": ["Booking.com", "Airbnb", "direct"]
-  },
-  "Siena": {
-    "nights": 4,
-    "focus": ["historic centre", "Chianti", "horse riding", "San Gimignano"],
-    "accommodation_style": "hotel or agriturismo",
-    "booking_sources": ["Booking.com", "direct"]
-  },
-  "Rome": {
-    "nights": 3,
-    "focus": ["historic core", "catacombs", "Vatican area"],
-    "accommodation_style": "hotel or apartment",
-    "booking_sources": ["Booking.com", "Hotels.com", "direct"]
-  },
-  "Palermo": {
-    "nights": 2,
-    "focus": ["markets", "Monreale", "street food"],
-    "accommodation_style": "apartment or boutique hotel",
-    "booking_sources": ["Booking.com", "Airbnb", "direct"]
-  },
-  "Cefalù": {
-    "nights": 2,
-    "focus": ["beach", "historic centre", "slow food"],
-    "accommodation_style": "apartment or small hotel",
-    "booking_sources": ["Booking.com", "Airbnb", "direct"]
-  },
-  "Syracuse / Ortigia": {
-    "nights": 2,
-    "focus": ["Ortigia", "waterfront", "food"],
-    "accommodation_style": "apartment or boutique hotel",
-    "booking_sources": ["Booking.com", "Airbnb", "direct"]
-  },
-  "Taormina": {
-    "nights": 3,
-    "focus": ["Taormina", "Etna", "Castelmola"],
-    "accommodation_style": "hotel or apartment",
-    "booking_sources": ["Booking.com", "Airbnb", "direct"]
-  },
-  "Tropea": {
-    "nights": 2,
-    "focus": ["coast", "beach", "historic town"],
-    "accommodation_style": "hotel or apartment",
-    "booking_sources": ["Booking.com", "direct"]
-  },
-  "Maratea": {
-    "nights": 2,
-    "focus": ["coast", "viewpoints", "slow evening"],
-    "accommodation_style": "hotel or guesthouse",
-    "booking_sources": ["Booking.com", "direct"]
-  },
-  "Matera": {
-    "nights": 3,
-    "focus": ["Sassi", "cave lanes", "night atmosphere"],
-    "accommodation_style": "cave hotel or guesthouse",
-    "booking_sources": ["Booking.com", "direct"]
-  },
-  "Locorotondo": {
-    "nights": 4,
-    "focus": ["Valle d'Itria", "Alberobello", "Monopoli", "cooking class"],
-    "accommodation_style": "masseria or apartment",
-    "booking_sources": ["Booking.com", "Airbnb", "direct"]
-  },
-  "Sorrento": {
-    "nights": 3,
-    "focus": ["Pompeii", "Amalfi Coast access", "town time"],
-    "accommodation_style": "apartment or hotel",
-    "booking_sources": ["Booking.com", "Airbnb", "direct"]
+    "booking_sources": ["Sample Booking Site", "direct"]
   }
 }
