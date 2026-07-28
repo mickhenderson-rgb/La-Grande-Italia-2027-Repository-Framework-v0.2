@@ -486,7 +486,7 @@ const server = http.createServer(async (req, res) => {
     return requireAuth(res);
   }
 
-  if (req.url.match(/^\/api\/projects\/?(?:\?.*)?$/) && req.method === "GET") {
+  if (req.url === "/api/projects" && req.method === "GET") {
     return handleProjectsList(req, res);
   }
 
