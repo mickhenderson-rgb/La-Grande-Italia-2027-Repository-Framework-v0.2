@@ -156,6 +156,8 @@ const Destination = {
 
         ${this.card(title, "📔", "journal", summary.journal, "Notes, checklist and photos for days spent here.")}
 
+        ${this.card(title, "🌤", "weather", null, "Seasonal averages and live forecast.")}
+
     </div>
 
     <div class="planner-buttons">
@@ -196,7 +198,10 @@ const Destination = {
 
     </p>
 
-    <p>
+    ${
+      count === null
+        ? ""
+        : `<p>
 
         <span class="badge">
 
@@ -204,7 +209,8 @@ const Destination = {
 
         </span>
 
-    </p>
+    </p>`
+    }
 
     <button
         type="button"
@@ -237,6 +243,9 @@ const Destination = {
 
       case "journal":
         return `Journal.open()`;
+
+      case "weather":
+        return `Weather.open('${id}')`;
 
       default:
         return `Router.navigate('dashboard')`;
@@ -306,6 +315,7 @@ const Destination = {
       return hasNotes || entry.photos.length > 0 || entry.checklist.length > 0;
     }).length;
   },
+
 
   countItems(datasetName, locationId) {
     const data = Project.get(datasetName);
@@ -396,6 +406,9 @@ const Destination = {
 
       case "journal":
         return "Journal";
+
+      case "weather":
+        return "Weather";
 
       default:
         return "Workspace";

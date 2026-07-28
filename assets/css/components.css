@@ -125,6 +125,86 @@ body {
   font-size: 13px;
 }
 
+.save-status {
+  font-size: 12px;
+
+  color: #9fb0c7;
+
+  margin-bottom: 6px;
+}
+
+.switch-trip-link {
+  display: block;
+
+  font-size: 12px;
+
+  color: #c7d2e0;
+
+  text-decoration: underline;
+
+  margin-bottom: 10px;
+}
+
+.switch-trip-link:hover {
+  color: #ffffff;
+}
+
+/* =======================================
+   Landing / Trip Selection
+======================================= */
+
+.landing {
+  max-width: 900px;
+
+  margin: 60px auto;
+
+  padding: 0 20px;
+}
+
+.landing-header {
+  text-align: center;
+
+  margin-bottom: 30px;
+}
+
+.landing-header h1 {
+  font-size: 2rem;
+
+  margin: 0;
+}
+
+.landing-header p {
+  color: #667;
+}
+
+.landing-grid {
+  display: grid;
+
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+
+  gap: 20px;
+}
+
+.landing-card {
+  background: #fff;
+
+  border-radius: 12px;
+
+  padding: 25px;
+
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+
+  text-align: center;
+}
+
+.landing-card h2 {
+  margin: 0 0 6px;
+}
+
+.landing-card button {
+  margin-top: 14px;
+}
+
 /* =======================================
    Main Window
 ======================================= */

@@ -30,6 +30,8 @@ const Data = {
   async loadProject(projectFolder) {
     this.currentProjectFolder = projectFolder;
 
+    Project.projectFolder = projectFolder;
+
     console.log("Loading Project:", projectFolder);
 
     const base = `data/projects/${projectFolder}`;
@@ -56,9 +58,15 @@ const Data = {
       await this.loadJSON(`${base}/accommodation.json`),
     );
 
-    Project.load("activities", await this.loadJSON(`${base}/activities.json`));
+    Project.load(
+      "activities",
+      await this.loadJSON(`${base}/activities.json`),
+    );
 
-    Project.load("transport", await this.loadJSON(`${base}/transport.json`));
+    Project.load(
+      "transport",
+      await this.loadJSON(`${base}/transport.json`),
+    );
 
     Project.load(
       "restaurants",
@@ -76,6 +84,7 @@ const Data = {
     Project.load("journal", await this.loadJSON(`${base}/journal.json`));
 
     Project.load("weather", await this.loadJSON(`${base}/weather.json`));
+
 
     console.log("Project Loaded");
 

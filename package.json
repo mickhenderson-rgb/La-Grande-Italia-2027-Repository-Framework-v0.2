@@ -1,0 +1,13 @@
+{
+  "name": "compass-tos",
+  "version": "1.0.0",
+  "description": "COMPASS-TOS - Travel Operating System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "dependencies": {}
+}

@@ -5,7 +5,10 @@
     {
       "id": "ACC-0001",
       "destination": "destination-a",
-      "dayRange": [2, 3],
+      "dayRange": [
+        2,
+        3
+      ],
       "type": "accommodation",
       "name": "Sample Hotel A",
       "status": "Research",

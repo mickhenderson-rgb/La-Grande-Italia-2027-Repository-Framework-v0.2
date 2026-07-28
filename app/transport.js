@@ -21,25 +21,9 @@ const Transport = {
 
   returnDestinationId: null,
 
-  workflow: [
-    "Research",
-    "Shortlisted",
-    "Selected",
-    "Booked",
-    "Travel",
-    "Review",
-  ],
+  workflow: ["Research", "Shortlisted", "Selected", "Booked", "Travel", "Review"],
 
-  modes: [
-    "Drive",
-    "Walk",
-    "Train",
-    "Ferry",
-    "Flight",
-    "Transfer",
-    "Car Rental",
-    "Other",
-  ],
+  modes: ["Drive", "Walk", "Train", "Ferry", "Flight", "Transfer", "Car Rental", "Other"],
 
   open(day) {
     this.currentDay = day;
@@ -167,14 +151,8 @@ const Transport = {
     if (this.currentDestinationFilter) {
       const journey = Project.get("journey");
 
-      const dayNumbers = (
-        journey && Array.isArray(journey.days) ? journey.days : []
-      )
-        .filter(
-          (d) =>
-            String(d.location || "").toLowerCase() ===
-            this.currentDestinationFilter,
-        )
+      const dayNumbers = (journey && Array.isArray(journey.days) ? journey.days : [])
+        .filter((d) => String(d.location || "").toLowerCase() === this.currentDestinationFilter)
         .map((d) => d.day);
 
       return data.items.filter((item) => dayNumbers.includes(item.day));
@@ -184,9 +162,7 @@ const Transport = {
   },
 
   renderBooked(items) {
-    const booked = items.filter(
-      (item) => item.status === "Booked" || item.status === "Travel",
-    );
+    const booked = items.filter((item) => item.status === "Booked" || item.status === "Travel");
 
     if (booked.length === 0) {
       return `
@@ -543,12 +519,7 @@ ${rows}
       bookingReference: "",
       price: { amount: 0, currency: "EUR" },
       schedule: { date: day.date || "", departTime: "", arriveTime: "" },
-      route: {
-        distanceKm: 0,
-        durationMinutes: 0,
-        tollsEstimate: 0,
-        tollsCurrency: "EUR",
-      },
+      route: { distanceKm: 0, durationMinutes: 0, tollsEstimate: 0, tollsCurrency: "EUR" },
       planning: { priority: "High", notes: "" },
       actual: { paid: false, completed: false },
     };
@@ -731,10 +702,7 @@ ${rows}
 
   modeOptions(current) {
     return this.modes
-      .map(
-        (mode) =>
-          `<option value="${mode}" ${mode === current ? "selected" : ""}>${mode}</option>`,
-      )
+      .map((mode) => `<option value="${mode}" ${mode === current ? "selected" : ""}>${mode}</option>`)
       .join("");
   },
 
@@ -803,16 +771,12 @@ ${rows}
     item.toCoordinates = this.readCoordinates("trn-to-lat", "trn-to-lng");
     item.provider = document.getElementById("trn-provider").value.trim();
     item.website = document.getElementById("trn-website").value.trim();
-    item.bookingReference = document
-      .getElementById("trn-reference")
-      .value.trim();
+    item.bookingReference = document.getElementById("trn-reference").value.trim();
     item.status = document.getElementById("trn-status").value;
 
     item.price = {
-      amount:
-        parseFloat(document.getElementById("trn-price-amount").value) || 0,
-      currency:
-        document.getElementById("trn-price-currency").value.trim() || "EUR",
+      amount: parseFloat(document.getElementById("trn-price-amount").value) || 0,
+      currency: document.getElementById("trn-price-currency").value.trim() || "EUR",
     };
 
     item.schedule = {
@@ -822,12 +786,9 @@ ${rows}
     };
 
     item.route = {
-      distanceKm:
-        parseFloat(document.getElementById("trn-distance").value) || 0,
-      durationMinutes:
-        parseInt(document.getElementById("trn-duration").value, 10) || 0,
-      tollsEstimate:
-        parseFloat(document.getElementById("trn-tolls").value) || 0,
+      distanceKm: parseFloat(document.getElementById("trn-distance").value) || 0,
+      durationMinutes: parseInt(document.getElementById("trn-duration").value, 10) || 0,
+      tollsEstimate: parseFloat(document.getElementById("trn-tolls").value) || 0,
       tollsCurrency: item.price?.currency || "EUR",
     };
 
@@ -911,12 +872,7 @@ ${rows}
 
     const longitude = lngRaw === "" ? null : parseFloat(lngRaw);
 
-    if (
-      latitude === null ||
-      longitude === null ||
-      isNaN(latitude) ||
-      isNaN(longitude)
-    ) {
+    if (latitude === null || longitude === null || isNaN(latitude) || isNaN(longitude)) {
       return { latitude: null, longitude: null };
     }
 

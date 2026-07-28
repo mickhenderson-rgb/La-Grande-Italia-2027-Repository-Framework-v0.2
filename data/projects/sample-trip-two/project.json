@@ -1,0 +1,48 @@
+{
+  "project": {
+    "id": "sample-trip-two",
+    "name": "Second Sample Trip",
+    "subtitle": "Another Test Itinerary",
+    "status": "Planning",
+    "version": "1.0",
+    "created": "2027-03-01",
+    "departureDate": "2027-06-10",
+    "returnDate": "2027-06-14",
+    "homeCountry": "Testland",
+    "currency": "USD",
+    "language": "English",
+    "travellers": [
+      { "id": 1, "name": "Traveller 1", "role": "Primary" }
+    ]
+  },
+  "settings": {
+    "planningMode": true,
+    "travelMode": false,
+    "journalMode": false,
+    "darkTheme": false,
+    "currency": "USD",
+    "distanceUnits": "km",
+    "temperatureUnits": "C"
+  },
+  "progress": {
+    "flights": "Idea",
+    "accommodation": "Idea",
+    "transport": "Idea",
+    "activities": "Idea",
+    "budget": "Idea"
+  },
+  "statistics": {
+    "plannedNights": 4,
+    "plannedDays": 5,
+    "bookedEvents": 0,
+    "lockedEvents": 0,
+    "completedEvents": 0
+  },
+  "projectState": {
+    "lastOpened": "",
+    "lastSaved": "",
+    "currentDay": 1,
+    "selectedEvent": null,
+    "selectedDestination": null
+  }
+}

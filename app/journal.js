@@ -60,6 +60,12 @@ const Journal = {
 
     <div class="planner-buttons">
 
+        <button type="button" onclick="JournalExport.open()">
+
+            📥 Export Journal
+
+        </button>
+
         <button type="button" onclick="Router.navigate('dashboard')">
 
             ← Dashboard
@@ -256,29 +262,57 @@ const Journal = {
 
             <div class="research-list">
 
-                ${entry.photos.map((photo) => this.renderPhoto(photo)).join("") || "<p>No photos linked yet.</p>"}
+                ${entry.photos.map((photo) => this.renderPhoto(photo)).join("") || "<p>No photos yet.</p>"}
 
             </div>
 
-            <div class="form-grid">
+            <div id="jrn-upload-status" class="form-hint"></div>
 
-                <label class="form-field">
-                    Photo Link (URL)
-                    <input type="text" id="jrn-new-photo-url" placeholder="https://...">
-                </label>
+            <div class="planner-buttons">
 
-                <label class="form-field">
-                    Caption
-                    <input type="text" id="jrn-new-photo-caption" placeholder="e.g. Sunset over the lake">
-                </label>
+                <button type="button" onclick="Journal.triggerCapture(${day.day})">
+
+                    📷 Take Photo
+
+                </button>
+
+                <button type="button" onclick="Journal.triggerLibrary(${day.day})">
+
+                    🖼 Choose from Library
+
+                </button>
 
             </div>
 
-            <button type="button" onclick="Journal.addPhoto(${day.day})">
+            <input type="file" id="jrn-camera-input" accept="image/*" capture="environment" style="display:none" onchange="Journal.handleFileSelected(${day.day}, this)">
 
-                + Add Photo Link
+            <input type="file" id="jrn-library-input" accept="image/*" style="display:none" onchange="Journal.handleFileSelected(${day.day}, this)">
 
-            </button>
+            <details style="margin-top: 14px;">
+
+                <summary>Add a photo by link instead</summary>
+
+                <div class="form-grid" style="margin-top: 10px;">
+
+                    <label class="form-field">
+                        Photo Link (URL)
+                        <input type="text" id="jrn-new-photo-url" placeholder="https://...">
+                    </label>
+
+                    <label class="form-field">
+                        Caption
+                        <input type="text" id="jrn-new-photo-caption" placeholder="e.g. Sunset over the lake">
+                    </label>
+
+                </div>
+
+                <button type="button" onclick="Journal.addPhoto(${day.day})">
+
+                    + Add Photo Link
+
+                </button>
+
+            </details>
 
         </div>
 
@@ -337,17 +371,21 @@ const Journal = {
   },
 
   renderPhoto(photo) {
+    const isUpload = String(photo.url || "").startsWith("data/projects/");
+
     return `
 
 <div class="research-item">
 
+    ${isUpload ? `<img src="${this.esc(photo.url)}" alt="${this.esc(photo.caption)}" style="width:100%;border-radius:8px;margin-bottom:8px;">` : ""}
+
     <strong>${this.esc(photo.caption) || "Untitled"}</strong>
 
-    <p>${this.esc(photo.url)}</p>
+    ${isUpload ? "" : `<p>${this.esc(photo.url)}</p>`}
 
     <div class="research-actions">
 
-        <a class="map-btn" href="${this.esc(photo.url)}" target="_blank" rel="noopener">Open Link</a>
+        <a class="map-btn" href="${this.esc(photo.url)}" target="_blank" rel="noopener">${isUpload ? "Open Full Size" : "Open Link"}</a>
 
         <button type="button" onclick="Journal.removePhoto('${photo.id}')">
 
@@ -381,61 +419,102 @@ const Journal = {
   },
 
   addChecklistItem(dayNumber) {
-    const text = document.getElementById("jrn-new-checklist").value.trim();
+    const input = document.getElementById("jrn-new-checklist");
+
+    const text = input.value.trim();
 
     if (!text) {
       return;
     }
 
-    const result = this.ensureEntry(dayNumber);
+    input.disabled = true;
 
-    if (!result) {
-      return;
-    }
+    fetch(`/api/journal/${Data.currentProjectFolder}/${dayNumber}/checklist`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Save failed with status ${response.status}`);
+        }
 
-    result.entry.checklist.push({
-      id: `CHK-${Date.now()}`,
-      text,
-      checked: false,
-    });
+        return response.json();
+      })
+      .then((result) => {
+        this.syncEntryLocally(dayNumber, result.entry);
 
-    Project.update("journal", result.data);
+        this.openDay(dayNumber);
+      })
+      .catch((error) => {
+        console.error("Could not add checklist item:", error);
 
-    this.openDay(dayNumber);
+        alert("Couldn't save that checklist item. Check the connection and try again.");
+
+        input.disabled = false;
+      });
   },
 
   toggleChecklistItem(id, checked) {
-    const data = Project.get("journal");
+    const dayNumber = this.currentDay.day;
 
-    if (!data || !Array.isArray(data.entries)) {
-      return;
-    }
+    fetch(`/api/journal/${Data.currentProjectFolder}/${dayNumber}/checklist/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ checked }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Save failed with status ${response.status}`);
+        }
 
-    data.entries.forEach((entry) => {
-      const item = entry.checklist.find((i) => i.id === id);
+        // Keep the in-memory copy in sync so other reads (e.g. Day panel
+        // summaries) reflect this without needing a full page reload.
+        const data = Project.get("journal");
 
-      if (item) {
-        item.checked = checked;
-      }
-    });
+        const entry = data && data.entries.find((e) => e.day === dayNumber);
 
-    Project.update("journal", data);
+        const item = entry && entry.checklist.find((i) => i.id === id);
+
+        if (item) {
+          item.checked = checked;
+        }
+      })
+      .catch((error) => {
+        console.error("Could not update checklist item:", error);
+
+        alert("Couldn't save that change. Check the connection and try again.");
+
+        this.openDay(dayNumber);
+      });
   },
 
   removeChecklistItem(id) {
-    const data = Project.get("journal");
+    const dayNumber = this.currentDay.day;
 
-    if (!data || !Array.isArray(data.entries)) {
-      return;
-    }
+    fetch(`/api/journal/${Data.currentProjectFolder}/${dayNumber}/checklist/${id}`, {
+      method: "DELETE",
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Remove failed with status ${response.status}`);
+        }
 
-    data.entries.forEach((entry) => {
-      entry.checklist = entry.checklist.filter((i) => i.id !== id);
-    });
+        const data = Project.get("journal");
 
-    Project.update("journal", data);
+        const entry = data && data.entries.find((e) => e.day === dayNumber);
 
-    this.openDay(this.currentDay.day);
+        if (entry) {
+          entry.checklist = entry.checklist.filter((i) => i.id !== id);
+        }
+
+        this.openDay(dayNumber);
+      })
+      .catch((error) => {
+        console.error("Could not remove checklist item:", error);
+
+        alert("Couldn't remove that item. Check the connection and try again.");
+      });
   },
 
   addPhoto(dayNumber) {
@@ -448,37 +527,211 @@ const Journal = {
       return;
     }
 
-    const result = this.ensureEntry(dayNumber);
+    fetch(`/api/journal/${Data.currentProjectFolder}/${dayNumber}/photo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, caption }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Save failed with status ${response.status}`);
+        }
 
-    if (!result) {
+        return response.json();
+      })
+      .then((result) => {
+        this.syncEntryLocally(dayNumber, result.entry);
+
+        this.openDay(dayNumber);
+      })
+      .catch((error) => {
+        console.error("Could not add photo link:", error);
+
+        alert("Couldn't save that photo link. Check the connection and try again.");
+      });
+  },
+
+  syncEntryLocally(dayNumber, entry) {
+    const data = Project.get("journal");
+
+    if (!data || !Array.isArray(data.entries) || !entry) {
       return;
     }
 
-    result.entry.photos.push({
-      id: `PHT-${Date.now()}`,
-      url,
-      caption,
+    const index = data.entries.findIndex((e) => e.day === dayNumber);
+
+    if (index === -1) {
+      data.entries.push(entry);
+    } else {
+      data.entries[index] = entry;
+    }
+  },
+
+  triggerCapture(dayNumber) {
+    this.pendingDay = dayNumber;
+
+    document.getElementById("jrn-camera-input").click();
+  },
+
+  triggerLibrary(dayNumber) {
+    this.pendingDay = dayNumber;
+
+    document.getElementById("jrn-library-input").click();
+  },
+
+  async handleFileSelected(dayNumber, inputEl) {
+    const file = inputEl.files && inputEl.files[0];
+
+    inputEl.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    const statusEl = document.getElementById("jrn-upload-status");
+
+    if (statusEl) {
+      statusEl.textContent = "Processing photo...";
+    }
+
+    try {
+      const resizedDataUrl = await this.resizeImage(file, 1600, 0.8);
+
+      if (statusEl) {
+        statusEl.textContent = "Uploading...";
+      }
+
+      const url = await this.uploadPhoto(resizedDataUrl);
+
+      const caption = this.autoCaption(file);
+
+      const addResponse = await fetch(`/api/journal/${Data.currentProjectFolder}/${dayNumber}/photo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, caption }),
+      });
+
+      if (!addResponse.ok) {
+        throw new Error(`Save failed with status ${addResponse.status}`);
+      }
+
+      const result = await addResponse.json();
+
+      this.syncEntryLocally(dayNumber, result.entry);
+
+      if (statusEl) {
+        statusEl.textContent = "";
+      }
+
+      this.openDay(dayNumber);
+    } catch (error) {
+      console.error("Photo upload failed:", error);
+
+      if (statusEl) {
+        statusEl.textContent = "Upload failed - is the server running?";
+      }
+
+      alert("Couldn't upload that photo. Check the connection and try again.");
+    }
+  },
+
+  resizeImage(file, maxDimension, quality) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onerror = () => reject(new Error("Could not read file."));
+
+      reader.onload = () => {
+        const img = new Image();
+
+        img.onerror = () => reject(new Error("Could not decode image."));
+
+        img.onload = () => {
+          let { width, height } = img;
+
+          if (width > maxDimension || height > maxDimension) {
+            if (width >= height) {
+              height = Math.round((height / width) * maxDimension);
+              width = maxDimension;
+            } else {
+              width = Math.round((width / height) * maxDimension);
+              height = maxDimension;
+            }
+          }
+
+          const canvas = document.createElement("canvas");
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext("2d");
+
+          ctx.drawImage(img, 0, 0, width, height);
+
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        };
+
+        img.src = reader.result;
+      };
+
+      reader.readAsDataURL(file);
+    });
+  },
+
+  async uploadPhoto(dataUrl) {
+    const response = await fetch(`/api/upload/${Data.currentProjectFolder}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dataUrl }),
     });
 
-    Project.update("journal", result.data);
+    if (!response.ok) {
+      throw new Error(`Upload failed with status ${response.status}`);
+    }
 
-    this.openDay(dayNumber);
+    const result = await response.json();
+
+    return result.url;
+  },
+
+  autoCaption(file) {
+    const timestamp = file.lastModified ? new Date(file.lastModified) : new Date();
+
+    const formatted = timestamp.toLocaleDateString(undefined, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+
+    return `Photo - ${formatted}`;
   },
 
   removePhoto(id) {
-    const data = Project.get("journal");
+    const dayNumber = this.currentDay.day;
 
-    if (!data || !Array.isArray(data.entries)) {
-      return;
-    }
+    fetch(`/api/journal/${Data.currentProjectFolder}/${dayNumber}/photo/${id}`, {
+      method: "DELETE",
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Remove failed with status ${response.status}`);
+        }
 
-    data.entries.forEach((entry) => {
-      entry.photos = entry.photos.filter((p) => p.id !== id);
-    });
+        const data = Project.get("journal");
 
-    Project.update("journal", data);
+        const entry = data && data.entries.find((e) => e.day === dayNumber);
 
-    this.openDay(this.currentDay.day);
+        if (entry) {
+          entry.photos = entry.photos.filter((p) => p.id !== id);
+        }
+
+        this.openDay(dayNumber);
+      })
+      .catch((error) => {
+        console.error("Could not remove photo:", error);
+
+        alert("Couldn't remove that photo. Check the connection and try again.");
+      });
   },
 
   save(dayNumber) {

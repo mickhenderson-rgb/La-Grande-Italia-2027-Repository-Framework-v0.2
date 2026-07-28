@@ -5,7 +5,10 @@
     {
       "id": "ACT-0001",
       "destination": "destination-b",
-      "dayRange": [1, 1],
+      "dayRange": [
+        1,
+        1
+      ],
       "type": "activity",
       "name": "Sample Activity 1",
       "category": "Tour",
@@ -46,7 +49,10 @@
     {
       "id": "ACT-0002",
       "destination": "destination-b",
-      "dayRange": [1, 1],
+      "dayRange": [
+        1,
+        1
+      ],
       "type": "activity",
       "name": "Sample Activity 2",
       "category": "Tour",

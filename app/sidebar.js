@@ -120,6 +120,10 @@ const Sidebar = {
 
     <div class="sidebar-footer">
 
+        <div id="save-status" class="save-status">Ready</div>
+
+        <a href="#" class="switch-trip-link" onclick="Landing.open(); return false;">Switch Trip</a>
+
         Version 1.0
 
     </div>

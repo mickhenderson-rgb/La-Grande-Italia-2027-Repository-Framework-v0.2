@@ -157,10 +157,7 @@ const Budget = {
   },
 
   sumPrices(data) {
-    return this.getItems(data).reduce(
-      (sum, item) => sum + (item.price?.amount || 0),
-      0,
-    );
+    return this.getItems(data).reduce((sum, item) => sum + (item.price?.amount || 0), 0);
   },
 
   renderCategory(title, estimate, actualAmount, currency) {
@@ -168,12 +165,7 @@ const Budget = {
 
     const high = estimate.high || 0;
 
-    const status =
-      actualAmount > high
-        ? "Over Estimate"
-        : actualAmount >= low
-          ? "Within Range"
-          : "Under Estimate";
+    const status = actualAmount > high ? "Over Estimate" : actualAmount >= low ? "Within Range" : "Under Estimate";
 
     return `
 
@@ -416,14 +408,7 @@ ${items}
         <div class="form-grid">
 
             ${Object.entries(budget.categories.transport)
-              .map(([key, val]) =>
-                this.rangeFields(
-                  `bgt-transport-${key}`,
-                  val.low,
-                  val.high,
-                  this.pretty(key),
-                ),
-              )
+              .map(([key, val]) => this.rangeFields(`bgt-transport-${key}`, val.low, val.high, this.pretty(key)))
               .join("")}
 
         </div>
@@ -486,8 +471,7 @@ ${items}
       return;
     }
 
-    budget.currency =
-      document.getElementById("bgt-currency").value.trim() || "EUR";
+    budget.currency = document.getElementById("bgt-currency").value.trim() || "EUR";
 
     const overall = this.readRange("bgt-overall");
 

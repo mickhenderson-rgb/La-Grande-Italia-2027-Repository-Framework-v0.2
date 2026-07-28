@@ -4,11 +4,20 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <title>La Grande Italia 2027 — The Henderson Grand Tour</title>
+    <title>COMPASS-TOS — Travel Operating System</title>
     <meta
       name="description"
-      content="Browser-based travel guide and planning dashboard for La Grande Italia 2027."
+      content="Browser-based travel guide and planning dashboard."
     />
+
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="theme-color" content="#243447" />
+    <link rel="icon" href="assets/icons/icon-192.png" type="image/png" />
+    <link rel="apple-touch-icon" href="assets/icons/icon-192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="COMPASS-TOS" />
+
     <link rel="stylesheet" href="assets/css/core.css" />
     <link rel="stylesheet" href="assets/css/layout.css" />
     <link rel="stylesheet" href="assets/css/components.css" />
@@ -369,6 +378,8 @@
 
     <script src="app/data.js"></script>
 
+    <script src="app/landing.js"></script>
+
     <script src="app/dates.js"></script>
 
     <script src="app/journey-editor.js"></script>
@@ -396,6 +407,8 @@
     <script src="app/budget.js"></script>
 
     <script src="app/journal.js"></script>
+
+    <script src="app/journal-export.js"></script>
 
     <script src="app/flights.js"></script>
 
@@ -461,6 +474,15 @@ Theme initialisation has moved to the Application Core.
 
 This block is intentionally disabled.
 */
+    </script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("/service-worker.js").catch((error) => {
+            console.warn("Service worker registration failed:", error);
+          });
+        });
+      }
     </script>
   </body>
 </html>

@@ -381,15 +381,9 @@ const Planner = {
   saveNewDay(afterDayNumber) {
     const title = document.getElementById("pln-new-title").value.trim();
 
-    const location = document
-      .getElementById("pln-new-location")
-      .value.trim()
-      .toLowerCase();
+    const location = document.getElementById("pln-new-location").value.trim().toLowerCase();
 
-    const overnight = document
-      .getElementById("pln-new-overnight")
-      .value.trim()
-      .toLowerCase();
+    const overnight = document.getElementById("pln-new-overnight").value.trim().toLowerCase();
 
     if (!title || !location) {
       alert("Please enter at least a title and location before saving.");

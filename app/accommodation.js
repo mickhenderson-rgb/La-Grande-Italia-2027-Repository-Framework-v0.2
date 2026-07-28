@@ -493,9 +493,7 @@ ${selected ? selected.planning.notes : ""}
     }
 
     data.items.forEach((item) => {
-      if (
-        String(item.destination || "").toLowerCase() !== this.currentDestination
-      ) {
+      if (String(item.destination || "").toLowerCase() !== this.currentDestination) {
         return;
       }
 
@@ -563,12 +561,7 @@ ${selected ? selected.planning.notes : ""}
       website: "",
       bookingReference: "",
       price: { amount: 0, currency: "EUR", per: "night" },
-      location: {
-        locationId: "",
-        address: "",
-        latitude: null,
-        longitude: null,
-      },
+      location: { locationId: "", address: "", latitude: null, longitude: null },
       features: {
         parking: false,
         breakfast: false,
@@ -739,7 +732,7 @@ ${selected ? selected.planning.notes : ""}
 
         </button>
 
-        <button type="button" onclick="${this.showAll ? "Accommodation.openAll()" : this.currentDay ? "Accommodation.open(Accommodation.currentDay)" : `Accommodation.openForDestination('${this.returnDestinationId}')`}">
+        <button type="button" onclick="${this.showAll ? 'Accommodation.openAll()' : this.currentDay ? 'Accommodation.open(Accommodation.currentDay)' : `Accommodation.openForDestination('${this.returnDestinationId}')`}">
 
             Cancel
 
@@ -753,14 +746,7 @@ ${selected ? selected.planning.notes : ""}
   },
 
   statusOptions(current) {
-    const statuses = [
-      "Research",
-      "Shortlisted",
-      "Selected",
-      "Booked",
-      "Travel",
-      "Review",
-    ];
+    const statuses = ["Research", "Shortlisted", "Selected", "Booked", "Travel", "Review"];
 
     return statuses
       .map(
@@ -826,10 +812,7 @@ ${selected ? selected.planning.notes : ""}
       return;
     }
 
-    const destination = document
-      .getElementById("acc-destination")
-      .value.trim()
-      .toLowerCase();
+    const destination = document.getElementById("acc-destination").value.trim().toLowerCase();
 
     if (!destination) {
       alert("Please enter a destination before saving.");
@@ -857,16 +840,12 @@ ${selected ? selected.planning.notes : ""}
     item.name = name;
     item.provider = document.getElementById("acc-provider").value.trim();
     item.website = document.getElementById("acc-website").value.trim();
-    item.bookingReference = document
-      .getElementById("acc-reference")
-      .value.trim();
+    item.bookingReference = document.getElementById("acc-reference").value.trim();
     item.status = document.getElementById("acc-status").value;
 
     item.price = {
-      amount:
-        parseFloat(document.getElementById("acc-price-amount").value) || 0,
-      currency:
-        document.getElementById("acc-price-currency").value.trim() || "EUR",
+      amount: parseFloat(document.getElementById("acc-price-amount").value) || 0,
+      currency: document.getElementById("acc-price-currency").value.trim() || "EUR",
       per: document.getElementById("acc-price-per").value,
     };
 

@@ -19,14 +19,7 @@ const Restaurants = {
 
   returnDestinationId: null,
 
-  workflow: [
-    "Research",
-    "Shortlisted",
-    "Selected",
-    "Booked",
-    "Travel",
-    "Review",
-  ],
+  workflow: ["Research", "Shortlisted", "Selected", "Booked", "Travel", "Review"],
 
   cuisines: [
     "Italian",
@@ -162,9 +155,7 @@ const Restaurants = {
   },
 
   renderBooked(items) {
-    const booked = items.filter(
-      (item) => item.status === "Booked" || item.status === "Travel",
-    );
+    const booked = items.filter((item) => item.status === "Booked" || item.status === "Travel");
 
     if (booked.length === 0) {
       return `
@@ -298,9 +289,7 @@ Research List
   },
 
   renderItem(item) {
-    const priceLevel = item.priceLevel
-      ? "€".repeat(item.priceLevel)
-      : "Price not entered";
+    const priceLevel = item.priceLevel ? "€".repeat(item.priceLevel) : "Price not entered";
 
     const nextStage = this.nextStage(item.status);
 
@@ -504,12 +493,7 @@ ${rows}
       price: { amount: 0, currency: "EUR" },
       website: "",
       bookingReference: "",
-      location: {
-        locationId: "",
-        address: "",
-        latitude: null,
-        longitude: null,
-      },
+      location: { locationId: "", address: "", latitude: null, longitude: null },
       reservation: { date: "", time: "", partySize: 2 },
       planning: { priority: "Medium", notes: "", pros: [], cons: [] },
       actual: { paid: false, attended: false, rating: null, review: "" },
@@ -656,10 +640,7 @@ ${rows}
 
   cuisineOptions(current) {
     return this.cuisines
-      .map(
-        (c) =>
-          `<option value="${c}" ${c === current ? "selected" : ""}>${c}</option>`,
-      )
+      .map((c) => `<option value="${c}" ${c === current ? "selected" : ""}>${c}</option>`)
       .join("");
   },
 
@@ -724,19 +705,14 @@ ${rows}
 
     item.name = name;
     item.cuisine = document.getElementById("rst-cuisine").value;
-    item.priceLevel =
-      parseInt(document.getElementById("rst-price-level").value, 10) || 1;
+    item.priceLevel = parseInt(document.getElementById("rst-price-level").value, 10) || 1;
 
     item.price = {
-      amount:
-        parseFloat(document.getElementById("rst-price-amount").value) || 0,
-      currency:
-        document.getElementById("rst-price-currency").value.trim() || "EUR",
+      amount: parseFloat(document.getElementById("rst-price-amount").value) || 0,
+      currency: document.getElementById("rst-price-currency").value.trim() || "EUR",
     };
     item.website = document.getElementById("rst-website").value.trim();
-    item.bookingReference = document
-      .getElementById("rst-reference")
-      .value.trim();
+    item.bookingReference = document.getElementById("rst-reference").value.trim();
     item.status = document.getElementById("rst-status").value;
 
     item.location = item.location || {};
@@ -745,8 +721,7 @@ ${rows}
     item.reservation = {
       date: document.getElementById("rst-res-date").value,
       time: document.getElementById("rst-res-time").value,
-      partySize:
-        parseInt(document.getElementById("rst-party-size").value, 10) || 1,
+      partySize: parseInt(document.getElementById("rst-party-size").value, 10) || 1,
     };
 
     item.planning = {

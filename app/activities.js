@@ -19,14 +19,7 @@ const Activities = {
 
   returnDestinationId: null,
 
-  workflow: [
-    "Research",
-    "Shortlisted",
-    "Selected",
-    "Booked",
-    "Travel",
-    "Review",
-  ],
+  workflow: ["Research", "Shortlisted", "Selected", "Booked", "Travel", "Review"],
 
   open(day) {
     this.currentDay = day;
@@ -151,9 +144,7 @@ const Activities = {
   },
 
   renderBooked(items) {
-    const booked = items.filter(
-      (item) => item.status === "Booked" || item.status === "Travel",
-    );
+    const booked = items.filter((item) => item.status === "Booked" || item.status === "Travel");
 
     if (booked.length === 0) {
       return `
@@ -494,12 +485,7 @@ ${rows}
       website: "",
       bookingReference: "",
       price: { amount: 0, currency: "EUR", per: "person" },
-      location: {
-        locationId: "",
-        address: "",
-        latitude: null,
-        longitude: null,
-      },
+      location: { locationId: "", address: "", latitude: null, longitude: null },
       schedule: { date: "", time: "", durationMinutes: 0 },
       planning: { priority: "High", notes: "", pros: [], cons: [] },
       actual: { paid: false, attended: false, rating: null, review: "" },
@@ -713,16 +699,12 @@ ${rows}
     item.category = document.getElementById("act-category").value.trim();
     item.provider = document.getElementById("act-provider").value.trim();
     item.website = document.getElementById("act-website").value.trim();
-    item.bookingReference = document
-      .getElementById("act-reference")
-      .value.trim();
+    item.bookingReference = document.getElementById("act-reference").value.trim();
     item.status = document.getElementById("act-status").value;
 
     item.price = {
-      amount:
-        parseFloat(document.getElementById("act-price-amount").value) || 0,
-      currency:
-        document.getElementById("act-price-currency").value.trim() || "EUR",
+      amount: parseFloat(document.getElementById("act-price-amount").value) || 0,
+      currency: document.getElementById("act-price-currency").value.trim() || "EUR",
       per: document.getElementById("act-price-per").value,
     };
 
@@ -732,8 +714,7 @@ ${rows}
     item.schedule = {
       date: document.getElementById("act-date").value,
       time: document.getElementById("act-time").value,
-      durationMinutes:
-        parseInt(document.getElementById("act-duration").value, 10) || 0,
+      durationMinutes: parseInt(document.getElementById("act-duration").value, 10) || 0,
     };
 
     item.planning = {
