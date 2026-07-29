@@ -1,0 +1,33 @@
+{
+  "legs": [
+    {
+      "from": "Destination A",
+      "to": "Destination B",
+
+      "distance_km": 300,
+
+      "drive_hours": 4,
+
+      "fuel_estimate_usd": 45,
+
+      "tolls_usd": 25,
+
+      "recommended_departure": "10:00",
+
+      "arrival_target": "15:00",
+
+      "coffee_stop": "Sample rest stop",
+
+      "lunch": "Sample roadside café"
+    },
+
+    {
+      "from": "Destination B",
+      "to": "Destination C",
+
+      "distance_km": 250,
+
+      "drive_hours": 3.5
+    }
+  ]
+}

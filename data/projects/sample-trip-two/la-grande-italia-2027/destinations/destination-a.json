@@ -1,0 +1,48 @@
+{
+  "id": "destination-a",
+
+  "name": "Destination A",
+
+  "country": "Testland",
+
+  "region": "Sample Region",
+
+  "recommendedNights": 2,
+
+  "coordinates": {
+    "latitude": null,
+    "longitude": null
+  },
+
+  "status": "Planning",
+
+  "overview": {
+    "summary": "Sample placeholder destination for testing.",
+
+    "walkingFriendly": true,
+
+    "carRequired": false
+  },
+
+  "planning": {
+    "accommodationStatus": "Research",
+
+    "restaurantStatus": "Research",
+
+    "activityStatus": "Research"
+  },
+
+  "sections": {
+    "accommodation": [],
+
+    "restaurants": [],
+
+    "activities": [],
+
+    "parking": [],
+
+    "shopping": [],
+
+    "notes": []
+  }
+}

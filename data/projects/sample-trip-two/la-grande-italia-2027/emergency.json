@@ -1,0 +1,15 @@
+{
+  "Country A": {
+    "Emergency": "100",
+    "Police": "101",
+    "Ambulance": "102"
+  },
+  "Country B": {
+    "Emergency": "100",
+    "Police": "103",
+    "Ambulance": "104"
+  },
+  "Home Embassy": {
+    "website": "https://example.gov/embassy"
+  }
+}

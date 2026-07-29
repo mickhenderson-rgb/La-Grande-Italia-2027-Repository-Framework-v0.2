@@ -1,0 +1,91 @@
+{
+  "events": [
+    {
+      "id": "EVT-0001",
+
+      "type": "flight",
+
+      "status": "idea",
+
+      "locked": false,
+
+      "planned": {
+        "date": "2027-01-01",
+        "time": "",
+        "location": "Origin Airport"
+      },
+
+      "actual": {},
+
+      "details": {
+        "title": "Flight 1: Origin to Destination A",
+        "description": "",
+        "provider": "",
+        "bookingReference": "",
+        "cost": 0,
+        "currency": "USD"
+      },
+
+      "dependencies": [],
+
+      "notes": ""
+    },
+
+    {
+      "id": "EVT-0002",
+
+      "type": "accommodation",
+
+      "status": "research",
+
+      "locked": false,
+
+      "planned": {
+        "date": "2027-01-02",
+        "location": "Destination A"
+      },
+
+      "actual": {},
+
+      "details": {
+        "title": "Accommodation - Destination A",
+        "provider": "",
+        "bookingReference": "",
+        "cost": 0,
+        "currency": "USD"
+      },
+
+      "dependencies": ["EVT-0001"],
+
+      "notes": ""
+    },
+
+    {
+      "id": "EVT-0003",
+
+      "type": "transport",
+
+      "status": "planned",
+
+      "locked": false,
+
+      "planned": {
+        "date": "2027-01-03",
+        "location": "Destination A"
+      },
+
+      "actual": {},
+
+      "details": {
+        "title": "Sample Transport Leg",
+        "transportMode": "car",
+        "startLocation": "destination-a",
+        "endLocation": "destination-a"
+      },
+
+      "dependencies": ["EVT-0002"],
+
+      "notes": ""
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "currency": "USD",
+  "estimate_low": 1500,
+  "estimate_high": 2200,
+  "categories": {
+    "accommodation": {
+      "low": 600,
+      "high": 900
+    },
+    "transport": {
+      "car_hire": {
+        "low": 200,
+        "high": 350
+      },
+      "train": {
+        "low": 50,
+        "high": 100
+      },
+      "ferry": {
+        "low": 0,
+        "high": 0
+      },
+      "fuel_tolls_parking": {
+        "low": 50,
+        "high": 100
+      }
+    },
+    "food": {
+      "low": 400,
+      "high": 600
+    },
+    "activities": {
+      "low": 150,
+      "high": 250
+    },
+    "contingency": {
+      "low": 100,
+      "high": 150
+    }
+  },
+  "notes": [
+    "Placeholder budget for testing.",
+    "Budget should be updated as bookings are entered."
+  ]
+}

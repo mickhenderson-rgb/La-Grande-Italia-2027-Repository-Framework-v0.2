@@ -1,0 +1,95 @@
+{
+  "project": {
+    "id": "sample-trip",
+
+    "name": "Sample Trip",
+
+    "subtitle": "Test Itinerary",
+
+    "status": "Planning",
+
+    "version": "1.0",
+
+    "created": "2027-01-01",
+
+    "departureDate": "2027-01-01",
+
+    "returnDate": "2027-01-05",
+
+    "homeCountry": "Testland",
+
+    "currency": "USD",
+
+    "language": "English",
+
+    "travellers": [
+      {
+        "id": 1,
+        "name": "Traveller 1",
+        "role": "Primary"
+      },
+      {
+        "id": 2,
+        "name": "Traveller 2",
+        "role": "Adult"
+      },
+      {
+        "id": 3,
+        "name": "Traveller 3",
+        "role": "Adult"
+      }
+    ]
+  },
+
+  "settings": {
+    "planningMode": true,
+
+    "travelMode": false,
+
+    "journalMode": false,
+
+    "darkTheme": false,
+
+    "currency": "USD",
+
+    "distanceUnits": "km",
+
+    "temperatureUnits": "C"
+  },
+
+  "progress": {
+    "flights": "Idea",
+
+    "accommodation": "Research",
+
+    "transport": "Research",
+
+    "activities": "Research",
+
+    "budget": "Planning"
+  },
+
+  "statistics": {
+    "plannedNights": 4,
+
+    "plannedDays": 5,
+
+    "bookedEvents": 0,
+
+    "lockedEvents": 0,
+
+    "completedEvents": 0
+  },
+
+  "projectState": {
+    "lastOpened": "",
+
+    "lastSaved": "",
+
+    "currentDay": 1,
+
+    "selectedEvent": null,
+
+    "selectedDestination": null
+  }
+}

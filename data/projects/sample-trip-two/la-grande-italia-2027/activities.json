@@ -1,0 +1,94 @@
+{
+  "version": "2.0",
+  "schema": "planning-item",
+  "items": [
+    {
+      "id": "ACT-0001",
+      "destination": "destination-b",
+      "dayRange": [
+        1,
+        1
+      ],
+      "type": "activity",
+      "name": "Sample Activity 1",
+      "category": "Tour",
+      "status": "Research",
+      "locked": false,
+      "provider": "Sample Tour Co",
+      "website": "",
+      "bookingReference": "",
+      "price": {
+        "amount": 40,
+        "currency": "USD",
+        "per": "person"
+      },
+      "location": {
+        "locationId": "",
+        "address": "Sample Location, Destination B",
+        "latitude": null,
+        "longitude": null
+      },
+      "schedule": {
+        "date": "",
+        "time": "",
+        "durationMinutes": 90
+      },
+      "planning": {
+        "priority": "Medium",
+        "notes": "Placeholder activity for testing. Destination B does not exist in the journey yet - useful for testing cross-referencing.",
+        "pros": [],
+        "cons": []
+      },
+      "actual": {
+        "paid": false,
+        "attended": false,
+        "rating": null,
+        "review": ""
+      }
+    },
+    {
+      "id": "ACT-0002",
+      "destination": "destination-b",
+      "dayRange": [
+        1,
+        1
+      ],
+      "type": "activity",
+      "name": "Sample Activity 2",
+      "category": "Tour",
+      "status": "Research",
+      "locked": false,
+      "provider": "Sample Tour Co",
+      "website": "",
+      "bookingReference": "",
+      "price": {
+        "amount": 25,
+        "currency": "USD",
+        "per": "person"
+      },
+      "location": {
+        "locationId": "",
+        "address": "Sample Location, Destination B",
+        "latitude": null,
+        "longitude": null
+      },
+      "schedule": {
+        "date": "",
+        "time": "",
+        "durationMinutes": 60
+      },
+      "planning": {
+        "priority": "Medium",
+        "notes": "Placeholder activity for testing.",
+        "pros": [],
+        "cons": []
+      },
+      "actual": {
+        "paid": false,
+        "attended": false,
+        "rating": null,
+        "review": ""
+      }
+    }
+  ]
+}

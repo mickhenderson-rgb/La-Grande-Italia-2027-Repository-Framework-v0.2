@@ -1,0 +1,62 @@
+{
+  "departure_day": [
+
+    "Passports",
+
+    "Travel Insurance",
+
+    "Wallet",
+
+    "Phone",
+
+    "Powerbank",
+
+    "Chargers",
+
+    "Camera",
+
+    "Medication",
+
+    "Travel Folder"
+
+  ],
+
+  "departure_hotel":[
+
+    "Passport",
+
+    "Wallet",
+
+    "Phone",
+
+    "Camera",
+
+    "Chargers",
+
+    "Check Bathroom",
+
+    "Check Safe",
+
+    "Return Key"
+
+  ],
+
+  "hire_car":[
+
+    "Photograph vehicle",
+
+    "Fuel level",
+
+    "Tyres",
+
+    "Damage",
+
+    "Navigation",
+
+    "Water",
+
+    "Phone charger"
+
+  ]
+
+}

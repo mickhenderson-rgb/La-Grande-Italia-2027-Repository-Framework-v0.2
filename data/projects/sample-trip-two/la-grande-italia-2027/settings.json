@@ -1,0 +1,19 @@
+{
+  "offline": true,
+
+  "dark_mode": true,
+
+  "print_mode": true,
+
+  "weather": false,
+
+  "exchange_rates": false,
+
+  "expense_tracker": true,
+
+  "booking_tracker": true,
+
+  "google_maps": true,
+
+  "search": true
+}

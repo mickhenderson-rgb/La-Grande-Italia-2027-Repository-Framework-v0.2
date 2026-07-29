@@ -1,0 +1,20 @@
+{
+  "Destination A": {
+    "average_high": 25,
+    "average_low": 15,
+    "sunrise": "06:30",
+    "sunset": "20:00"
+  },
+
+  "Destination B": {
+    "average_high": 22,
+    "average_low": 12,
+    "sunrise": "06:35",
+    "sunset": "20:10"
+  },
+
+  "Destination C": {
+    "average_high": 20,
+    "average_low": 10
+  }
+}

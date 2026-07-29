@@ -1,0 +1,29 @@
+{
+  "today":{
+
+    "fuel":false,
+
+    "cash":false,
+
+    "camera":false,
+
+    "chargers":false,
+
+    "parking_paid":false,
+
+    "groceries":false
+
+  },
+
+  "hotel_checkout":{
+
+    "bathroom":false,
+
+    "safe":false,
+
+    "passport":false,
+
+    "chargers":false
+
+  }
+}
