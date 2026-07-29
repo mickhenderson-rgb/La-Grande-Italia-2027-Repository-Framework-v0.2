@@ -11,9 +11,13 @@ Build 23
 
 Caching rules, deliberately conservative:
 
-- App shell (HTML/CSS/JS/icons): cache-first, so the app
-  itself can open offline. Falls back to network if not
-  yet cached.
+- App shell (HTML/CSS/JS/icons): stale-while-revalidate -
+  serves the cached copy immediately (fast, works offline),
+  but always fetches a fresh copy in the background and
+  updates the cache for next time. A pure cache-first
+  strategy was tried first but meant updates were NEVER
+  seen by a returning visitor until the cache name changed -
+  this fixes that while keeping offline support.
 
 - Trip data (data/projects/.../*.json): network-first,
   falling back to the last cached copy only if the network
@@ -28,7 +32,7 @@ Caching rules, deliberately conservative:
 =========================================================
 */
 
-const CACHE_NAME = "compass-tos-v1";
+const CACHE_NAME = "compass-tos-v2";
 
 const APP_SHELL = [
   "/",
@@ -86,29 +90,35 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  event.respondWith(cacheFirst(event.request));
+  event.respondWith(staleWhileRevalidate(event.request));
 });
 
-async function cacheFirst(request) {
+async function staleWhileRevalidate(request) {
   const cached = await caches.match(request);
 
+  const networkFetch = fetch(request)
+    .then(async (response) => {
+      if (response.ok) {
+        const cache = await caches.open(CACHE_NAME);
+
+        cache.put(request, response.clone());
+      }
+
+      return response;
+    })
+    .catch(() => null);
+
   if (cached) {
+    // Don't block on the network response, but let it update the cache
+    // in the background for next time.
+    networkFetch;
+
     return cached;
   }
 
-  try {
-    const response = await fetch(request);
+  const fresh = await networkFetch;
 
-    if (response.ok) {
-      const cache = await caches.open(CACHE_NAME);
-
-      cache.put(request, response.clone());
-    }
-
-    return response;
-  } catch (error) {
-    return cached || Response.error();
-  }
+  return fresh || Response.error();
 }
 
 async function networkFirst(request) {
