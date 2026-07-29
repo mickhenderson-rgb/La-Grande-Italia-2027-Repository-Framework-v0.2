@@ -355,6 +355,8 @@ const Journal = {
         ${this.esc(item.text)}
     </label>
 
+    ${item.addedBy ? `<p class="form-hint">Added by ${this.esc(item.addedBy)}</p>` : ""}
+
     <div class="research-actions">
 
         <button type="button" onclick="Journal.removeChecklistItem('${item.id}')">
@@ -382,6 +384,8 @@ const Journal = {
     <strong>${this.esc(photo.caption) || "Untitled"}</strong>
 
     ${isUpload ? "" : `<p>${this.esc(photo.url)}</p>`}
+
+    ${photo.addedBy ? `<p class="form-hint">Added by ${this.esc(photo.addedBy)}</p>` : ""}
 
     <div class="research-actions">
 

@@ -329,6 +329,7 @@ Research List
         Status:
         <span class="badge">${item.status}</span>
         ${item.selected ? '<span class="badge">Selected</span>' : ""}
+        ${item.addedBy ? `<span class="badge">Added by ${this.esc(item.addedBy)}</span>` : ""}
 
     </p>
 
@@ -553,6 +554,7 @@ ${selected ? selected.planning.notes : ""}
       destination: this.currentDestination,
       dayRange: [day.day || 1, day.day || 1],
       type: "accommodation",
+      addedBy: Project.currentUser || "",
       name: "",
       status: "Research",
       selected: false,

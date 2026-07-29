@@ -189,6 +189,7 @@ Logged Expenses
     <p>
 
         ${this.esc(item.date)}
+        ${item.addedBy ? `· <span class="badge">Logged by ${this.esc(item.addedBy)}</span>` : ""}
 
     </p>
 
@@ -320,6 +321,7 @@ ${rows}
     return {
       id: "",
       day: day.day || 1,
+      addedBy: Project.currentUser || "",
       category: "Food",
       description: "",
       amount: 0,

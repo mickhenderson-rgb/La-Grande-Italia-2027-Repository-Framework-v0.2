@@ -328,6 +328,7 @@ Research List
 
         Status:
         <span class="badge">${item.status}</span>
+        ${item.addedBy ? `<span class="badge">Added by ${this.esc(item.addedBy)}</span>` : ""}
 
     </p>
 
@@ -507,6 +508,7 @@ ${rows}
       id: "",
       day: day.day || 1,
       type: "transport",
+      addedBy: Project.currentUser || "",
       mode: "Drive",
       status: "Research",
       locked: false,

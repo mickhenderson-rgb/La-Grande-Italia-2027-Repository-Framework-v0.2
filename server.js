@@ -232,7 +232,12 @@ async function handleJournalPhotoAdd(req, res, projectId, day) {
 
     const entry = findOrCreateEntrySync(journal, day);
 
-    const photo = { id: newId("PHT"), url: body.url, caption: body.caption || "" };
+    const photo = {
+      id: newId("PHT"),
+      url: body.url,
+      caption: body.caption || "",
+      addedBy: req.authUser || "",
+    };
 
     entry.photos.push(photo);
 
@@ -296,7 +301,7 @@ async function handleJournalChecklistAdd(req, res, projectId, day) {
 
     const entry = findOrCreateEntrySync(journal, day);
 
-    const item = { id: newId("CHK"), text: body.text, checked: false };
+    const item = { id: newId("CHK"), text: body.text, checked: false, addedBy: req.authUser || "" };
 
     entry.checklist.push(item);
 
@@ -402,15 +407,31 @@ function serveStaticFile(req, res) {
   });
 }
 
-function isAuthorized(req) {
-  const user = process.env.AUTH_USER;
+function getConfiguredUsers() {
+  const users = [];
 
-  const pass = process.env.AUTH_PASS;
+  if (process.env.AUTH_USER && process.env.AUTH_PASS) {
+    users.push({ user: process.env.AUTH_USER, pass: process.env.AUTH_PASS });
+  }
 
-  if (!user || !pass) {
-    console.warn("[auth] AUTH_USER/AUTH_PASS not set - site is running with NO password protection.");
+  let i = 2;
 
-    return true;
+  while (process.env[`AUTH_USER_${i}`] && process.env[`AUTH_PASS_${i}`]) {
+    users.push({ user: process.env[`AUTH_USER_${i}`], pass: process.env[`AUTH_PASS_${i}`] });
+
+    i++;
+  }
+
+  return users;
+}
+
+function getAuthenticatedUser(req) {
+  const users = getConfiguredUsers();
+
+  if (users.length === 0) {
+    console.warn("[auth] No AUTH_USER/AUTH_PASS configured - site is running with NO password protection.");
+
+    return "anonymous";
   }
 
   const header = req.headers["authorization"] || "";
@@ -418,7 +439,7 @@ function isAuthorized(req) {
   const [scheme, encoded] = header.split(" ");
 
   if (scheme !== "Basic" || !encoded) {
-    return false;
+    return null;
   }
 
   const decoded = Buffer.from(encoded, "base64").toString("utf8");
@@ -429,7 +450,13 @@ function isAuthorized(req) {
 
   const providedPass = decoded.slice(separatorIndex + 1);
 
-  return providedUser === user && providedPass === pass;
+  const match = users.find((u) => u.user === providedUser && u.pass === providedPass);
+
+  return match ? match.user : null;
+}
+
+function isAuthorized(req) {
+  return !!getAuthenticatedUser(req);
 }
 
 function requireAuth(res) {
@@ -482,8 +509,16 @@ function handleProjectsList(req, res) {
 }
 
 const server = http.createServer(async (req, res) => {
-  if (!isAuthorized(req)) {
+  const authUser = getAuthenticatedUser(req);
+
+  if (!authUser) {
     return requireAuth(res);
+  }
+
+  req.authUser = authUser;
+
+  if (req.url.match(/^\/api\/whoami\/?(?:\?.*)?$/) && req.method === "GET") {
+    return sendJSON(res, 200, { user: authUser });
   }
 
   if (req.url.match(/^\/api\/projects\/?(?:\?.*)?$/) && req.method === "GET") {

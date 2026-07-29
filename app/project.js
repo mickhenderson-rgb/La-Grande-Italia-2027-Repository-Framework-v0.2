@@ -26,6 +26,8 @@ const Project = {
 
   persistenceEnabled: true,
 
+  currentUser: "",
+
   lastSaveStatus: "idle",
 
   data: {

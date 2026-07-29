@@ -319,6 +319,7 @@ Research List
 
         Status:
         <span class="badge">${item.status}</span>
+        ${item.addedBy ? `<span class="badge">Added by ${this.esc(item.addedBy)}</span>` : ""}
 
     </p>
 
@@ -485,6 +486,7 @@ ${rows}
       destination: this.currentDestination,
       dayRange: [day.day || 1, day.day || 1],
       type: "restaurant",
+      addedBy: Project.currentUser || "",
       name: "",
       cuisine: "",
       status: "Research",
