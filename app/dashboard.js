@@ -12,6 +12,12 @@ Sprint 1
 
 const Dashboard = {
   render() {
+    const projectData = Project.get("project");
+
+    const trip = (projectData && projectData.project) || {};
+
+    const budget = Project.get("budget");
+
     return `
 
 <div class="dashboard">
@@ -32,9 +38,11 @@ const Dashboard = {
 
         <h2>
 
-            La Grande Italia 2027
+            ${this.esc(trip.name || "Untitled Trip")}
 
         </h2>
+
+        ${trip.subtitle ? `<p class="subtitle">${this.esc(trip.subtitle)}</p>` : ""}
 
     </section>
 
@@ -46,7 +54,7 @@ const Dashboard = {
 
             <p id="departureDate">
 
-                23 August 2027
+                ${this.formatDate(trip.departureDate)}
 
             </p>
 
@@ -66,11 +74,11 @@ const Dashboard = {
 
         <div class="summary-card">
 
-            <h3>Current Budget</h3>
+            <h3>Budget Estimate</h3>
 
             <p>
 
-                A$31,482
+                ${this.renderBudgetSummary(budget)}
 
             </p>
 
@@ -82,7 +90,7 @@ const Dashboard = {
 
             <p>
 
-                Flights Pending
+                ${this.renderProgress(trip.progress)}
 
             </p>
 
@@ -97,12 +105,69 @@ const Dashboard = {
 `;
   },
 
+  renderBudgetSummary(budget) {
+    if (!budget || typeof budget.estimate_low !== "number") {
+      return "Not set";
+    }
+
+    const currency = budget.currency || "";
+
+    return `${currency} ${budget.estimate_low.toLocaleString()} - ${budget.estimate_high.toLocaleString()}`;
+  },
+
+  renderProgress(progress) {
+    if (!progress || !progress.flights) {
+      return "Not started";
+    }
+
+    return `Flights: ${progress.flights}`;
+  },
+
+  formatDate(dateString) {
+    if (!dateString) {
+      return "Not set";
+    }
+
+    const date = new Date(dateString + "T00:00:00Z");
+
+    if (isNaN(date.getTime())) {
+      return dateString;
+    }
+
+    return date.toLocaleDateString(undefined, {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+  },
+
+  esc(value) {
+    return String(value ?? "").replace(/"/g, "&quot;");
+  },
+
   initialise() {
     this.updateCountdown();
   },
 
   updateCountdown() {
-    const departure = new Date("2027-08-23");
+    const projectData = Project.get("project");
+
+    const trip = (projectData && projectData.project) || {};
+
+    const target = document.getElementById("countdown");
+
+    if (!target) {
+      return;
+    }
+
+    if (!trip.departureDate) {
+      target.textContent = "No date set";
+
+      return;
+    }
+
+    const departure = new Date(trip.departureDate + "T00:00:00Z");
 
     const today = new Date();
 
@@ -110,10 +175,6 @@ const Dashboard = {
 
     const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
 
-    const target = document.getElementById("countdown");
-
-    if (target) {
-      target.textContent = `${days} Days`;
-    }
+    target.textContent = days >= 0 ? `${days} Days` : `${Math.abs(days)} Days Ago`;
   },
 };
