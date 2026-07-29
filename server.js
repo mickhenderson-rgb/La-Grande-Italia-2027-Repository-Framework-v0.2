@@ -468,6 +468,211 @@ function requireAuth(res) {
   res.end("Authentication required.");
 }
 
+function slugify(value) {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+function daysBetweenInclusive(startDate, endDate) {
+  const start = new Date(startDate + "T00:00:00Z");
+
+  const end = new Date(endDate + "T00:00:00Z");
+
+  const diffMs = end.getTime() - start.getTime();
+
+  return Math.round(diffMs / (24 * 60 * 60 * 1000)) + 1;
+}
+
+function addDaysToDate(dateString, days) {
+  const date = new Date(dateString + "T00:00:00Z");
+
+  date.setUTCDate(date.getUTCDate() + days);
+
+  return date.toISOString().slice(0, 10);
+}
+
+const EMPTY_PLANNING_ITEM_SCHEMA = { version: "2.0", schema: "planning-item", items: [] };
+
+function buildProjectFiles(input) {
+  const totalDays = daysBetweenInclusive(input.startDate, input.endDate);
+
+  const journeyDays = [];
+
+  for (let i = 0; i < totalDays; i++) {
+    journeyDays.push({
+      day: i + 1,
+      date: addDaysToDate(input.startDate, i),
+      title: `Day ${i + 1}`,
+      location: "",
+      overnight: "",
+      locked: false,
+      items: [],
+    });
+  }
+
+  return {
+    "project.json": {
+      project: {
+        id: input.id,
+        name: input.name,
+        subtitle: input.subtitle || "",
+        status: "Planning",
+        version: "1.0",
+        created: new Date().toISOString().slice(0, 10),
+        departureDate: input.startDate,
+        returnDate: input.endDate,
+        homeCountry: input.homeCountry || "",
+        currency: input.currency || "USD",
+        language: "English",
+        travellers: [{ id: 1, name: "Traveller 1", role: "Primary" }],
+      },
+      settings: {
+        planningMode: true,
+        travelMode: false,
+        journalMode: false,
+        darkTheme: false,
+        currency: input.currency || "USD",
+        distanceUnits: "km",
+        temperatureUnits: "C",
+      },
+      progress: {
+        flights: "Idea",
+        accommodation: "Idea",
+        transport: "Idea",
+        activities: "Idea",
+        budget: "Idea",
+      },
+      statistics: {
+        plannedNights: Math.max(totalDays - 1, 0),
+        plannedDays: totalDays,
+        bookedEvents: 0,
+        lockedEvents: 0,
+        completedEvents: 0,
+      },
+      projectState: {
+        lastOpened: "",
+        lastSaved: "",
+        currentDay: 1,
+        selectedEvent: null,
+        selectedDestination: null,
+      },
+    },
+
+    "journey.json": { version: "1.0", days: journeyDays },
+
+    "accommodation.json": EMPTY_PLANNING_ITEM_SCHEMA,
+    "activities.json": EMPTY_PLANNING_ITEM_SCHEMA,
+    "transport.json": EMPTY_PLANNING_ITEM_SCHEMA,
+    "restaurants.json": EMPTY_PLANNING_ITEM_SCHEMA,
+
+    "events.json": { events: [] },
+
+    "project-locations.json": { version: "1.0", locations: [] },
+
+    "bookings.json": {
+      flights: [],
+      cars: [],
+      rail: [],
+      accommodation: [],
+      activities: [],
+      restaurants: [],
+      notes: "",
+    },
+
+    "budget.json": {
+      currency: input.currency || "USD",
+      estimate_low: 0,
+      estimate_high: 0,
+      categories: {
+        accommodation: { low: 0, high: 0 },
+        transport: {
+          car_hire: { low: 0, high: 0 },
+          train: { low: 0, high: 0 },
+          ferry: { low: 0, high: 0 },
+          fuel_tolls_parking: { low: 0, high: 0 },
+        },
+        food: { low: 0, high: 0 },
+        activities: { low: 0, high: 0 },
+        contingency: { low: 0, high: 0 },
+      },
+      notes: [],
+    },
+
+    "expenses.json": { version: "1.0", schema: "expenses", items: [] },
+
+    "journal.json": { version: "1.0", schema: "journal", entries: [] },
+  };
+}
+
+async function handleCreateProject(req, res) {
+  let body;
+
+  try {
+    body = JSON.parse(await readBody(req));
+  } catch (error) {
+    return sendJSON(res, 400, { error: "Request body must be valid JSON." });
+  }
+
+  const name = (body.name || "").trim();
+
+  const startDate = body.startDate || "";
+
+  const endDate = body.endDate || "";
+
+  if (!name) {
+    return sendJSON(res, 400, { error: "Trip name is required." });
+  }
+
+  if (!startDate || !endDate) {
+    return sendJSON(res, 400, { error: "Start date and end date are required." });
+  }
+
+  if (new Date(endDate) < new Date(startDate)) {
+    return sendJSON(res, 400, { error: "End date cannot be before start date." });
+  }
+
+  const id = slugify(name);
+
+  if (!id) {
+    return sendJSON(res, 400, { error: "Could not generate a valid id from that trip name." });
+  }
+
+  const projectDir = path.join(ROOT, "data", "projects", id);
+
+  if (fs.existsSync(projectDir)) {
+    return sendJSON(res, 409, { error: `A trip with id "${id}" already exists.` });
+  }
+
+  try {
+    const files = buildProjectFiles({
+      id,
+      name,
+      subtitle: body.subtitle,
+      startDate,
+      endDate,
+      currency: body.currency,
+      homeCountry: body.homeCountry,
+    });
+
+    fs.mkdirSync(projectDir, { recursive: true });
+
+    Object.entries(files).forEach(([filename, content]) => {
+      fs.writeFileSync(path.join(projectDir, filename), JSON.stringify(content, null, 2), "utf8");
+    });
+
+    console.log(`[created project] ${id}`);
+
+    return sendJSON(res, 200, { ok: true, id });
+  } catch (error) {
+    console.error("[create project failed]", error.message);
+
+    return sendJSON(res, 500, { error: "Could not create the trip." });
+  }
+}
+
 function handleProjectsList(req, res) {
   const projectsDir = path.join(ROOT, "data", "projects");
 
@@ -523,6 +728,10 @@ const server = http.createServer(async (req, res) => {
 
   if (req.url.match(/^\/api\/projects\/?(?:\?.*)?$/) && req.method === "GET") {
     return handleProjectsList(req, res);
+  }
+
+  if (req.url.match(/^\/api\/projects\/?(?:\?.*)?$/) && req.method === "POST") {
+    return handleCreateProject(req, res);
   }
 
   const apiMatch = req.url.match(/^\/api\/data\/([^/]+)\/([^/?]+)/);
