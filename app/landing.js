@@ -87,6 +87,12 @@ const Landing = {
 
         <p>Travel Operating System</p>
 
+        <button type="button" onclick="TripSetup.open()">
+
+            + Create New Trip
+
+        </button>
+
     </div>
 
     <div class="landing-grid">
