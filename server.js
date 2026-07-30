@@ -683,6 +683,76 @@ async function handleCreateProject(req, res) {
   }
 }
 
+async function handleArchiveProject(req, res, id) {
+  if (!safeName(id)) {
+    return sendJSON(res, 400, { error: "Invalid project id." });
+  }
+
+  const projectPath = path.join(ROOT, "data", "projects", id, "project.json");
+
+  if (!fs.existsSync(projectPath)) {
+    return sendJSON(res, 404, { error: "Trip not found." });
+  }
+
+  let body;
+
+  try {
+    body = JSON.parse(await readBody(req));
+  } catch (error) {
+    return sendJSON(res, 400, { error: "Request body must be valid JSON." });
+  }
+
+  try {
+    // Synchronous read-modify-write, no await in between - same atomicity
+    // guarantee used for Journal's append operations.
+    const data = JSON.parse(fs.readFileSync(projectPath, "utf8"));
+
+    if (!data.project) {
+      data.project = {};
+    }
+
+    data.project.archived = !!body.archived;
+
+    fs.writeFileSync(projectPath, JSON.stringify(data, null, 2), "utf8");
+
+    console.log(`[${data.project.archived ? "archived" : "unarchived"} project] ${id}`);
+
+    return sendJSON(res, 200, { ok: true, archived: data.project.archived });
+  } catch (error) {
+    console.error("[archive toggle failed]", error.message);
+
+    return sendJSON(res, 500, { error: "Could not update the trip." });
+  }
+}
+
+function handleDeleteProject(req, res, id) {
+  if (!safeName(id)) {
+    return sendJSON(res, 400, { error: "Invalid project id." });
+  }
+
+  const projectDir = path.join(ROOT, "data", "projects", id);
+
+  if (!projectDir.startsWith(path.join(ROOT, "data", "projects"))) {
+    return sendJSON(res, 400, { error: "Invalid path." });
+  }
+
+  if (!fs.existsSync(projectDir)) {
+    return sendJSON(res, 404, { error: "Trip not found." });
+  }
+
+  try {
+    fs.rmSync(projectDir, { recursive: true, force: true });
+
+    console.log(`[deleted project] ${id}`);
+
+    return sendJSON(res, 200, { ok: true });
+  } catch (error) {
+    console.error("[delete project failed]", error.message);
+
+    return sendJSON(res, 500, { error: "Could not delete the trip." });
+  }
+}
+
 function handleProjectsList(req, res) {
   const projectsDir = path.join(ROOT, "data", "projects");
 
@@ -694,7 +764,14 @@ function handleProjectsList(req, res) {
     const projects = entries.map((entry) => {
       const id = entry.name;
 
-      const summary = { id, name: id, subtitle: "", departureDate: "", returnDate: "" };
+      const summary = {
+        id,
+        name: id,
+        subtitle: "",
+        departureDate: "",
+        returnDate: "",
+        archived: false,
+      };
 
       try {
         const projectData = JSON.parse(
@@ -706,6 +783,7 @@ function handleProjectsList(req, res) {
           summary.subtitle = projectData.project.subtitle || "";
           summary.departureDate = projectData.project.departureDate || "";
           summary.returnDate = projectData.project.returnDate || "";
+          summary.archived = !!projectData.project.archived;
         }
       } catch (error) {
         // No project.json, or it's malformed - fall back to the folder
@@ -742,6 +820,22 @@ const server = http.createServer(async (req, res) => {
 
   if (req.url.match(/^\/api\/projects\/?(?:\?.*)?$/) && req.method === "POST") {
     return handleCreateProject(req, res);
+  }
+
+  const projectItemMatch = req.url.match(/^\/api\/projects\/([^/?]+)(?:\/(archive))?\/?(?:\?.*)?$/);
+
+  if (projectItemMatch) {
+    const [, id, action] = projectItemMatch;
+
+    if (action === "archive" && req.method === "PATCH") {
+      return handleArchiveProject(req, res, id);
+    }
+
+    if (!action && req.method === "DELETE") {
+      return handleDeleteProject(req, res, id);
+    }
+
+    return sendJSON(res, 405, { error: "Unsupported method for this route." });
   }
 
   const apiMatch = req.url.match(/^\/api\/data\/([^/]+)\/([^/?]+)/);

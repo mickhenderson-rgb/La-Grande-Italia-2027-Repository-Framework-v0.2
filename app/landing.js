@@ -18,6 +18,8 @@ installation without hardcoding which one loads.
 */
 
 const Landing = {
+  showArchived: false,
+
   async open() {
     Render.show(this.renderLoading());
 
@@ -77,6 +79,10 @@ const Landing = {
   },
 
   render(projects) {
+    const active = projects.filter((p) => !p.archived);
+
+    const archived = projects.filter((p) => p.archived);
+
     return `
 
 <div class="landing">
@@ -98,16 +104,46 @@ const Landing = {
     <div class="landing-grid">
 
         ${
-          projects.length === 0
-            ? `<div class="landing-card"><p>No trips found yet.</p></div>`
-            : projects.map((p) => this.renderCard(p)).join("")
+          active.length === 0
+            ? `<div class="landing-card"><p>No active trips.</p></div>`
+            : active.map((p) => this.renderCard(p)).join("")
         }
 
     </div>
 
+    ${archived.length > 0 ? this.renderArchivedSection(archived) : ""}
+
 </div>
 
 `;
+  },
+
+  renderArchivedSection(archived) {
+    return `
+
+<div class="landing-header" style="margin-top: 40px;">
+
+    <button type="button" onclick="Landing.toggleArchived()">
+
+        ${this.showArchived ? "Hide" : "Show"} Archived Trips (${archived.length})
+
+    </button>
+
+</div>
+
+${
+  this.showArchived
+    ? `<div class="landing-grid">${archived.map((p) => this.renderCard(p)).join("")}</div>`
+    : ""
+}
+
+`;
+  },
+
+  toggleArchived() {
+    this.showArchived = !this.showArchived;
+
+    this.open();
   },
 
   renderCard(project) {
@@ -132,9 +168,69 @@ const Landing = {
 
     </button>
 
+    <div class="planner-buttons" style="justify-content: center; margin-top: 10px;">
+
+        <button type="button" onclick="Landing.setArchived('${project.id}', ${!project.archived})">
+
+            ${project.archived ? "Unarchive" : "Archive"}
+
+        </button>
+
+        <button type="button" onclick="Landing.deleteTrip('${project.id}', '${this.esc(project.name)}')">
+
+            Delete
+
+        </button>
+
+    </div>
+
 </div>
 
 `;
+  },
+
+  async setArchived(id, archived) {
+    try {
+      const response = await fetch(`/api/projects/${id}/archive`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Status ${response.status}`);
+      }
+
+      this.open();
+    } catch (error) {
+      console.error("Could not update trip:", error);
+
+      alert("Couldn't update that trip. Check the connection and try again.");
+    }
+  },
+
+  async deleteTrip(id, name) {
+    const confirmed = confirm(
+      `Delete "${name}" permanently? This removes all its data - accommodation, activities, journal entries, photos, everything. This cannot be undone.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/projects/${id}`, { method: "DELETE" });
+
+      if (!response.ok) {
+        throw new Error(`Status ${response.status}`);
+      }
+
+      this.open();
+    } catch (error) {
+      console.error("Could not delete trip:", error);
+
+      alert("Couldn't delete that trip. Check the connection and try again.");
+    }
   },
 
   async selectTrip(id) {
