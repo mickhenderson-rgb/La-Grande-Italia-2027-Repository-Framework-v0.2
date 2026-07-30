@@ -401,7 +401,17 @@ function serveStaticFile(req, res) {
 
     const ext = path.extname(filePath).toLowerCase();
 
-    res.writeHead(200, { "Content-Type": MIME_TYPES[ext] || "application/octet-stream" });
+    const headers = { "Content-Type": MIME_TYPES[ext] || "application/octet-stream" };
+
+    // service-worker.js and index.html must always be revalidated - these
+    // are the two files that control whether updates ever reach a
+    // returning visitor. Letting the browser's own HTTP cache hold onto
+    // a stale copy of either one defeats the whole update mechanism.
+    if (urlPath === "/service-worker.js" || urlPath === "/index.html") {
+      headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+    }
+
+    res.writeHead(200, headers);
 
     res.end(data);
   });
