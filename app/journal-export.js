@@ -181,12 +181,18 @@ const JournalExport = {
   async renderExportPhoto(photo) {
     const isUpload = String(photo.url || "").startsWith("data/projects/");
 
+    const attribution = photo.addedBy
+      ? `<p class="export-attribution">Added by ${this.esc(photo.addedBy)}</p>`
+      : "";
+
     if (!isUpload) {
       return `
 
 <div class="export-photo">
 
     <a href="${this.esc(photo.url)}" target="_blank" rel="noopener">${this.esc(photo.caption) || "View Photo"}</a>
+
+    ${attribution}
 
 </div>
 
@@ -204,6 +210,8 @@ const JournalExport = {
 
     <p>${this.esc(photo.caption)}</p>
 
+    ${attribution}
+
 </div>
 
 `;
@@ -215,6 +223,8 @@ const JournalExport = {
 <div class="export-photo">
 
     <p>[Photo unavailable: ${this.esc(photo.caption) || photo.url}]</p>
+
+    ${attribution}
 
 </div>
 
@@ -256,7 +266,8 @@ const JournalExport = {
 
     ${
       options.includeNotes && entry.notes && entry.notes.trim()
-        ? `<div class="export-notes">${this.esc(entry.notes).replace(/\n/g, "<br>")}</div>`
+        ? `<div class="export-notes">${this.esc(entry.notes).replace(/\n/g, "<br>")}</div>
+           ${entry.notesAuthor ? `<p class="export-attribution">Written by ${this.esc(entry.notesAuthor)}</p>` : ""}`
         : ""
     }
 
@@ -265,7 +276,7 @@ const JournalExport = {
         ? `<ul class="export-checklist">${entry.checklist
             .map(
               (item) =>
-                `<li class="${item.checked ? "done" : ""}">${item.checked ? "\u2611" : "\u2610"} ${this.esc(item.text)}</li>`,
+                `<li class="${item.checked ? "done" : ""}">${item.checked ? "\u2611" : "\u2610"} ${this.esc(item.text)}${item.addedBy ? ` <span class="export-attribution">(${this.esc(item.addedBy)})</span>` : ""}</li>`,
             )
             .join("")}</ul>`
         : ""
@@ -305,6 +316,7 @@ const JournalExport = {
   .export-photos { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 20px; }
   .export-photo img { width: 100%; border-radius: 8px; }
   .export-photo p { font-size: 0.85rem; color: #666; margin: 6px 0 0; }
+  .export-attribution { font-size: 0.8rem; color: #999; font-style: italic; margin: 4px 0 0; }
   @media print { body { margin: 0; } .export-day { page-break-inside: avoid; } }
 </style>
 </head>

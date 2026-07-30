@@ -207,6 +207,8 @@ const Journal = {
                 <textarea id="jrn-notes" rows="8">${this.esc(entry.notes)}</textarea>
             </label>
 
+            ${entry.notesAuthor ? `<p class="form-hint">Last edited by ${this.esc(entry.notesAuthor)}</p>` : ""}
+
         </div>
 
         <div class="manager-card form-card">
@@ -745,7 +747,13 @@ const Journal = {
       return;
     }
 
-    result.entry.notes = document.getElementById("jrn-notes").value.trim();
+    const newNotes = document.getElementById("jrn-notes").value.trim();
+
+    if (newNotes !== result.entry.notes) {
+      result.entry.notesAuthor = Project.currentUser || result.entry.notesAuthor || "";
+    }
+
+    result.entry.notes = newNotes;
 
     result.entry.location = {
       name: document.getElementById("jrn-location-name").value.trim(),
