@@ -114,6 +114,167 @@ async function handleDataWrite(req, res, projectId, collection) {
   }
 }
 
+// Collections that share the { items: [...] } shape and support atomic
+// per-item operations, with the id prefix used for newly created items.
+const ITEM_COLLECTIONS = {
+  accommodation: "ACC",
+  activities: "ACT",
+  transport: "TRN",
+  restaurants: "RST",
+  expenses: "EXP",
+};
+
+function itemsFilePath(projectId, collection) {
+  return path.join(ROOT, "data", "projects", projectId, `${collection}.json`);
+}
+
+function readItemsFileSync(projectId, collection) {
+  const filePath = itemsFilePath(projectId, collection);
+
+  const raw = fs.readFileSync(filePath, "utf8");
+
+  const data = JSON.parse(raw);
+
+  if (!Array.isArray(data.items)) {
+    data.items = [];
+  }
+
+  return { filePath, data };
+}
+
+async function handleItemAdd(req, res, projectId, collection) {
+  if (!safeName(projectId) || !ITEM_COLLECTIONS[collection]) {
+    return sendJSON(res, 400, { error: "Invalid project or collection." });
+  }
+
+  let body;
+
+  try {
+    body = JSON.parse(await readBody(req));
+  } catch (error) {
+    return sendJSON(res, 400, { error: "Request body must be valid JSON." });
+  }
+
+  try {
+    // Synchronous read-modify-write, no await in between: atomic under
+    // Node's single-threaded event loop, same guarantee as Journal.
+    // Server generates the id here too - client-side "scan for max + 1"
+    // would itself race if two people add at the same instant.
+    const { filePath, data } = readItemsFileSync(projectId, collection);
+
+    const item = Object.assign({}, body, { id: newId(ITEM_COLLECTIONS[collection]) });
+
+    data.items.push(item);
+
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
+
+    console.log(`[${collection}] added item ${item.id}`);
+
+    return sendJSON(res, 200, { ok: true, item });
+  } catch (error) {
+    console.error(`[${collection} add failed]`, error.message);
+
+    return sendJSON(res, 500, { error: "Could not save the item." });
+  }
+}
+
+async function handleItemUpdate(req, res, projectId, collection, itemId) {
+  if (!safeName(projectId) || !ITEM_COLLECTIONS[collection]) {
+    return sendJSON(res, 400, { error: "Invalid project or collection." });
+  }
+
+  let body;
+
+  try {
+    body = JSON.parse(await readBody(req));
+  } catch (error) {
+    return sendJSON(res, 400, { error: "Request body must be valid JSON." });
+  }
+
+  try {
+    const { filePath, data } = readItemsFileSync(projectId, collection);
+
+    const item = data.items.find((i) => i.id === itemId);
+
+    if (!item) {
+      return sendJSON(res, 404, { error: "Item not found." });
+    }
+
+    // Shallow merge - only touches this one item, regardless of what
+    // else may have been added or changed elsewhere in the file since
+    // the client last loaded it.
+    Object.assign(item, body, { id: itemId });
+
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
+
+    console.log(`[${collection}] updated item ${itemId}`);
+
+    return sendJSON(res, 200, { ok: true, item });
+  } catch (error) {
+    console.error(`[${collection} update failed]`, error.message);
+
+    return sendJSON(res, 500, { error: "Could not update the item." });
+  }
+}
+
+function handleItemRemove(req, res, projectId, collection, itemId) {
+  if (!safeName(projectId) || !ITEM_COLLECTIONS[collection]) {
+    return sendJSON(res, 400, { error: "Invalid project or collection." });
+  }
+
+  try {
+    const { filePath, data } = readItemsFileSync(projectId, collection);
+
+    data.items = data.items.filter((i) => i.id !== itemId);
+
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
+
+    console.log(`[${collection}] removed item ${itemId}`);
+
+    return sendJSON(res, 200, { ok: true });
+  } catch (error) {
+    console.error(`[${collection} remove failed]`, error.message);
+
+    return sendJSON(res, 500, { error: "Could not remove the item." });
+  }
+}
+
+function handleAccommodationSelect(req, res, projectId, itemId) {
+  if (!safeName(projectId)) {
+    return sendJSON(res, 400, { error: "Invalid project." });
+  }
+
+  try {
+    const { filePath, data } = readItemsFileSync(projectId, "accommodation");
+
+    const target = data.items.find((i) => i.id === itemId);
+
+    if (!target) {
+      return sendJSON(res, 404, { error: "Item not found." });
+    }
+
+    data.items.forEach((item) => {
+      if (item.destination === target.destination) {
+        item.selected = item.id === itemId;
+
+        if (item.id === itemId && item.status === "Research") {
+          item.status = "Selected";
+        }
+      }
+    });
+
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf8");
+
+    console.log(`[accommodation] selected ${itemId}`);
+
+    return sendJSON(res, 200, { ok: true });
+  } catch (error) {
+    console.error("[accommodation select failed]", error.message);
+
+    return sendJSON(res, 500, { error: "Could not update selection." });
+  }
+}
+
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
 async function handleUpload(req, res, projectId) {
@@ -850,6 +1011,36 @@ const server = http.createServer(async (req, res) => {
 
   if (apiMatch && req.method !== "PUT") {
     return sendJSON(res, 405, { error: "Only PUT is supported on this route." });
+  }
+
+  const selectMatch = req.url.match(/^\/api\/items\/([^/]+)\/accommodation\/([^/]+)\/select\/?$/);
+
+  if (selectMatch && req.method === "POST") {
+    const [, projectId, itemId] = selectMatch;
+
+    return handleAccommodationSelect(req, res, projectId, itemId);
+  }
+
+  const itemCollectionMatch = req.url.match(/^\/api\/items\/([^/]+)\/([^/]+)\/?(?:\?.*)?$/);
+
+  if (itemCollectionMatch && req.method === "POST") {
+    const [, projectId, collection] = itemCollectionMatch;
+
+    return handleItemAdd(req, res, projectId, collection);
+  }
+
+  const itemMatch = req.url.match(/^\/api\/items\/([^/]+)\/([^/]+)\/([^/?]+)\/?(?:\?.*)?$/);
+
+  if (itemMatch && req.method === "PUT") {
+    const [, projectId, collection, itemId] = itemMatch;
+
+    return handleItemUpdate(req, res, projectId, collection, itemId);
+  }
+
+  if (itemMatch && req.method === "DELETE") {
+    const [, projectId, collection, itemId] = itemMatch;
+
+    return handleItemRemove(req, res, projectId, collection, itemId);
   }
 
   const uploadMatch = req.url.match(/^\/api\/upload\/([^/?]+)/);

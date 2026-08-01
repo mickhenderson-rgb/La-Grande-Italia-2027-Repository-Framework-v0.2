@@ -428,11 +428,7 @@ ${rows}
   advance(id) {
     const data = Project.get("transport");
 
-    if (!data || !Array.isArray(data.items)) {
-      return;
-    }
-
-    const item = data.items.find((x) => x.id === id);
+    const item = data && Array.isArray(data.items) ? data.items.find((x) => x.id === id) : null;
 
     if (!item) {
       return;
@@ -440,13 +436,29 @@ ${rows}
 
     const next = this.nextStage(item.status);
 
-    if (next) {
-      item.status = next;
+    if (!next) {
+      return;
     }
 
-    Project.update("transport", data);
+    fetch(`/api/items/${Data.currentProjectFolder}/transport/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: next }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Update failed with status ${response.status}`);
+        }
 
-    this.refresh();
+        item.status = next;
+
+        this.refresh();
+      })
+      .catch((error) => {
+        console.error("Could not advance transport status:", error);
+
+        alert("Couldn't save that change. Check the connection and try again.");
+      });
   },
 
   refresh() {
@@ -488,17 +500,27 @@ ${rows}
       return;
     }
 
-    const data = Project.get("transport");
+    fetch(`/api/items/${Data.currentProjectFolder}/transport/${id}`, {
+      method: "DELETE",
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Remove failed with status ${response.status}`);
+        }
 
-    if (!data || !Array.isArray(data.items)) {
-      return;
-    }
+        const data = Project.get("transport");
 
-    data.items = data.items.filter((item) => item.id !== id);
+        if (data && Array.isArray(data.items)) {
+          data.items = data.items.filter((item) => item.id !== id);
+        }
 
-    Project.update("transport", data);
+        this.refresh();
+      })
+      .catch((error) => {
+        console.error("Could not remove transport item:", error);
 
-    this.refresh();
+        alert("Couldn't remove that item. Check the connection and try again.");
+      });
   },
 
   blankItem() {
@@ -729,26 +751,12 @@ ${rows}
   },
 
   save(id) {
-    const data = Project.get("transport");
-
-    if (!data || !Array.isArray(data.items)) {
-      return;
-    }
-
     const from = document.getElementById("trn-from").value.trim();
 
     const to = document.getElementById("trn-to").value.trim();
 
     if (!from || !to) {
       alert("Please enter both a From and To location before saving.");
-      return;
-    }
-
-    const isNew = !id;
-
-    const item = isNew ? this.blankItem() : data.items.find((x) => x.id === id);
-
-    if (!item) {
       return;
     }
 
@@ -759,69 +767,90 @@ ${rows}
       return;
     }
 
-    if (isNew) {
-      item.id = this.nextId(data.items);
-    }
+    const isNew = !id;
 
-    item.day = dayNumber;
+    const priceCurrency = document.getElementById("trn-price-currency").value.trim() || "EUR";
 
-    item.mode = document.getElementById("trn-mode").value;
-    item.from = from;
-    item.to = to;
-
-    item.fromCoordinates = this.readCoordinates("trn-from-lat", "trn-from-lng");
-    item.toCoordinates = this.readCoordinates("trn-to-lat", "trn-to-lng");
-    item.provider = document.getElementById("trn-provider").value.trim();
-    item.website = document.getElementById("trn-website").value.trim();
-    item.bookingReference = document.getElementById("trn-reference").value.trim();
-    item.status = document.getElementById("trn-status").value;
-
-    item.price = {
-      amount: parseFloat(document.getElementById("trn-price-amount").value) || 0,
-      currency: document.getElementById("trn-price-currency").value.trim() || "EUR",
+    const fields = {
+      day: dayNumber,
+      type: "transport",
+      addedBy: isNew ? Project.currentUser || "" : undefined,
+      mode: document.getElementById("trn-mode").value,
+      from,
+      to,
+      fromCoordinates: this.readCoordinates("trn-from-lat", "trn-from-lng"),
+      toCoordinates: this.readCoordinates("trn-to-lat", "trn-to-lng"),
+      provider: document.getElementById("trn-provider").value.trim(),
+      website: document.getElementById("trn-website").value.trim(),
+      bookingReference: document.getElementById("trn-reference").value.trim(),
+      status: document.getElementById("trn-status").value,
+      locked: isNew ? false : undefined,
+      price: {
+        amount: parseFloat(document.getElementById("trn-price-amount").value) || 0,
+        currency: priceCurrency,
+      },
+      schedule: {
+        date: document.getElementById("trn-date").value,
+        departTime: document.getElementById("trn-depart").value,
+        arriveTime: document.getElementById("trn-arrive").value,
+      },
+      route: {
+        distanceKm: parseFloat(document.getElementById("trn-distance").value) || 0,
+        durationMinutes: parseInt(document.getElementById("trn-duration").value, 10) || 0,
+        tollsEstimate: parseFloat(document.getElementById("trn-tolls").value) || 0,
+        tollsCurrency: priceCurrency,
+      },
+      planning: {
+        priority: document.getElementById("trn-priority").value,
+        notes: document.getElementById("trn-notes").value.trim(),
+      },
+      actual: isNew ? { paid: false, completed: false } : undefined,
     };
 
-    item.schedule = {
-      date: document.getElementById("trn-date").value,
-      departTime: document.getElementById("trn-depart").value,
-      arriveTime: document.getElementById("trn-arrive").value,
-    };
-
-    item.route = {
-      distanceKm: parseFloat(document.getElementById("trn-distance").value) || 0,
-      durationMinutes: parseInt(document.getElementById("trn-duration").value, 10) || 0,
-      tollsEstimate: parseFloat(document.getElementById("trn-tolls").value) || 0,
-      tollsCurrency: item.price?.currency || "EUR",
-    };
-
-    item.planning = {
-      priority: document.getElementById("trn-priority").value,
-      notes: document.getElementById("trn-notes").value.trim(),
-    };
-
-    if (isNew) {
-      data.items.push(item);
-    }
-
-    Project.update("transport", data);
-
-    this.refresh();
-  },
-
-  nextId(items) {
-    let max = 0;
-
-    items.forEach((item) => {
-      const match = /TRN-(\d+)/.exec(item.id || "");
-
-      if (match) {
-        max = Math.max(max, parseInt(match[1], 10));
+    Object.keys(fields).forEach((key) => {
+      if (fields[key] === undefined) {
+        delete fields[key];
       }
     });
 
-    const next = String(max + 1).padStart(4, "0");
+    const url = isNew
+      ? `/api/items/${Data.currentProjectFolder}/transport`
+      : `/api/items/${Data.currentProjectFolder}/transport/${id}`;
 
-    return `TRN-${next}`;
+    fetch(url, {
+      method: isNew ? "POST" : "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(fields),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Save failed with status ${response.status}`);
+        }
+
+        return response.json();
+      })
+      .then((result) => {
+        const data = Project.get("transport");
+
+        if (data && Array.isArray(data.items)) {
+          if (isNew) {
+            data.items.push(result.item);
+          } else {
+            const index = data.items.findIndex((i) => i.id === id);
+
+            if (index !== -1) {
+              data.items[index] = result.item;
+            }
+          }
+        }
+
+        this.refresh();
+      })
+      .catch((error) => {
+        console.error("Could not save transport item:", error);
+
+        alert("Couldn't save that item. Check the connection and try again.");
+      });
   },
 
   renderRouteInfo(item) {

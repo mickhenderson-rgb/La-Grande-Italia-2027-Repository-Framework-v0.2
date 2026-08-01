@@ -302,17 +302,27 @@ ${rows}
       return;
     }
 
-    const data = Project.get("expenses");
+    fetch(`/api/items/${Data.currentProjectFolder}/expenses/${id}`, {
+      method: "DELETE",
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Remove failed with status ${response.status}`);
+        }
 
-    if (!data || !Array.isArray(data.items)) {
-      return;
-    }
+        const data = Project.get("expenses");
 
-    data.items = data.items.filter((item) => item.id !== id);
+        if (data && Array.isArray(data.items)) {
+          data.items = data.items.filter((item) => item.id !== id);
+        }
 
-    Project.update("expenses", data);
+        this.refresh();
+      })
+      .catch((error) => {
+        console.error("Could not remove expense:", error);
 
-    this.refresh();
+        alert("Couldn't remove that item. Check the connection and try again.");
+      });
   },
 
   blankItem() {
@@ -427,12 +437,6 @@ ${rows}
   },
 
   save(id) {
-    const data = Project.get("expenses");
-
-    if (!data || !Array.isArray(data.items)) {
-      return;
-    }
-
     const description = document.getElementById("exp-description").value.trim();
 
     if (!description) {
@@ -449,47 +453,61 @@ ${rows}
 
     const isNew = !id;
 
-    const item = isNew ? this.blankItem() : data.items.find((x) => x.id === id);
+    const fields = {
+      day: dayNumber,
+      addedBy: isNew ? Project.currentUser || "" : undefined,
+      category: document.getElementById("exp-category").value,
+      description,
+      amount: parseFloat(document.getElementById("exp-amount").value) || 0,
+      currency: document.getElementById("exp-currency").value.trim() || "EUR",
+      date: document.getElementById("exp-date").value,
+      notes: document.getElementById("exp-notes").value.trim(),
+    };
 
-    if (!item) {
-      return;
-    }
-
-    if (isNew) {
-      item.id = this.nextId(data.items);
-    }
-
-    item.day = dayNumber;
-    item.category = document.getElementById("exp-category").value;
-    item.description = description;
-    item.amount = parseFloat(document.getElementById("exp-amount").value) || 0;
-    item.currency = document.getElementById("exp-currency").value.trim() || "EUR";
-    item.date = document.getElementById("exp-date").value;
-    item.notes = document.getElementById("exp-notes").value.trim();
-
-    if (isNew) {
-      data.items.push(item);
-    }
-
-    Project.update("expenses", data);
-
-    this.refresh();
-  },
-
-  nextId(items) {
-    let max = 0;
-
-    items.forEach((item) => {
-      const match = /EXP-(\d+)/.exec(item.id || "");
-
-      if (match) {
-        max = Math.max(max, parseInt(match[1], 10));
+    Object.keys(fields).forEach((key) => {
+      if (fields[key] === undefined) {
+        delete fields[key];
       }
     });
 
-    const next = String(max + 1).padStart(4, "0");
+    const url = isNew
+      ? `/api/items/${Data.currentProjectFolder}/expenses`
+      : `/api/items/${Data.currentProjectFolder}/expenses/${id}`;
 
-    return `EXP-${next}`;
+    fetch(url, {
+      method: isNew ? "POST" : "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(fields),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Save failed with status ${response.status}`);
+        }
+
+        return response.json();
+      })
+      .then((result) => {
+        const data = Project.get("expenses");
+
+        if (data && Array.isArray(data.items)) {
+          if (isNew) {
+            data.items.push(result.item);
+          } else {
+            const index = data.items.findIndex((i) => i.id === id);
+
+            if (index !== -1) {
+              data.items[index] = result.item;
+            }
+          }
+        }
+
+        this.refresh();
+      })
+      .catch((error) => {
+        console.error("Could not save expense:", error);
+
+        alert("Couldn't save that item. Check the connection and try again.");
+      });
   },
 
   money(amount, currency) {

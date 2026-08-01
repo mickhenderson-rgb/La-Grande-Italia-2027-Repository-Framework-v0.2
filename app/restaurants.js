@@ -417,11 +417,7 @@ ${rows}
   advance(id) {
     const data = Project.get("restaurants");
 
-    if (!data || !Array.isArray(data.items)) {
-      return;
-    }
-
-    const item = data.items.find((x) => x.id === id);
+    const item = data && Array.isArray(data.items) ? data.items.find((x) => x.id === id) : null;
 
     if (!item) {
       return;
@@ -429,13 +425,29 @@ ${rows}
 
     const next = this.nextStage(item.status);
 
-    if (next) {
-      item.status = next;
+    if (!next) {
+      return;
     }
 
-    Project.update("restaurants", data);
+    fetch(`/api/items/${Data.currentProjectFolder}/restaurants/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: next }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Update failed with status ${response.status}`);
+        }
 
-    this.refresh();
+        item.status = next;
+
+        this.refresh();
+      })
+      .catch((error) => {
+        console.error("Could not advance restaurant status:", error);
+
+        alert("Couldn't save that change. Check the connection and try again.");
+      });
   },
 
   add() {
@@ -465,17 +477,27 @@ ${rows}
       return;
     }
 
-    const data = Project.get("restaurants");
+    fetch(`/api/items/${Data.currentProjectFolder}/restaurants/${id}`, {
+      method: "DELETE",
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Remove failed with status ${response.status}`);
+        }
 
-    if (!data || !Array.isArray(data.items)) {
-      return;
-    }
+        const data = Project.get("restaurants");
 
-    data.items = data.items.filter((item) => item.id !== id);
+        if (data && Array.isArray(data.items)) {
+          data.items = data.items.filter((item) => item.id !== id);
+        }
 
-    Project.update("restaurants", data);
+        this.refresh();
+      })
+      .catch((error) => {
+        console.error("Could not remove restaurant:", error);
 
-    this.refresh();
+        alert("Couldn't remove that item. Check the connection and try again.");
+      });
   },
 
   blankItem() {
@@ -667,12 +689,6 @@ ${rows}
   },
 
   save(id) {
-    const data = Project.get("restaurants");
-
-    if (!data || !Array.isArray(data.items)) {
-      return;
-    }
-
     const name = document.getElementById("rst-name").value.trim();
 
     if (!name) {
@@ -694,68 +710,85 @@ ${rows}
 
     const isNew = !id;
 
-    const item = isNew ? this.blankItem() : data.items.find((x) => x.id === id);
-
-    if (!item) {
-      return;
-    }
-
-    if (isNew) {
-      item.id = this.nextId(data.items);
-      item.destination = this.currentDestination;
-    }
-
-    item.name = name;
-    item.cuisine = document.getElementById("rst-cuisine").value;
-    item.priceLevel = parseInt(document.getElementById("rst-price-level").value, 10) || 1;
-
-    item.price = {
-      amount: parseFloat(document.getElementById("rst-price-amount").value) || 0,
-      currency: document.getElementById("rst-price-currency").value.trim() || "EUR",
-    };
-    item.website = document.getElementById("rst-website").value.trim();
-    item.bookingReference = document.getElementById("rst-reference").value.trim();
-    item.status = document.getElementById("rst-status").value;
-
-    item.location = item.location || {};
-    item.location.address = document.getElementById("rst-address").value.trim();
-
-    item.reservation = {
-      date: document.getElementById("rst-res-date").value,
-      time: document.getElementById("rst-res-time").value,
-      partySize: parseInt(document.getElementById("rst-party-size").value, 10) || 1,
-    };
-
-    item.planning = {
-      priority: document.getElementById("rst-priority").value,
-      notes: document.getElementById("rst-notes").value.trim(),
-      pros,
-      cons,
+    const fields = {
+      destination: isNew ? this.currentDestination : undefined,
+      type: "restaurant",
+      addedBy: isNew ? Project.currentUser || "" : undefined,
+      name,
+      cuisine: document.getElementById("rst-cuisine").value,
+      priceLevel: parseInt(document.getElementById("rst-price-level").value, 10) || 1,
+      price: {
+        amount: parseFloat(document.getElementById("rst-price-amount").value) || 0,
+        currency: document.getElementById("rst-price-currency").value.trim() || "EUR",
+      },
+      website: document.getElementById("rst-website").value.trim(),
+      bookingReference: document.getElementById("rst-reference").value.trim(),
+      status: document.getElementById("rst-status").value,
+      locked: isNew ? false : undefined,
+      location: {
+        locationId: "",
+        address: document.getElementById("rst-address").value.trim(),
+        latitude: null,
+        longitude: null,
+      },
+      reservation: {
+        date: document.getElementById("rst-res-date").value,
+        time: document.getElementById("rst-res-time").value,
+        partySize: parseInt(document.getElementById("rst-party-size").value, 10) || 1,
+      },
+      planning: {
+        priority: document.getElementById("rst-priority").value,
+        notes: document.getElementById("rst-notes").value.trim(),
+        pros,
+        cons,
+      },
+      actual: isNew ? { paid: false, attended: false, rating: null, review: "" } : undefined,
     };
 
-    if (isNew) {
-      data.items.push(item);
-    }
-
-    Project.update("restaurants", data);
-
-    this.refresh();
-  },
-
-  nextId(items) {
-    let max = 0;
-
-    items.forEach((item) => {
-      const match = /RST-(\d+)/.exec(item.id || "");
-
-      if (match) {
-        max = Math.max(max, parseInt(match[1], 10));
+    Object.keys(fields).forEach((key) => {
+      if (fields[key] === undefined) {
+        delete fields[key];
       }
     });
 
-    const next = String(max + 1).padStart(4, "0");
+    const url = isNew
+      ? `/api/items/${Data.currentProjectFolder}/restaurants`
+      : `/api/items/${Data.currentProjectFolder}/restaurants/${id}`;
 
-    return `RST-${next}`;
+    fetch(url, {
+      method: isNew ? "POST" : "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(fields),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Save failed with status ${response.status}`);
+        }
+
+        return response.json();
+      })
+      .then((result) => {
+        const data = Project.get("restaurants");
+
+        if (data && Array.isArray(data.items)) {
+          if (isNew) {
+            data.items.push(result.item);
+          } else {
+            const index = data.items.findIndex((i) => i.id === id);
+
+            if (index !== -1) {
+              data.items[index] = result.item;
+            }
+          }
+        }
+
+        this.refresh();
+      })
+      .catch((error) => {
+        console.error("Could not save restaurant:", error);
+
+        alert("Couldn't save that item. Check the connection and try again.");
+      });
   },
 
   esc(value) {

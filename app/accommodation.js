@@ -487,31 +487,35 @@ ${selected ? selected.planning.notes : ""}
   },
 
   select(id) {
-    const data = Project.get("accommodation");
-
-    if (!data || !Array.isArray(data.items)) {
-      return;
-    }
-
-    data.items.forEach((item) => {
-      if (String(item.destination || "").toLowerCase() !== this.currentDestination) {
-        return;
-      }
-
-      if (item.id === id) {
-        item.selected = true;
-
-        if (item.status === "Research") {
-          item.status = "Selected";
+    fetch(`/api/items/${Data.currentProjectFolder}/accommodation/${id}/select`, {
+      method: "POST",
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Select failed with status ${response.status}`);
         }
-      } else {
-        item.selected = false;
-      }
-    });
 
-    Project.update("accommodation", data);
+        const data = Project.get("accommodation");
 
-    this.refresh();
+        if (data && Array.isArray(data.items)) {
+          data.items.forEach((item) => {
+            if (item.destination === this.currentDestination || item.id === id) {
+              item.selected = item.id === id;
+
+              if (item.id === id && item.status === "Research") {
+                item.status = "Selected";
+              }
+            }
+          });
+        }
+
+        this.refresh();
+      })
+      .catch((error) => {
+        console.error("Could not select accommodation:", error);
+
+        alert("Couldn't save that selection. Check the connection and try again.");
+      });
   },
 
   refresh() {
@@ -533,17 +537,27 @@ ${selected ? selected.planning.notes : ""}
       return;
     }
 
-    const data = Project.get("accommodation");
+    fetch(`/api/items/${Data.currentProjectFolder}/accommodation/${id}`, {
+      method: "DELETE",
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Remove failed with status ${response.status}`);
+        }
 
-    if (!data || !Array.isArray(data.items)) {
-      return;
-    }
+        const data = Project.get("accommodation");
 
-    data.items = data.items.filter((item) => item.id !== id);
+        if (data && Array.isArray(data.items)) {
+          data.items = data.items.filter((item) => item.id !== id);
+        }
 
-    Project.update("accommodation", data);
+        this.refresh();
+      })
+      .catch((error) => {
+        console.error("Could not remove accommodation:", error);
 
-    this.refresh();
+        alert("Couldn't remove that item. Check the connection and try again.");
+      });
   },
 
   blankItem() {
@@ -781,16 +795,17 @@ ${selected ? selected.planning.notes : ""}
   },
 
   save(id) {
-    const data = Project.get("accommodation");
-
-    if (!data || !Array.isArray(data.items)) {
-      return;
-    }
-
     const name = document.getElementById("acc-name").value.trim();
 
     if (!name) {
       alert("Please enter a name before saving.");
+      return;
+    }
+
+    const destination = document.getElementById("acc-destination").value.trim().toLowerCase();
+
+    if (!destination) {
+      alert("Please enter a destination before saving.");
       return;
     }
 
@@ -806,99 +821,114 @@ ${selected ? selected.planning.notes : ""}
       .map((line) => line.trim())
       .filter(Boolean);
 
-    const isNew = !id;
-
-    const item = isNew ? this.blankItem() : data.items.find((x) => x.id === id);
-
-    if (!item) {
-      return;
-    }
-
-    const destination = document.getElementById("acc-destination").value.trim().toLowerCase();
-
-    if (!destination) {
-      alert("Please enter a destination before saving.");
-      return;
-    }
-
-    if (isNew) {
-      item.id = this.nextId(data.items);
-    }
-
-    item.destination = destination;
-
     const rangeParts = document
       .getElementById("acc-day-range")
       .value.split("-")
       .map((n) => parseInt(n.trim(), 10))
       .filter((n) => !isNaN(n));
 
+    const isNew = !id;
+
+    const existing = isNew ? this.blankItem() : null;
+
+    const fields = {
+      destination,
+      type: "accommodation",
+      addedBy: isNew ? Project.currentUser || "" : undefined,
+      name,
+      provider: document.getElementById("acc-provider").value.trim(),
+      website: document.getElementById("acc-website").value.trim(),
+      bookingReference: document.getElementById("acc-reference").value.trim(),
+      status: document.getElementById("acc-status").value,
+      selected: isNew ? false : undefined,
+      locked: isNew ? false : undefined,
+      price: {
+        amount: parseFloat(document.getElementById("acc-price-amount").value) || 0,
+        currency: document.getElementById("acc-price-currency").value.trim() || "EUR",
+        per: document.getElementById("acc-price-per").value,
+      },
+      location: {
+        locationId: "",
+        address: document.getElementById("acc-address").value.trim(),
+        latitude: null,
+        longitude: null,
+      },
+      dates: {
+        checkIn: document.getElementById("acc-checkin").value,
+        checkOut: document.getElementById("acc-checkout").value,
+        freeCancellationUntil: document.getElementById("acc-cancellation").value,
+      },
+      features: {
+        parking: document.getElementById("acc-parking").checked,
+        breakfast: document.getElementById("acc-breakfast").checked,
+        kitchen: document.getElementById("acc-kitchen").checked,
+        washingMachine: document.getElementById("acc-washing").checked,
+        airConditioning: document.getElementById("acc-aircon").checked,
+        wifi: document.getElementById("acc-wifi").checked,
+      },
+      planning: {
+        priority: document.getElementById("acc-priority").value,
+        notes: document.getElementById("acc-notes").value.trim(),
+        pros,
+        cons,
+      },
+      actual: isNew ? existing.actual : undefined,
+    };
+
     if (rangeParts.length === 2) {
-      item.dayRange = rangeParts;
+      fields.dayRange = rangeParts;
     } else if (rangeParts.length === 1) {
-      item.dayRange = [rangeParts[0], rangeParts[0]];
+      fields.dayRange = [rangeParts[0], rangeParts[0]];
+    } else if (isNew) {
+      fields.dayRange = existing.dayRange;
     }
 
-    item.name = name;
-    item.provider = document.getElementById("acc-provider").value.trim();
-    item.website = document.getElementById("acc-website").value.trim();
-    item.bookingReference = document.getElementById("acc-reference").value.trim();
-    item.status = document.getElementById("acc-status").value;
-
-    item.price = {
-      amount: parseFloat(document.getElementById("acc-price-amount").value) || 0,
-      currency: document.getElementById("acc-price-currency").value.trim() || "EUR",
-      per: document.getElementById("acc-price-per").value,
-    };
-
-    item.location = item.location || {};
-    item.location.address = document.getElementById("acc-address").value.trim();
-
-    item.dates = {
-      checkIn: document.getElementById("acc-checkin").value,
-      checkOut: document.getElementById("acc-checkout").value,
-      freeCancellationUntil: document.getElementById("acc-cancellation").value,
-    };
-
-    item.features = {
-      parking: document.getElementById("acc-parking").checked,
-      breakfast: document.getElementById("acc-breakfast").checked,
-      kitchen: document.getElementById("acc-kitchen").checked,
-      washingMachine: document.getElementById("acc-washing").checked,
-      airConditioning: document.getElementById("acc-aircon").checked,
-      wifi: document.getElementById("acc-wifi").checked,
-    };
-
-    item.planning = {
-      priority: document.getElementById("acc-priority").value,
-      notes: document.getElementById("acc-notes").value.trim(),
-      pros,
-      cons,
-    };
-
-    if (isNew) {
-      data.items.push(item);
-    }
-
-    Project.update("accommodation", data);
-
-    this.refresh();
-  },
-
-  nextId(items) {
-    let max = 0;
-
-    items.forEach((item) => {
-      const match = /ACC-(\d+)/.exec(item.id || "");
-
-      if (match) {
-        max = Math.max(max, parseInt(match[1], 10));
+    // Remove undefined keys so PUT (edit) doesn't blow away fields it
+    // shouldn't touch, since the server does an Object.assign merge.
+    Object.keys(fields).forEach((key) => {
+      if (fields[key] === undefined) {
+        delete fields[key];
       }
     });
 
-    const next = String(max + 1).padStart(4, "0");
+    const url = isNew
+      ? `/api/items/${Data.currentProjectFolder}/accommodation`
+      : `/api/items/${Data.currentProjectFolder}/accommodation/${id}`;
 
-    return `ACC-${next}`;
+    fetch(url, {
+      method: isNew ? "POST" : "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(fields),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Save failed with status ${response.status}`);
+        }
+
+        return response.json();
+      })
+      .then((result) => {
+        const data = Project.get("accommodation");
+
+        if (data && Array.isArray(data.items)) {
+          if (isNew) {
+            data.items.push(result.item);
+          } else {
+            const index = data.items.findIndex((i) => i.id === id);
+
+            if (index !== -1) {
+              data.items[index] = result.item;
+            }
+          }
+        }
+
+        this.refresh();
+      })
+      .catch((error) => {
+        console.error("Could not save accommodation:", error);
+
+        alert("Couldn't save that item. Check the connection and try again.");
+      });
   },
 
   esc(value) {
