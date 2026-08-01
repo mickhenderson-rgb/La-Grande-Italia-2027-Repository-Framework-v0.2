@@ -775,6 +775,8 @@ function buildProjectFiles(input) {
     "expenses.json": { version: "1.0", schema: "expenses", items: [] },
 
     "journal.json": { version: "1.0", schema: "journal", entries: [] },
+
+    "weather.json": {},
   };
 }
 

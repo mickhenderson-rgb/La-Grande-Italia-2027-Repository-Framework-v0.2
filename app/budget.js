@@ -56,6 +56,12 @@ const Budget = {
 
         </p>
 
+        <p class="form-hint">
+
+            "Actual" includes anything Shortlisted or further along - Research-stage ideas aren't counted yet.
+
+        </p>
+
     </section>
 
     <div class="manager-grid">
@@ -120,7 +126,7 @@ const Budget = {
 
     const food = this.sumPrices(Project.get("restaurants"));
 
-    const transportItems = this.getItems(Project.get("transport"));
+    const transportItems = this.getCountedItems(Project.get("transport"));
 
     let transport = 0;
 
@@ -152,12 +158,21 @@ const Budget = {
     };
   },
 
+  // Only items that have progressed past a bare idea count toward actual
+  // spend - Research-status items are still just options being compared,
+  // not something you're actually going to pay for (yet).
+  countedStatuses: ["Shortlisted", "Selected", "Booked", "Travel", "Review"],
+
   getItems(data) {
     return data && Array.isArray(data.items) ? data.items : [];
   },
 
+  getCountedItems(data) {
+    return this.getItems(data).filter((item) => this.countedStatuses.includes(item.status));
+  },
+
   sumPrices(data) {
-    return this.getItems(data).reduce((sum, item) => sum + (item.price?.amount || 0), 0);
+    return this.getCountedItems(data).reduce((sum, item) => sum + (item.price?.amount || 0), 0);
   },
 
   renderCategory(title, estimate, actualAmount, currency) {

@@ -23,7 +23,7 @@ const Transport = {
 
   workflow: ["Research", "Shortlisted", "Selected", "Booked", "Travel", "Review"],
 
-  modes: ["Drive", "Walk", "Train", "Ferry", "Flight", "Transfer", "Car Rental", "Other"],
+  modes: ["Drive", "Walk", "Train", "Ferry", "Transfer", "Car Rental", "Other"],
 
   open(day) {
     this.currentDay = day;
@@ -324,6 +324,8 @@ Research List
 
     </p>
 
+    ${this.renderScheduleInfo(item)}
+
     <p>
 
         Status:
@@ -542,7 +544,7 @@ ${rows}
       website: "",
       bookingReference: "",
       price: { amount: 0, currency: "EUR" },
-      schedule: { date: day.date || "", departTime: "", arriveTime: "" },
+      schedule: { date: day.date || "", departTime: "", arriveDate: "", arriveTime: "" },
       route: { distanceKm: 0, durationMinutes: 0, tollsEstimate: 0, tollsCurrency: "EUR" },
       planning: { priority: "High", notes: "" },
       actual: { paid: false, completed: false },
@@ -594,32 +596,8 @@ ${rows}
             </label>
 
             <label class="form-field">
-                From Latitude
-                <input type="number" id="trn-from-lat" value="${item.fromCoordinates?.latitude ?? ""}" step="0.000001">
-                <span class="form-hint">Optional, more reliable routing</span>
-            </label>
-
-            <label class="form-field">
-                From Longitude
-                <input type="number" id="trn-from-lng" value="${item.fromCoordinates?.longitude ?? ""}" step="0.000001">
-                <span class="form-hint">Optional</span>
-            </label>
-
-            <label class="form-field">
                 To
                 <input type="text" id="trn-to" value="${this.esc(item.to)}">
-            </label>
-
-            <label class="form-field">
-                To Latitude
-                <input type="number" id="trn-to-lat" value="${item.toCoordinates?.latitude ?? ""}" step="0.000001">
-                <span class="form-hint">Optional, more reliable routing</span>
-            </label>
-
-            <label class="form-field">
-                To Longitude
-                <input type="number" id="trn-to-lng" value="${item.toCoordinates?.longitude ?? ""}" step="0.000001">
-                <span class="form-hint">Optional</span>
             </label>
 
             <label class="form-field">
@@ -662,13 +640,19 @@ ${rows}
             </label>
 
             <label class="form-field">
-                Date
+                Departure Date
                 <input type="date" id="trn-date" value="${this.esc(item.schedule?.date)}">
             </label>
 
             <label class="form-field">
                 Depart Time
                 <input type="time" id="trn-depart" value="${this.esc(item.schedule?.departTime)}">
+            </label>
+
+            <label class="form-field">
+                Arrival Date
+                <input type="date" id="trn-arrive-date" value="${this.esc(item.schedule?.arriveDate)}">
+                <span class="form-hint">If it lands a different day (e.g. overnight flight)</span>
             </label>
 
             <label class="form-field">
@@ -695,6 +679,36 @@ ${rows}
             </label>
 
         </div>
+
+        <details style="margin-top: 14px;">
+
+            <summary>Advanced: exact coordinates (optional, more reliable Google Maps/Waze routing)</summary>
+
+            <div class="form-grid" style="margin-top: 10px;">
+
+                <label class="form-field">
+                    From Latitude
+                    <input type="number" id="trn-from-lat" value="${item.fromCoordinates?.latitude ?? ""}" step="0.000001">
+                </label>
+
+                <label class="form-field">
+                    From Longitude
+                    <input type="number" id="trn-from-lng" value="${item.fromCoordinates?.longitude ?? ""}" step="0.000001">
+                </label>
+
+                <label class="form-field">
+                    To Latitude
+                    <input type="number" id="trn-to-lat" value="${item.toCoordinates?.latitude ?? ""}" step="0.000001">
+                </label>
+
+                <label class="form-field">
+                    To Longitude
+                    <input type="number" id="trn-to-lng" value="${item.toCoordinates?.longitude ?? ""}" step="0.000001">
+                </label>
+
+            </div>
+
+        </details>
 
         <label class="form-field form-field-wide">
             Notes
@@ -792,6 +806,7 @@ ${rows}
       schedule: {
         date: document.getElementById("trn-date").value,
         departTime: document.getElementById("trn-depart").value,
+        arriveDate: document.getElementById("trn-arrive-date").value,
         arriveTime: document.getElementById("trn-arrive").value,
       },
       route: {
@@ -851,6 +866,26 @@ ${rows}
 
         alert("Couldn't save that item. Check the connection and try again.");
       });
+  },
+
+  renderScheduleInfo(item) {
+    const schedule = item.schedule || {};
+
+    if (!schedule.date && !schedule.departTime && !schedule.arriveTime) {
+      return "";
+    }
+
+    return `
+
+<p>
+
+    ${schedule.date ? this.esc(schedule.date) : ""}
+    ${schedule.departTime ? `Depart ${this.esc(schedule.departTime)}` : ""}
+    ${schedule.arriveTime ? ` · Arrive ${schedule.arriveDate && schedule.arriveDate !== schedule.date ? this.esc(schedule.arriveDate) + " " : ""}${this.esc(schedule.arriveTime)}` : ""}
+
+</p>
+
+`;
   },
 
   renderRouteInfo(item) {

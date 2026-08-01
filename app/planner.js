@@ -308,7 +308,21 @@ const Planner = {
   },
 
   showAddDayForm(afterDayNumber) {
+    this.titleManuallyEdited = false;
+
     Render.show(Layout.render(this.renderAddDayForm(afterDayNumber)));
+  },
+
+  suggestTitleFromLocation() {
+    if (this.titleManuallyEdited) {
+      return;
+    }
+
+    const location = document.getElementById("pln-new-location").value;
+
+    const titleEl = document.getElementById("pln-new-title");
+
+    titleEl.value = this.pretty(location);
   },
 
   renderAddDayForm(afterDayNumber) {
@@ -339,13 +353,13 @@ const Planner = {
         <div class="form-grid">
 
             <label class="form-field">
-                Title
-                <input type="text" id="pln-new-title" placeholder="e.g. Explore Destination B">
+                Location
+                <input type="text" id="pln-new-location" placeholder="e.g. destination-b" oninput="Planner.suggestTitleFromLocation()">
             </label>
 
             <label class="form-field">
-                Location
-                <input type="text" id="pln-new-location" placeholder="e.g. destination-b">
+                Title
+                <input type="text" id="pln-new-title" placeholder="Auto-suggested from Location, or type your own" oninput="Planner.titleManuallyEdited = true">
             </label>
 
             <label class="form-field">
