@@ -964,7 +964,22 @@ function handleProjectsList(req, res) {
   }
 }
 
+const BASE_PATH = (process.env.BASE_PATH || "").replace(/\/$/, "");
+
 const server = http.createServer(async (req, res) => {
+  if (
+    BASE_PATH &&
+    (req.url === BASE_PATH || req.url.startsWith(BASE_PATH + "/") || req.url.startsWith(BASE_PATH + "?"))
+  ) {
+    let stripped = req.url.slice(BASE_PATH.length) || "/";
+
+    if (stripped[0] !== "/") {
+      stripped = "/" + stripped;
+    }
+
+    req.url = stripped;
+  }
+
   const authUser = getAuthenticatedUser(req);
 
   if (!authUser) {
