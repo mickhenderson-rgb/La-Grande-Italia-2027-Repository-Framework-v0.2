@@ -435,7 +435,7 @@ const Journal = {
 
     input.disabled = true;
 
-    fetch(`/api/journal/${Data.currentProjectFolder}/${dayNumber}/checklist`, {
+    fetch(`${window.API_BASE}/api/journal/${Data.currentProjectFolder}/${dayNumber}/checklist`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
@@ -464,7 +464,7 @@ const Journal = {
   toggleChecklistItem(id, checked) {
     const dayNumber = this.currentDay.day;
 
-    fetch(`/api/journal/${Data.currentProjectFolder}/${dayNumber}/checklist/${id}`, {
+    fetch(`${window.API_BASE}/api/journal/${Data.currentProjectFolder}/${dayNumber}/checklist/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ checked }),
@@ -498,7 +498,7 @@ const Journal = {
   removeChecklistItem(id) {
     const dayNumber = this.currentDay.day;
 
-    fetch(`/api/journal/${Data.currentProjectFolder}/${dayNumber}/checklist/${id}`, {
+    fetch(`${window.API_BASE}/api/journal/${Data.currentProjectFolder}/${dayNumber}/checklist/${id}`, {
       method: "DELETE",
     })
       .then((response) => {
@@ -533,7 +533,7 @@ const Journal = {
       return;
     }
 
-    fetch(`/api/journal/${Data.currentProjectFolder}/${dayNumber}/photo`, {
+    fetch(`${window.API_BASE}/api/journal/${Data.currentProjectFolder}/${dayNumber}/photo`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url, caption }),
@@ -611,7 +611,7 @@ const Journal = {
 
       const caption = this.autoCaption(file);
 
-      const addResponse = await fetch(`/api/journal/${Data.currentProjectFolder}/${dayNumber}/photo`, {
+      const addResponse = await fetch(`${window.API_BASE}/api/journal/${Data.currentProjectFolder}/${dayNumber}/photo`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url, caption }),
@@ -685,7 +685,7 @@ const Journal = {
   },
 
   async uploadPhoto(dataUrl) {
-    const response = await fetch(`/api/upload/${Data.currentProjectFolder}`, {
+    const response = await fetch(`${window.API_BASE}/api/upload/${Data.currentProjectFolder}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ dataUrl }),
@@ -715,7 +715,7 @@ const Journal = {
   removePhoto(id) {
     const dayNumber = this.currentDay.day;
 
-    fetch(`/api/journal/${Data.currentProjectFolder}/${dayNumber}/photo/${id}`, {
+    fetch(`${window.API_BASE}/api/journal/${Data.currentProjectFolder}/${dayNumber}/photo/${id}`, {
       method: "DELETE",
     })
       .then((response) => {

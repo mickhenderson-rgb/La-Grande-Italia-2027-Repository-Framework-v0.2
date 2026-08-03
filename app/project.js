@@ -82,7 +82,7 @@ const Project = {
     this.setSaveStatusEl("Saving…");
 
     try {
-      const response = await fetch(`/api/data/${this.projectFolder}/${dataset}`, {
+      const response = await fetch(`${window.API_BASE}/api/data/${this.projectFolder}/${dataset}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(value),

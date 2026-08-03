@@ -302,7 +302,7 @@ ${rows}
       return;
     }
 
-    fetch(`/api/items/${Data.currentProjectFolder}/expenses/${id}`, {
+    fetch(`${window.API_BASE}/api/items/${Data.currentProjectFolder}/expenses/${id}`, {
       method: "DELETE",
     })
       .then((response) => {

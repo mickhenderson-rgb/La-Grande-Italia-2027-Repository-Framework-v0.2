@@ -487,7 +487,7 @@ ${selected ? selected.planning.notes : ""}
   },
 
   select(id) {
-    fetch(`/api/items/${Data.currentProjectFolder}/accommodation/${id}/select`, {
+    fetch(`${window.API_BASE}/api/items/${Data.currentProjectFolder}/accommodation/${id}/select`, {
       method: "POST",
     })
       .then((response) => {
@@ -537,7 +537,7 @@ ${selected ? selected.planning.notes : ""}
       return;
     }
 
-    fetch(`/api/items/${Data.currentProjectFolder}/accommodation/${id}`, {
+    fetch(`${window.API_BASE}/api/items/${Data.currentProjectFolder}/accommodation/${id}`, {
       method: "DELETE",
     })
       .then((response) => {

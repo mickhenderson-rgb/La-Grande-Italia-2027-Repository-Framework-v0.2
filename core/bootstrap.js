@@ -21,7 +21,7 @@ document.addEventListener(
     Project.initialise();
 
     try {
-      const response = await fetch("/api/whoami");
+      const response = await fetch(`${window.API_BASE}/api/whoami`);
 
       if (response.ok) {
         const result = await response.json();

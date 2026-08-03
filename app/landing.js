@@ -24,7 +24,7 @@ const Landing = {
     Render.show(this.renderLoading());
 
     try {
-      const response = await fetch("/api/projects");
+      const response = await fetch(`${window.API_BASE}/api/projects`);
 
       if (!response.ok) {
         throw new Error(`Could not list trips (status ${response.status})`);
@@ -191,7 +191,7 @@ ${
 
   async setArchived(id, archived) {
     try {
-      const response = await fetch(`/api/projects/${id}/archive`, {
+      const response = await fetch(`${window.API_BASE}/api/projects/${id}/archive`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ archived }),
@@ -219,7 +219,7 @@ ${
     }
 
     try {
-      const response = await fetch(`/api/projects/${id}`, { method: "DELETE" });
+      const response = await fetch(`${window.API_BASE}/api/projects/${id}`, { method: "DELETE" });
 
       if (!response.ok) {
         throw new Error(`Status ${response.status}`);

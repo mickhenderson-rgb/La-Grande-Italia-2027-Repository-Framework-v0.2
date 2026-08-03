@@ -429,7 +429,7 @@ ${rows}
       return;
     }
 
-    fetch(`/api/items/${Data.currentProjectFolder}/restaurants/${id}`, {
+    fetch(`${window.API_BASE}/api/items/${Data.currentProjectFolder}/restaurants/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: next }),
@@ -477,7 +477,7 @@ ${rows}
       return;
     }
 
-    fetch(`/api/items/${Data.currentProjectFolder}/restaurants/${id}`, {
+    fetch(`${window.API_BASE}/api/items/${Data.currentProjectFolder}/restaurants/${id}`, {
       method: "DELETE",
     })
       .then((response) => {

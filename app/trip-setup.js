@@ -192,7 +192,7 @@ const TripSetup = {
     statusEl.textContent = "Creating trip...";
 
     try {
-      const response = await fetch("/api/projects", {
+      const response = await fetch(`${window.API_BASE}/api/projects`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, subtitle, startDate, endDate, currency }),
