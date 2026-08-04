@@ -35,17 +35,17 @@ Caching rules, deliberately conservative:
 const CACHE_NAME = "compass-tos-v2";
 
 const APP_SHELL = [
-  "/",
-  "/index.html",
-  "/manifest.webmanifest",
-  "/assets/css/core.css",
-  "/assets/css/layout.css",
-  "/assets/css/components.css",
-  "/assets/css/typography.css",
-  "/assets/css/utilities.css",
-  "/assets/css/themes/light.css",
-  "/assets/icons/icon-192.png",
-  "/assets/icons/icon-512.png",
+  "./",
+  "index.html",
+  "manifest.webmanifest",
+  "assets/css/core.css",
+  "assets/css/layout.css",
+  "assets/css/components.css",
+  "assets/css/typography.css",
+  "assets/css/utilities.css",
+  "assets/css/themes/light.css",
+  "assets/icons/icon-192.png",
+  "assets/icons/icon-512.png",
 ];
 
 self.addEventListener("install", (event) => {

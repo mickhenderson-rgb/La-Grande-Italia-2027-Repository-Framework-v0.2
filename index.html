@@ -497,7 +497,9 @@ This block is intentionally disabled.
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
-          navigator.serviceWorker.register("/service-worker.js").catch((error) => {
+          navigator.serviceWorker
+            .register(`${window.API_BASE}/service-worker.js`, { scope: `${window.API_BASE}/` || "/" })
+            .catch((error) => {
             console.warn("Service worker registration failed:", error);
           });
         });
