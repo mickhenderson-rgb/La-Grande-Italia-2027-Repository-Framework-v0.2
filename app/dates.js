@@ -39,10 +39,12 @@ const Dates = {
   },
 
   findArrivalDate(day) {
-    const items = Array.isArray(day.items) ? day.items : [];
+    const flights = Project.get("flights");
+
+    const items = flights && Array.isArray(flights.items) ? flights.items : [];
 
     const flight = items.find(
-      (item) => item.type === "flight" && item.arrival && item.arrival.date,
+      (item) => item.day === day.day && item.arrival && item.arrival.date,
     );
 
     return flight ? flight.arrival.date : null;

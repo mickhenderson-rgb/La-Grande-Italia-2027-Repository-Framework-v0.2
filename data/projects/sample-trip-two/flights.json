@@ -1,0 +1,42 @@
+{
+  "version": "2.0",
+  "schema": "planning-item",
+  "items": [
+    {
+      "id": "FLT-0001",
+      "day": 1,
+      "type": "flight",
+      "addedBy": "",
+      "airline": "",
+      "flightNumber": "",
+      "from": "Sydney Airport",
+      "to": "Milan Malpensa Airport",
+      "status": "Research",
+      "locked": false,
+      "price": {
+        "amount": 0,
+        "currency": "USD"
+      },
+      "website": "",
+      "bookingReference": "",
+      "departure": {
+        "date": "2027-01-01",
+        "time": "",
+        "location": "Sydney Airport"
+      },
+      "arrival": {
+        "date": "",
+        "time": "",
+        "location": "Milan Malpensa Airport"
+      },
+      "planning": {
+        "priority": "High",
+        "notes": ""
+      },
+      "actual": {
+        "paid": false,
+        "completed": false
+      }
+    }
+  ]
+}

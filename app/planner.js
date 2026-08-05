@@ -87,32 +87,38 @@ const Planner = {
   renderDay(day) {
     const summary = this.daySummary(day);
 
-    let items = "";
+    const badges = this.liveCategoryBadges(day);
 
-    if (Array.isArray(day.items) && day.items.length > 0) {
-      day.items.forEach((item) => {
-        items += `
+    let items = badges
+      .map(
+        (b) => `
 
 <div class="planner-item">
 
     <div class="planner-item-title">
 
-        ${this.icon(item.type)}
-        ${item.title}
+        ${this.icon(b.type)}
+        ${b.label}${b.name ? ` — ${this.esc(b.name)}` : ""}
 
     </div>
 
     <div class="planner-item-status">
 
-        ${item.status || "open"}
+        ${
+          b.status
+            ? `<span class="badge ${b.badgeClass}">${b.status}</span>`
+            : `<span class="badge">Not planned</span>`
+        }
 
     </div>
 
 </div>
 
-`;
-      });
-    } else {
+`,
+      )
+      .join("");
+
+    if (!items) {
       items = `
 
 <div class="planner-item">
@@ -264,6 +270,107 @@ const Planner = {
       booked,
       locked,
     };
+  },
+
+  liveCategoryBadges(day) {
+    const location = String(day.location || "").toLowerCase();
+
+    const accommodation = this.bestStatus(
+      this.matchByDestination(Project.get("accommodation"), location, day.day),
+    );
+
+    const activities = this.bestStatus(
+      this.matchByDestination(Project.get("activities"), location, day.day),
+    );
+
+    const restaurants = this.bestStatus(
+      this.matchByDestination(Project.get("restaurants"), location, day.day),
+    );
+
+    const transportItems = this.getItems(Project.get("transport")).filter(
+      (item) => item.day === day.day,
+    );
+
+    const transport = this.bestStatus(transportItems);
+
+    const flightItems = this.getItems(Project.get("flights")).filter(
+      (item) => item.day === day.day,
+    );
+
+    const flights = this.bestStatus(flightItems);
+
+    return [
+      { type: "flight", label: "Flights", status: flights, ...this.statusColor(flights) },
+      { type: "accommodation", label: "Accommodation", status: accommodation, ...this.statusColor(accommodation) },
+      { type: "activity", label: "Activities", status: activities, ...this.statusColor(activities) },
+      { type: "restaurant", label: "Restaurants", status: restaurants, ...this.statusColor(restaurants) },
+      { type: "transport", label: "Transport", status: transport, ...this.statusColor(transport) },
+    ];
+  },
+
+  getItems(data) {
+    return data && Array.isArray(data.items) ? data.items : [];
+  },
+
+  matchByDestination(data, location, dayNumber) {
+    return this.getItems(data).filter((item) => {
+      if (String(item.destination || "").toLowerCase() !== location) {
+        return false;
+      }
+
+      if (!Array.isArray(item.dayRange)) {
+        return true;
+      }
+
+      return dayNumber >= item.dayRange[0] && dayNumber <= item.dayRange[1];
+    });
+  },
+
+  statusRank: {
+    Research: 0,
+    Shortlisted: 1,
+    Selected: 2,
+    Booked: 3,
+    Travel: 3,
+    Review: 3,
+  },
+
+  bestStatus(items) {
+    if (!items || items.length === 0) {
+      return null;
+    }
+
+    let best = items[0].status;
+
+    items.forEach((item) => {
+      if ((this.statusRank[item.status] ?? 0) > (this.statusRank[best] ?? 0)) {
+        best = item.status;
+      }
+    });
+
+    return best;
+  },
+
+  statusColor(status) {
+    if (!status) {
+      return { badgeClass: "" };
+    }
+
+    const rank = this.statusRank[status] ?? 0;
+
+    if (rank >= 3) {
+      return { badgeClass: "badge-booked" };
+    }
+
+    if (rank === 2) {
+      return { badgeClass: "badge-selected" };
+    }
+
+    return { badgeClass: "" };
+  },
+
+  esc(value) {
+    return String(value ?? "").replace(/"/g, "&quot;");
   },
 
   statBox(value, label) {

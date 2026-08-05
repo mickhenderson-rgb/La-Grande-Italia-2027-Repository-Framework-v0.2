@@ -122,6 +122,7 @@ const ITEM_COLLECTIONS = {
   transport: "TRN",
   restaurants: "RST",
   expenses: "EXP",
+  flights: "FLT",
 };
 
 function itemsFilePath(projectId, collection) {
@@ -738,6 +739,7 @@ function buildProjectFiles(input) {
     "activities.json": EMPTY_PLANNING_ITEM_SCHEMA,
     "transport.json": EMPTY_PLANNING_ITEM_SCHEMA,
     "restaurants.json": EMPTY_PLANNING_ITEM_SCHEMA,
+    "flights.json": EMPTY_PLANNING_ITEM_SCHEMA,
 
     "events.json": { events: [] },
 

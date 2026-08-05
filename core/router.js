@@ -60,7 +60,7 @@ const Router = {
         break;
 
       case "flights":
-        Flights.open();
+        Flights.openAll();
 
         break;
 

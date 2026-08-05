@@ -68,6 +68,14 @@ const Day = {
 
             <button
                 type="button"
+                onclick="Flights.open(Day.current)">
+
+                Flights
+
+            </button>
+
+            <button
+                type="button"
                 onclick="Accommodation.open(Day.current)">
 
                 Accommodation
@@ -95,6 +103,8 @@ const Day = {
     </section>
 
     <div class="workspace-grid">
+
+        ${this.panel("✈", "Flights", summary.flight, `Flights.open(Day.current)`)}
 
         ${this.panel("🚗", "Transport", summary.transport, `Transport.open(Day.current)`)}
 
@@ -165,6 +175,7 @@ const Day = {
     const items = Array.isArray(day.items) ? day.items : [];
 
     return {
+      flight: this.liveCount("flights", day.day),
       transport: this.countType(items, "transport"),
       accommodation: this.countType(items, "accommodation"),
       activity: this.countType(items, "activity"),
@@ -172,6 +183,16 @@ const Day = {
       expense: this.countType(items, "expense"),
       note: this.journalSummary(day),
     };
+  },
+
+  liveCount(collection, dayNumber) {
+    const data = Project.get(collection);
+
+    if (!data || !Array.isArray(data.items)) {
+      return 0;
+    }
+
+    return data.items.filter((item) => item.day === dayNumber).length;
   },
 
   journalSummary(day) {
