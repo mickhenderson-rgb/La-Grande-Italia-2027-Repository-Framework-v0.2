@@ -199,6 +199,14 @@ const Planner = {
 
        <button
             type="button"
+            onclick="Planner.showEditDayForm(${day.day})">
+
+            Edit Day
+
+        </button>
+
+       <button
+            type="button"
             onclick="Planner.showAddDayForm(${day.day})">
 
             + Insert Day After
@@ -513,6 +521,137 @@ const Planner = {
 
     JourneyEditor.insertDay(afterDayNumber, { title, location, overnight });
 
+    Router.navigate("planner");
+  },
+
+  showEditDayForm(dayNumber) {
+    const journey = Project.get("journey");
+
+    const day =
+      journey && Array.isArray(journey.days)
+        ? journey.days.find((d) => d.day === dayNumber)
+        : null;
+
+    if (!day) {
+      alert("That day could not be found.");
+
+      return;
+    }
+
+    Render.show(Layout.render(this.renderEditDayForm(day)));
+  },
+
+  renderEditDayForm(day) {
+    return `
+
+<div class="manager">
+
+    <section class="hero">
+
+        <h1>
+
+            Edit Day ${day.day}
+
+        </h1>
+
+        <p>
+
+            Update this day's title, location or overnight stop. Day numbers and dates are not affected.
+
+        </p>
+
+    </section>
+
+    <form onsubmit="Planner.saveEditedDay(event, ${day.day}); return false;">
+
+        <div class="manager-card form-card">
+
+            <div class="form-grid">
+
+                <label class="form-field">
+                    Location
+                    <input type="text" id="pln-edit-location" value="${this.esc(day.location)}" placeholder="e.g. destination-b">
+                </label>
+
+                <label class="form-field">
+                    Title
+                    <input type="text" id="pln-edit-title" value="${this.esc(day.title)}" placeholder="e.g. Arrive in Destination B">
+                </label>
+
+                <label class="form-field">
+                    Overnight
+                    <input type="text" id="pln-edit-overnight" value="${this.esc(day.overnight)}" placeholder="Defaults to Location if left blank">
+                </label>
+
+            </div>
+
+        </div>
+
+        <div class="planner-buttons">
+
+            <button type="submit">
+
+                Save Changes
+
+            </button>
+
+            <button type="button" onclick="Planner.closeEditDayForm()">
+
+                Cancel
+
+            </button>
+
+        </div>
+
+    </form>
+
+</div>
+
+`;
+  },
+
+  saveEditedDay(event, dayNumber) {
+    if (event) {
+      event.preventDefault();
+    }
+
+    const journey = Project.get("journey");
+
+    const day =
+      journey && Array.isArray(journey.days)
+        ? journey.days.find((d) => d.day === dayNumber)
+        : null;
+
+    if (!day) {
+      alert("That day could not be found.");
+
+      return;
+    }
+
+    const title = document.getElementById("pln-edit-title").value.trim();
+
+    const location = document.getElementById("pln-edit-location").value.trim().toLowerCase();
+
+    const overnight = document.getElementById("pln-edit-overnight").value.trim().toLowerCase();
+
+    if (!title || !location) {
+      alert("Please enter at least a title and location before saving.");
+
+      return;
+    }
+
+    day.title = title;
+
+    day.location = location;
+
+    day.overnight = overnight || location;
+
+    Project.update("journey", journey);
+
+    this.closeEditDayForm();
+  },
+
+  closeEditDayForm() {
     Router.navigate("planner");
   },
 
