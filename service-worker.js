@@ -32,7 +32,7 @@ Caching rules, deliberately conservative:
 =========================================================
 */
 
-const CACHE_NAME = "compass-tos-v11";
+const CACHE_NAME = "compass-tos-v12";
 
 const APP_SHELL = [
   "./",

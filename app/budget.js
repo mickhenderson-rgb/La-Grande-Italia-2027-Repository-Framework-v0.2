@@ -5,17 +5,23 @@ COMPASS-TOS
 
 Budget
 
-Version 2.0.0
+Version 3.0.0
 
-Build 45
+Build 45 (spend tiers)
 
-Currency-aware actual-spend view. Confirmed bookings (Booked
-and Travel) are grouped per category and per native currency,
-so nothing gets summed across currencies by accident. A
-dropdown converts every subtotal - and the grand total - into
-a single display currency using live Frankfurter rates via the
-Currency module (Build 42). Planning estimates (facts, stored
-in budget.json) are still shown and editable; nothing
+Separates every priced item into three tiers by status:
+
+  ESTIMATED  - Research, Shortlisted, Selected
+  ALLOCATED  - Booked
+  ACTUAL     - Travel, Review (plus logged expenses)
+
+Each tier is shown in its native currencies with per-currency
+subtotals, then converted to a single display currency using
+live Frankfurter rates via the Currency module (Build 42). An
+optional trip budget cap (stored in the trip's home currency)
+drives a remaining-budget figure against actual spend.
+
+Planning estimates in budget.json are still editable; nothing
 calculated is written back.
 
 =========================================================
@@ -43,11 +49,15 @@ const Budget = {
 
     Render.show(Layout.render(this.renderView()));
 
-    const items = this.getAllItems();
+    const entries = this.collectEntries();
 
-    const froms = [...new Set(items.map((e) => e.currency).filter((c) => c && c !== this.displayCurrency))];
+    const froms = new Set(entries.map((e) => e.currency));
 
-    const missing = froms.filter((f) => Currency.cachedRate(f, this.displayCurrency) === null);
+    froms.add(this.tripCurrency());
+
+    const missing = [...froms].filter(
+      (c) => c && c !== this.displayCurrency && Currency.cachedRate(c, this.displayCurrency) === null,
+    );
 
     if (missing.length === 0) {
       return;
@@ -70,8 +80,20 @@ const Budget = {
     return data && Array.isArray(data.items) ? data.items : [];
   },
 
-  isConfirmed(item) {
-    return item.status === "Booked" || item.status === "Travel";
+  getTier(status) {
+    if (["Research", "Shortlisted", "Selected"].includes(status)) {
+      return "estimated";
+    }
+
+    if (status === "Booked") {
+      return "allocated";
+    }
+
+    if (["Travel", "Review"].includes(status)) {
+      return "actual";
+    }
+
+    return null;
   },
 
   calculateNights(item) {
@@ -98,76 +120,133 @@ const Budget = {
     return route ? `${item.mode || "Transport"}: ${route}` : item.mode || "Transport";
   },
 
-  getAllItems() {
-    const items = [];
+  getCategoryLabel(key) {
+    const labels = {
+      flights: "Flights",
+      accommodation: "Accommodation",
+      activities: "Activities",
+      restaurants: "Restaurants",
+      transport: "Transport",
+      expenses: "Expenses (logged)",
+    };
 
-    const add = (category, name, amount, currency, detail) => {
+    return labels[key] || key;
+  },
+
+  collectEntries() {
+    const entries = [];
+
+    const add = (tier, category, name, amount, currency, detail, status) => {
       const value = Number(amount) || 0;
 
       if (!(value > 0)) {
         return;
       }
 
-      items.push({
+      entries.push({
+        tier,
         category,
-        name: name,
+        name,
         amount: value,
         currency: String(currency || "EUR").toUpperCase(),
         detail: detail || "",
+        status,
       });
     };
 
-    this.getItems(Project.get("flights"))
-      .filter((it) => this.isConfirmed(it))
-      .forEach((it) => add("flights", this.flightName(it), it.price && it.price.amount, it.price && it.price.currency));
+    this.getItems(Project.get("flights")).forEach((it) => {
+      const tier = this.getTier(it.status);
 
-    this.getItems(Project.get("accommodation"))
-      .filter((it) => this.isConfirmed(it))
-      .forEach((it) => {
-        const base = Number(it.price && it.price.amount) || 0;
-
-        const perNight = String(it.price && it.price.per).toLowerCase() === "night";
-
-        const nights = this.calculateNights(it);
-
-        const total = perNight ? base * nights : base;
-
-        const detail = perNight && nights > 1 ? `${this.money(base, it.price.currency)} × ${nights} nights` : "";
-
-        add("accommodation", it.name || "Accommodation", total, it.price && it.price.currency, detail);
-      });
-
-    this.getItems(Project.get("activities"))
-      .filter((it) => this.isConfirmed(it))
-      .forEach((it) => add("activities", it.name || "Activity", it.price && it.price.amount, it.price && it.price.currency));
-
-    this.getItems(Project.get("restaurants"))
-      .filter((it) => this.isConfirmed(it))
-      .forEach((it) => add("restaurants", it.name || "Restaurant", it.price && it.price.amount, it.price && it.price.currency));
-
-    this.getItems(Project.get("transport"))
-      .filter((it) => this.isConfirmed(it))
-      .forEach((it) => add("transport", this.transportName(it), it.price && it.price.amount, it.price && it.price.currency));
-
-    this.getItems(Project.get("expenses")).forEach((it) =>
-      add("expenses", it.description || it.category || "Expense", it.amount, it.currency),
-    );
-
-    return items;
-  },
-
-  groupByCategory(items) {
-    const out = {};
-
-    items.forEach((e) => {
-      out[e.category] = out[e.category] || {};
-
-      out[e.category][e.currency] = out[e.category][e.currency] || [];
-
-      out[e.category][e.currency].push(e);
+      if (tier) {
+        add(tier, "flights", this.flightName(it), it.price && it.price.amount, it.price && it.price.currency, "", it.status);
+      }
     });
 
-    return out;
+    this.getItems(Project.get("accommodation")).forEach((it) => {
+      const tier = this.getTier(it.status);
+
+      if (!tier) {
+        return;
+      }
+
+      const base = Number(it.price && it.price.amount) || 0;
+
+      const perNight = String(it.price && it.price.per).toLowerCase() === "night";
+
+      const nights = this.calculateNights(it);
+
+      const total = perNight ? base * nights : base;
+
+      const detail =
+        perNight && nights > 1
+          ? `${this.money(base, it.price.currency)}/night × ${nights} = ${this.money(total, it.price.currency)}`
+          : "";
+
+      add(tier, "accommodation", it.name || "Accommodation", total, it.price && it.price.currency, detail, it.status);
+    });
+
+    this.getItems(Project.get("activities")).forEach((it) => {
+      const tier = this.getTier(it.status);
+
+      if (tier) {
+        add(tier, "activities", it.name || "Activity", it.price && it.price.amount, it.price && it.price.currency, "", it.status);
+      }
+    });
+
+    this.getItems(Project.get("restaurants")).forEach((it) => {
+      const tier = this.getTier(it.status);
+
+      if (tier) {
+        add(tier, "restaurants", it.name || "Restaurant", it.price && it.price.amount, it.price && it.price.currency, "", it.status);
+      }
+    });
+
+    this.getItems(Project.get("transport")).forEach((it) => {
+      const tier = this.getTier(it.status);
+
+      if (tier) {
+        add(tier, "transport", this.transportName(it), it.price && it.price.amount, it.price && it.price.currency, "", it.status);
+      }
+    });
+
+    // Logged expenses are money already spent - they belong in Actual.
+    this.getItems(Project.get("expenses")).forEach((it) =>
+      add("actual", "expenses", it.description || it.category || "Expense", it.amount, it.currency, "", "Logged"),
+    );
+
+    return entries;
+  },
+
+  getAllItems() {
+    const entries = this.collectEntries();
+
+    return {
+      estimated: entries.filter((e) => e.tier === "estimated"),
+      allocated: entries.filter((e) => e.tier === "allocated"),
+      actual: entries.filter((e) => e.tier === "actual"),
+    };
+  },
+
+  groupByTierAndCurrency(tiered) {
+    const group = (list) => {
+      const out = {};
+
+      list.forEach((e) => {
+        out[e.category] = out[e.category] || {};
+
+        out[e.category][e.currency] = out[e.category][e.currency] || [];
+
+        out[e.category][e.currency].push(e);
+      });
+
+      return out;
+    };
+
+    return {
+      estimated: group(tiered.estimated),
+      allocated: group(tiered.allocated),
+      actual: group(tiered.actual),
+    };
   },
 
   convertAmount(amount, from, to) {
@@ -180,61 +259,103 @@ const Budget = {
     return rate === null ? null : amount * rate;
   },
 
+  tripCurrency() {
+    const projectData = Project.get("project");
+
+    const fromProject = projectData && projectData.project ? projectData.project.currency : null;
+
+    return String(fromProject || (Project.get("budget") || {}).currency || "EUR").toUpperCase();
+  },
+
+  getBudgetCap() {
+    const projectData = Project.get("project");
+
+    const cap = projectData && projectData.project ? projectData.project.budgetCap : null;
+
+    if (cap === null || cap === undefined || cap === "") {
+      return null;
+    }
+
+    const value = Number(cap);
+
+    return isNaN(value) ? null : value;
+  },
+
+  setBudgetCap() {
+    const el = document.getElementById("bgt-cap");
+
+    const raw = el ? el.value.trim() : "";
+
+    const projectData = Project.get("project");
+
+    if (projectData && projectData.project) {
+      projectData.project.budgetCap = raw === "" ? null : Number(raw) || null;
+
+      Project.update("project", projectData);
+    }
+
+    this.loadAndRender();
+  },
+
   // --- Rendering ---
 
   currencyList() {
-    const trip = String((Project.get("budget") || {}).currency || this.displayCurrency).toUpperCase();
+    const trip = this.tripCurrency();
 
     return [...new Set([this.displayCurrency, trip, ...(Currency.currencies || [])])].filter(Boolean);
   },
 
+  renderCurrencySelector() {
+    return `
+
+<label class="form-field">
+    Display totals in
+    <select onchange="Budget.setDisplay(this.value)">
+        ${this.currencyList()
+          .map((c) => `<option value="${c}" ${c === this.displayCurrency ? "selected" : ""}>${c}</option>`)
+          .join("")}
+    </select>
+</label>
+
+`;
+  },
+
+  renderBudgetCapInput() {
+    const cap = this.getBudgetCap();
+
+    const tripCur = this.tripCurrency();
+
+    return `
+
+<label class="form-field">
+    Trip Budget Cap (optional, in ${this.esc(tripCur)})
+    <input type="number" id="bgt-cap" min="0" step="1" value="${cap === null ? "" : cap}">
+</label>
+
+<div class="planner-buttons">
+
+    <button type="button" onclick="Budget.setBudgetCap()">Set Cap</button>
+
+</div>
+
+`;
+  },
+
   renderView() {
-    const budget = Project.get("budget") || {};
+    const tiered = this.getAllItems();
 
-    const items = this.getAllItems();
+    const totalCount = tiered.estimated.length + tiered.allocated.length + tiered.actual.length;
 
-    const grouped = this.groupByCategory(items);
+    const estimated = this.renderTierSection("Estimated Costs", "Research, Shortlisted, Selected", tiered.estimated, true);
 
-    const order = [
-      ["flights", "Flights"],
-      ["accommodation", "Accommodation"],
-      ["activities", "Activities"],
-      ["restaurants", "Restaurants"],
-      ["transport", "Transport"],
-      ["expenses", "Expenses (logged)"],
-    ];
+    const allocated = this.renderTierSection("Allocated Costs", "Booked", tiered.allocated, false);
 
-    let grandTotal = 0;
+    const actual = this.renderTierSection("Actual Spend", "Travel, Review, logged expenses", tiered.actual, true);
 
-    let grandComplete = true;
-
-    const sections = order
-      .map(([key, label]) => {
-        const section = this.renderCategorySection(label, grouped[key] || {});
-
-        if (section.converted === null) {
-          if (section.hasItems) {
-            grandComplete = false;
-          }
-        } else {
-          grandTotal += section.converted;
-        }
-
-        return section.html;
-      })
-      .join("");
-
-    const grandDisplay =
-      items.length === 0
-        ? ""
-        : grandComplete
-          ? this.formatConverted(grandTotal, this.displayCurrency)
-          : "Some live rates unavailable - see native subtotals above";
-
-    const estimateLine =
-      budget.estimate_low || budget.estimate_high
-        ? `Planning estimate: ${this.money(budget.estimate_low, budget.currency)} – ${this.money(budget.estimate_high, budget.currency)}`
-        : "No planning estimate set yet.";
+    const body =
+      totalCount === 0
+        ? `<div class="manager-card"><p>No items added yet. Add flights, accommodation, activities, restaurants or transport (or log expenses) to see your budget here.</p></div>`
+        : estimated.html + allocated.html + actual.html + this.renderSummary(estimated, allocated, actual);
 
     return `
 
@@ -244,46 +365,19 @@ const Budget = {
 
         <h1>Budget</h1>
 
-        <p>Confirmed spend (Booked &amp; Travel) shown in each item's own currency, with totals converted to your chosen currency using live rates.</p>
-
-        <p class="form-hint">${estimateLine}</p>
+        <p>Items split into three tiers - Estimated (still deciding), Allocated (booked) and Actual (travelling / done) - each shown in its own currency, with totals converted to your chosen currency using live rates.</p>
 
     </section>
 
     <div class="manager-card" style="max-width: 520px;">
 
-        <label class="form-field">
-            Display totals in
-            <select onchange="Budget.setDisplay(this.value)">
-                ${this.currencyList()
-                  .map((c) => `<option value="${c}" ${c === this.displayCurrency ? "selected" : ""}>${c}</option>`)
-                  .join("")}
-            </select>
-        </label>
+        ${this.renderCurrencySelector()}
+
+        ${this.renderBudgetCapInput()}
 
     </div>
 
-    ${
-      items.length === 0
-        ? `<div class="manager-card"><p>No confirmed items yet. Mark flights, accommodation, activities, restaurants or transport as <strong>Booked</strong> (or log expenses) to see your budget here.</p></div>`
-        : sections
-    }
-
-    ${
-      items.length === 0
-        ? ""
-        : `
-
-<div class="manager-card" style="border-top: 3px solid #34495E;">
-
-    <h2>Grand Total in ${this.esc(this.displayCurrency)}</h2>
-
-    <p style="font-size: 1.4em; font-weight: 700;">${this.esc(grandDisplay)}</p>
-
-</div>
-
-`
-    }
+    ${body}
 
     <div class="planner-buttons">
 
@@ -300,74 +394,98 @@ const Budget = {
 `;
   },
 
-  renderCategorySection(label, byCurrency) {
-    const currencies = Object.keys(byCurrency);
-
-    if (currencies.length === 0) {
+  renderTierSection(title, subtitle, entries, showStatus) {
+    if (entries.length === 0) {
       return {
         html: `
 
 <div class="manager-card">
 
-    <h2>${this.esc(label)}</h2>
+    <h2>${this.esc(title)} <span class="form-hint">(${this.esc(subtitle)})</span></h2>
 
-    <p class="form-hint">(No items booked)</p>
+    <p class="form-hint">(No items in this tier)</p>
 
 </div>
 
 `,
         converted: 0,
-        hasItems: false,
+        complete: true,
       };
     }
 
-    let rows = "";
+    const byCategory = {};
+
+    entries.forEach((e) => {
+      byCategory[e.category] = byCategory[e.category] || [];
+
+      byCategory[e.category].push(e);
+    });
+
+    const order = ["flights", "accommodation", "activities", "restaurants", "transport", "expenses"];
+
+    let catHtml = "";
+
+    order.forEach((cat) => {
+      const list = byCategory[cat];
+
+      if (!list) {
+        return;
+      }
+
+      const rows = list
+        .map((e) => {
+          const priceText = e.detail || this.money(e.amount, e.currency);
+
+          const statusTag = showStatus && e.status ? ` <span class="form-hint">(${this.esc(e.status)})</span>` : "";
+
+          return `
+
+<tr>
+
+<td>${this.esc(e.name)}${statusTag}</td>
+
+<td style="text-align: right;">${this.esc(priceText)}</td>
+
+</tr>
+
+`;
+        })
+        .join("");
+
+      catHtml += `
+
+<h3>${this.esc(this.getCategoryLabel(cat))}</h3>
+
+<table style="width: 100%;">${rows}</table>
+
+`;
+    });
+
+    const byCurrency = {};
+
+    entries.forEach((e) => {
+      byCurrency[e.currency] = (byCurrency[e.currency] || 0) + e.amount;
+    });
+
+    let curLines = "";
 
     let convertedTotal = 0;
 
-    let convertComplete = true;
+    let complete = true;
 
-    currencies.forEach((cur) => {
-      let subtotal = 0;
+    Object.keys(byCurrency).forEach((cur) => {
+      curLines += `<div>${this.esc(cur)}: <strong>${this.money(byCurrency[cur], cur)}</strong></div>`;
 
-      byCurrency[cur].forEach((e) => {
-        subtotal += e.amount;
-
-        rows += `
-
-<tr>
-
-<td>${this.esc(e.name)}${e.detail ? ` <span class="form-hint">(${this.esc(e.detail)})</span>` : ""}</td>
-
-<td style="text-align: right;">${this.money(e.amount, cur)}</td>
-
-</tr>
-
-`;
-      });
-
-      rows += `
-
-<tr>
-
-<td><strong>Subtotal (${this.esc(cur)})</strong></td>
-
-<td style="text-align: right;"><strong>${this.money(subtotal, cur)}</strong></td>
-
-</tr>
-
-`;
-
-      const converted = this.convertAmount(subtotal, cur, this.displayCurrency);
+      const converted = this.convertAmount(byCurrency[cur], cur, this.displayCurrency);
 
       if (converted === null) {
-        convertComplete = false;
+        complete = false;
       } else {
         convertedTotal += converted;
       }
     });
 
-    const convertedCell = convertComplete
+    const convertedCell = complete
       ? this.formatConverted(convertedTotal, this.displayCurrency)
       : this.rateError
         ? "Rate unavailable"
@@ -378,28 +496,106 @@ const Budget = {
 
 <div class="manager-card">
 
-    <h2>${this.esc(label)}</h2>
+    <h2>${this.esc(title)} <span class="form-hint">(${this.esc(subtitle)})</span></h2>
+
+    ${catHtml}
+
+    <div style="border-top: 2px solid #C79C5D; margin-top: 8px; padding-top: 8px;">
+
+        <p><strong>Subtotal by currency:</strong></p>
+
+        ${curLines}
+
+        <p style="margin-top: 6px;"><strong>Subtotal in ${this.esc(this.displayCurrency)}: ${convertedCell}</strong></p>
+
+    </div>
+
+</div>
+
+`,
+      converted: complete ? convertedTotal : null,
+      complete,
+    };
+  },
+
+  renderSummary(estimated, allocated, actual) {
+    const display = this.displayCurrency;
+
+    const fmt = (tier) => (tier.complete ? this.formatConverted(tier.converted, display) : "Rates unavailable");
+
+    const cap = this.getBudgetCap();
+
+    const tripCur = this.tripCurrency();
+
+    let capRows;
+
+    if (cap === null) {
+      capRows = `
+
+<tr><td>Trip Budget Cap</td><td style="text-align: right;">Not set</td></tr>
+
+<tr><td>Actual Spend</td><td style="text-align: right;">${fmt(actual)}</td></tr>
+
+`;
+    } else {
+      const capDisplay = this.convertAmount(cap, tripCur, display);
+
+      if (capDisplay === null || !actual.complete) {
+        capRows = `
+
+<tr><td>Trip Budget Cap</td><td style="text-align: right;">${this.money(cap, tripCur)}</td></tr>
+
+<tr><td>Actual Spend</td><td style="text-align: right;">${fmt(actual)}</td></tr>
+
+<tr><td>Remaining</td><td style="text-align: right;">Live rate needed to compare</td></tr>
+
+`;
+      } else {
+        const remaining = capDisplay - actual.converted;
+
+        const over = remaining < 0;
+
+        const colour = over ? "#b3261e" : "#2e7d4f";
+
+        const verdict = over
+          ? `✗ (OVER BUDGET by ${this.formatConverted(Math.abs(remaining), display)})`
+          : "✓ (under budget)";
+
+        capRows = `
+
+<tr><td>Trip Budget Cap</td><td style="text-align: right;">${this.formatConverted(capDisplay, display)}</td></tr>
+
+<tr><td>Actual Spend</td><td style="text-align: right;">${this.formatConverted(actual.converted, display)}</td></tr>
+
+<tr><td><strong>Remaining</strong></td><td style="text-align: right; color: ${colour};"><strong>${this.formatConverted(remaining, display)} ${verdict}</strong></td></tr>
+
+`;
+      }
+    }
+
+    return `
+
+<div class="manager-card" style="border-top: 3px solid #34495E;">
+
+    <h2>Summary</h2>
 
     <table style="width: 100%;">
 
-        ${rows}
+        <tr><td>Estimated</td><td style="text-align: right;">${fmt(estimated)}</td></tr>
 
-        <tr>
+        <tr><td>Allocated</td><td style="text-align: right;">${fmt(allocated)}</td></tr>
 
-        <td style="border-top: 2px solid #C79C5D;"><strong>Subtotal in ${this.esc(this.displayCurrency)}</strong></td>
+        <tr><td>Actual</td><td style="text-align: right;">${fmt(actual)}</td></tr>
 
-        <td style="border-top: 2px solid #C79C5D; text-align: right;"><strong>${convertedCell}</strong></td>
+        <tr><td colspan="2"><hr></td></tr>
 
-        </tr>
+        ${capRows}
 
     </table>
 
 </div>
 
-`,
-      converted: convertComplete ? convertedTotal : null,
-      hasItems: true,
-    };
+`;
   },
 
   formatConverted(amount, currency) {
