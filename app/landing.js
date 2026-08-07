@@ -162,21 +162,21 @@ ${
 
     <p>${this.esc(dates)}</p>
 
-    <button type="button" onclick="Landing.selectTrip('${project.id}')">
+    <button type="button" onclick="Landing.selectTrip('${project.id}')" style="display: block; width: 100%; margin: 14px 0 12px; padding: 14px 24px; font-size: 1.15em; font-weight: 700; background: #34495E; color: #ffffff; border: none; border-radius: var(--radius, 8px); cursor: pointer;">
 
         Open Trip
 
     </button>
 
-    <div class="planner-buttons" style="justify-content: center; margin-top: 10px;">
+    <div class="planner-buttons" style="justify-content: center; gap: 8px;">
 
-        <button type="button" onclick="Landing.setArchived('${project.id}', ${!project.archived})">
+        <button type="button" onclick="Landing.setArchived('${project.id}', ${!project.archived})" style="font-size: 0.8em; padding: 5px 14px;">
 
             ${project.archived ? "Unarchive" : "Archive"}
 
         </button>
 
-        <button type="button" onclick="Landing.deleteTrip('${project.id}', '${this.esc(project.name)}')">
+        <button type="button" onclick="Landing.deleteTrip('${project.id}', '${this.esc(project.name)}')" style="font-size: 0.8em; padding: 5px 14px;">
 
             Delete
 
