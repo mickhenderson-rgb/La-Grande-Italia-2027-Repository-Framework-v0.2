@@ -392,7 +392,7 @@ ${rows}
 
             <label class="form-field">
                 Currency
-                <input type="text" id="exp-currency" value="${this.esc(item.currency || "EUR")}" maxlength="3">
+                <select id="exp-currency">${Currency.currencyOptions(item.currency || "EUR")}</select>
             </label>
 
             <label class="form-field">

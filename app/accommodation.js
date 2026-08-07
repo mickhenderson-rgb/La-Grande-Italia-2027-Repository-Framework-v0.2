@@ -677,7 +677,7 @@ ${selected ? selected.planning.notes : ""}
 
             <label class="form-field">
                 Currency
-                <input type="text" id="acc-price-currency" value="${this.esc(item.price?.currency || "EUR")}" maxlength="3">
+                <select id="acc-price-currency">${Currency.currencyOptions(item.price?.currency || "EUR")}</select>
             </label>
 
             <label class="form-field">

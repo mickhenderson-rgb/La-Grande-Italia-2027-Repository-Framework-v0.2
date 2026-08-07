@@ -69,7 +69,7 @@ const TripSetup = {
 
             <label class="form-field">
                 Currency
-                <input type="text" id="setup-currency" value="USD" maxlength="3">
+                <select id="setup-currency">${Currency.currencyOptions("USD")}</select>
             </label>
 
         </div>

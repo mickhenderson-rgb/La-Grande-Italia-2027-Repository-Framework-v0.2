@@ -527,7 +527,7 @@ const Flights = {
 
             <label class="form-field">
                 Currency
-                <input type="text" id="flt-price-currency" value="${this.esc(item.price?.currency || "USD")}" maxlength="3">
+                <select id="flt-price-currency">${Currency.currencyOptions(item.price?.currency || "USD")}</select>
             </label>
 
             <label class="form-field">

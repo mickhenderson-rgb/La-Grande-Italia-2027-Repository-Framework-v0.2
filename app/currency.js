@@ -151,6 +151,19 @@ const Currency = {
     return `${String(currency).toUpperCase()} $${Number(amount).toFixed(2)}`;
   },
 
+  // <option> list for a currency <select>, with `selected` pre-chosen.
+  // The current value is always included even if it isn't in the common
+  // list, so an existing item's currency is never silently dropped.
+  currencyOptions(selected) {
+    const sel = String(selected || "").toUpperCase();
+
+    const list = [...new Set([sel, ...this.currencies].filter(Boolean))];
+
+    return list
+      .map((c) => `<option value="${c}" ${c === sel ? "selected" : ""}>${c}</option>`)
+      .join("");
+  },
+
   // --- Inline conversion for research-module list prices ---
 
   inlineConversion(price) {
