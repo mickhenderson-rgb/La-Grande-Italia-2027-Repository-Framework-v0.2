@@ -32,6 +32,8 @@ const Planner = {
 
     let html = `
 
+${this.snapshotStyles()}
+
 <div class="planner">
 
     <section class="hero">
@@ -85,57 +87,6 @@ const Planner = {
   },
 
   renderDay(day) {
-    const summary = this.daySummary(day);
-
-    const badges = this.liveCategoryBadges(day);
-
-    let items = badges
-      .map(
-        (b) => `
-
-<div class="planner-item">
-
-    <div class="planner-item-title">
-
-        ${this.icon(b.type)}
-        ${b.label}${b.name ? ` — ${this.esc(b.name)}` : ""}
-
-    </div>
-
-    <div class="planner-item-status">
-
-        ${
-          b.status
-            ? `<span class="badge ${b.badgeClass}">${b.status}</span>`
-            : `<span class="badge">Not planned</span>`
-        }
-
-    </div>
-
-</div>
-
-`,
-      )
-      .join("");
-
-    if (!items) {
-      items = `
-
-<div class="planner-item">
-
-    <div class="planner-item-title">
-        📌 No items yet
-    </div>
-
-    <div class="planner-item-status">
-        Open
-    </div>
-
-</div>
-
-`;
-    }
-
     return `
 
 <div class="planner-day">
@@ -153,7 +104,7 @@ const Planner = {
     </div>
 
     <h3>
-        ${day.title || ""}
+        ${this.esc(day.title || "")}
     </h3>
 
     <p>
@@ -164,20 +115,7 @@ const Planner = {
         🛏 Overnight: ${this.pretty(day.overnight)}
     </p>
 
-    <div class="status-grid">
-
-        ${this.statBox(summary.total, "Items")}
-        ${this.statBox(summary.open, "Open")}
-        ${this.statBox(summary.booked, "Booked")}
-        ${this.statBox(summary.locked, "Locked")}
-
-    </div>
-
-    <div class="planner-items">
-
-        ${items}
-
-    </div>
+    ${this.renderDayItemsSnapshot(day)}
 
     <div class="planner-buttons">
 
@@ -378,7 +316,11 @@ const Planner = {
   },
 
   esc(value) {
-    return String(value ?? "").replace(/"/g, "&quot;");
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   },
 
   statBox(value, label) {
@@ -672,5 +614,469 @@ const Planner = {
     JourneyEditor.deleteDay(dayNumber);
 
     Router.navigate("planner");
+  },
+
+  // =========================================================
+  // Build 44 - Day card data snapshot
+  // Collapsible per-category sections showing the real booked /
+  // selected / researched items for each day, drawn live from the
+  // research collections (no new server calls - all synchronous).
+  // =========================================================
+
+  renderDayItemsSnapshot(day) {
+    const location = String(day.location || "").toLowerCase();
+
+    const configs = [
+      {
+        icon: "🛫",
+        label: "Flights",
+        module: "Flights",
+        items: this.getItems(Project.get("flights")).filter((i) => i.day === day.day),
+        title: (it) => this.flightTitle(it),
+        snippet: (it) => this.flightSnippet(it),
+        detail: (it) => this.flightDetail(it),
+      },
+
+      {
+        icon: "🏨",
+        label: "Accommodation",
+        module: "Accommodation",
+        items: this.matchByDestination(Project.get("accommodation"), location, day.day),
+        title: (it) => it.name || "Accommodation",
+        snippet: (it) => this.esc(it.name || "Accommodation"),
+        detail: (it) => this.accommodationDetail(it),
+      },
+
+      {
+        icon: "🎭",
+        label: "Activities",
+        module: "Activities",
+        items: this.matchByDestination(Project.get("activities"), location, day.day),
+        title: (it) => it.name || "Activity",
+        snippet: (it) => this.esc(it.name || "Activity"),
+        detail: (it) => this.activitiesDetail(it),
+      },
+
+      {
+        icon: "🍽",
+        label: "Restaurants",
+        module: "Restaurants",
+        items: this.matchByDestination(Project.get("restaurants"), location, day.day),
+        title: (it) => it.name || "Restaurant",
+        snippet: (it) => this.esc(it.name || "Restaurant"),
+        detail: (it) => this.restaurantsDetail(it),
+      },
+
+      {
+        icon: "🚗",
+        label: "Transport",
+        module: "Transport",
+        items: this.getItems(Project.get("transport")).filter((i) => i.day === day.day),
+        title: (it) => this.transportTitle(it),
+        snippet: (it) => this.esc(this.transportTitle(it)),
+        detail: (it) => this.transportDetail(it),
+      },
+    ];
+
+    const sections = configs.map((c) => this.renderCategorySnapshot(c)).filter(Boolean);
+
+    if (sections.length === 0) {
+      return `
+
+<p class="day-snap-empty">Nothing planned for this day yet.</p>
+
+`;
+    }
+
+    return `
+
+<div class="day-snap">
+
+    ${sections.join("")}
+
+</div>
+
+`;
+  },
+
+  renderCategorySnapshot(cfg) {
+    const items = (cfg.items || [])
+      .slice()
+      .sort((a, b) => this.snapRank(b.status) - this.snapRank(a.status));
+
+    if (items.length === 0) {
+      return "";
+    }
+
+    const top = items.slice(0, 3);
+
+    const rest = items.slice(3);
+
+    const overflow =
+      rest.length > 0
+        ? `<button type="button" class="snap-more-toggle" onclick="Planner.toggleMore(this)">+${rest.length} more ▼</button>
+
+<div class="snap-more">${rest.map((it) => this.renderSnapItem(cfg, it)).join("")}</div>`
+        : "";
+
+    return `
+
+<div class="day-snap-section">
+
+    <button type="button" class="day-snap-head" onclick="Planner.toggleSnap(this)">
+
+        <span class="snap-icon">${cfg.icon}</span>
+
+        <span class="snap-label">${cfg.label}</span>
+
+        <span class="snap-counts">${this.statusCounts(items)}</span>
+
+        <span class="snap-chev"></span>
+
+    </button>
+
+    <div class="day-snap-snippet">${cfg.snippet(items[0])}</div>
+
+    <div class="day-snap-body">
+
+        ${top.map((it) => this.renderSnapItem(cfg, it)).join("")}
+
+        ${overflow}
+
+    </div>
+
+</div>
+
+`;
+  },
+
+  renderSnapItem(cfg, item) {
+    return `
+
+<div class="snap-item">
+
+    <div class="snap-item-head">
+
+        ${this.snapBadge(item.status)}
+
+        <span class="snap-item-title" onclick="${cfg.module}.edit('${item.id}')">${this.esc(cfg.title(item))}</span>
+
+    </div>
+
+    ${cfg.detail(item)}
+
+    <div class="snap-actions">
+
+        ${this.snapLink(item.website, "Booking Site")}
+
+        <button type="button" onclick="${cfg.module}.edit('${item.id}')">Open Details</button>
+
+    </div>
+
+</div>
+
+`;
+  },
+
+  toggleSnap(el) {
+    const section = el.closest(".day-snap-section");
+
+    if (section) {
+      section.classList.toggle("is-open");
+    }
+  },
+
+  toggleMore(el) {
+    const more = el.parentNode.querySelector(".snap-more");
+
+    if (!more) {
+      return;
+    }
+
+    const open = more.classList.toggle("is-open");
+
+    el.textContent = open ? "Show fewer ▲" : `+${more.children.length} more ▼`;
+  },
+
+  snapRank(status) {
+    const ranks = { Research: 1, Shortlisted: 2, Selected: 3, Review: 4, Booked: 5, Travel: 6 };
+
+    return ranks[status] || 0;
+  },
+
+  snapSlug(status) {
+    return String(status || "").toLowerCase();
+  },
+
+  snapBadge(status) {
+    const s = String(status || "Research");
+
+    const slug = this.snapSlug(s);
+
+    const check = slug === "booked" || slug === "travel" ? "✓" : "·";
+
+    return `<span class="snap-badge is-${slug}">${check} ${this.esc(s)}</span>`;
+  },
+
+  statusCounts(items) {
+    const order = ["Booked", "Travel", "Selected", "Shortlisted", "Review", "Research"];
+
+    const counts = {};
+
+    items.forEach((it) => {
+      const s = it.status || "Research";
+
+      counts[s] = (counts[s] || 0) + 1;
+    });
+
+    const parts = order.filter((s) => counts[s]).map((s) => `${counts[s]} ${s}`);
+
+    Object.keys(counts).forEach((s) => {
+      if (!order.includes(s)) {
+        parts.push(`${counts[s]} ${s}`);
+      }
+    });
+
+    return parts.join(" · ");
+  },
+
+  snapPriceLine(item, extra) {
+    const p = item.price;
+
+    if (!p || !(Number(p.amount) > 0)) {
+      return "";
+    }
+
+    let value = `${String(p.currency || "").toUpperCase()} ${p.amount}`;
+
+    if (p.per) {
+      value += ` / ${p.per}`;
+    }
+
+    if (extra) {
+      value += ` ${extra}`;
+    }
+
+    return this.snapLine("Price", value);
+  },
+
+  snapLine(label, value) {
+    const v = String(value == null ? "" : value).trim();
+
+    if (!v) {
+      return "";
+    }
+
+    return `<div class="snap-line"><span class="snap-key">${this.esc(label)}:</span> ${this.esc(v)}</div>`;
+  },
+
+  snapLink(website, label) {
+    const url = String(website || "").trim();
+
+    if (!url) {
+      return "";
+    }
+
+    const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+
+    return `<a class="snap-link" href="${this.esc(href)}" target="_blank" rel="noopener">${this.esc(label || "Booking Link")}</a>`;
+  },
+
+  reviewLine(item) {
+    if (String(item.status) !== "Review") {
+      return "";
+    }
+
+    const rating = item.actual && (item.actual.rating || item.actual.rating === 0) ? `${item.actual.rating}/5` : "";
+
+    return this.snapLine("Rating", rating) + this.snapLine("Review", item.actual ? item.actual.review : "");
+  },
+
+  flightTitle(it) {
+    const name = `${it.airline || ""} ${it.flightNumber || ""}`.trim();
+
+    const base = name || "Flight";
+
+    return it.to ? `${base} → ${it.to}` : base;
+  },
+
+  flightSnippet(it) {
+    const when = [it.departure && it.departure.date, it.departure && it.departure.time].filter(Boolean).join(" ");
+
+    const title = this.flightTitle(it);
+
+    return this.esc(when ? `${title} — ${when}` : title);
+  },
+
+  flightDetail(it) {
+    const dep = [it.departure && it.departure.date, it.departure && it.departure.time].filter(Boolean).join(" ");
+
+    const arr = [it.arrival && it.arrival.date, it.arrival && it.arrival.time].filter(Boolean).join(" ");
+
+    return [
+      this.snapPriceLine(it),
+      this.snapLine("Departs", dep),
+      this.snapLine("Arrives", arr),
+      this.snapLine("Booking Ref", it.bookingReference),
+      this.snapLine("Notes", it.planning && it.planning.notes),
+    ].join("");
+  },
+
+  accommodationDetail(it) {
+    const nights = Array.isArray(it.dayRange) ? it.dayRange[1] - it.dayRange[0] + 1 : 0;
+
+    const extra = nights > 0 ? `(${nights} night${nights === 1 ? "" : "s"})` : "";
+
+    return [
+      this.snapPriceLine(it, extra),
+      this.snapLine("Check-in", it.dates && it.dates.checkIn),
+      this.snapLine("Check-out", it.dates && it.dates.checkOut),
+      this.snapLine("Address", it.location && it.location.address),
+      this.snapLine("Provider", it.provider),
+      this.snapLine("Booking Ref", it.bookingReference),
+      this.reviewLine(it),
+      this.snapLine("Notes", it.planning && it.planning.notes),
+    ].join("");
+  },
+
+  activitiesDetail(it) {
+    const when = [it.schedule && it.schedule.date, it.schedule && it.schedule.time].filter(Boolean).join(" ");
+
+    const duration = it.schedule && it.schedule.durationMinutes ? `${it.schedule.durationMinutes} min` : "";
+
+    return [
+      this.snapPriceLine(it),
+      this.snapLine("When", when),
+      this.snapLine("Duration", duration),
+      this.snapLine("Location", it.location && it.location.address),
+      this.snapLine("Provider", it.provider),
+      this.snapLine("Booking Ref", it.bookingReference),
+      this.reviewLine(it),
+      this.snapLine("Notes", it.planning && it.planning.notes),
+    ].join("");
+  },
+
+  restaurantsDetail(it) {
+    const when = [it.reservation && it.reservation.date, it.reservation && it.reservation.time].filter(Boolean).join(" ");
+
+    const party = it.reservation && it.reservation.partySize ? `${it.reservation.partySize} people` : "";
+
+    return [
+      this.snapPriceLine(it),
+      this.snapLine("Cuisine", it.cuisine),
+      this.snapLine("Reservation", when),
+      this.snapLine("Party", party),
+      this.snapLine("Address", it.location && it.location.address),
+      this.snapLine("Booking Ref", it.bookingReference),
+      this.reviewLine(it),
+      this.snapLine("Notes", it.planning && it.planning.notes),
+    ].join("");
+  },
+
+  transportTitle(it) {
+    const route = [it.from, it.to].filter(Boolean).join(" → ");
+
+    return route ? `${it.mode || "Transport"}: ${route}` : it.mode || "Transport";
+  },
+
+  transportDetail(it) {
+    const dep = [it.schedule && it.schedule.date, it.schedule && it.schedule.departTime].filter(Boolean).join(" ");
+
+    const arr = [it.schedule && it.schedule.arriveDate, it.schedule && it.schedule.arriveTime].filter(Boolean).join(" ");
+
+    const route = [];
+
+    if (it.route && it.route.distanceKm) {
+      route.push(`${it.route.distanceKm} km`);
+    }
+
+    if (it.route && it.route.durationMinutes) {
+      route.push(`${it.route.durationMinutes} min`);
+    }
+
+    return [
+      this.snapPriceLine(it),
+      this.snapLine("Mode", it.mode),
+      this.snapLine("Depart", dep),
+      this.snapLine("Arrive", arr),
+      this.snapLine("Route", route.join(" · ")),
+      this.snapLine("Provider", it.provider),
+      this.snapLine("Booking Ref", it.bookingReference),
+      this.snapLine("Notes", it.planning && it.planning.notes),
+    ].join("");
+  },
+
+  snapshotStyles() {
+    return `
+
+<style>
+
+.day-snap { margin: 10px 0; display: flex; flex-direction: column; gap: 8px; }
+
+.day-snap-empty { color: #7a7a7a; font-style: italic; margin: 8px 0; }
+
+.day-snap-section { border: 1px solid #e4ddd0; border-radius: var(--radius, 8px); overflow: hidden; background: #ffffff; }
+
+.day-snap-head { width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #f3eee6; border: none; cursor: pointer; text-align: left; font: inherit; }
+
+.snap-icon { font-size: 1.1em; }
+
+.snap-label { font-weight: 700; color: #34495E; }
+
+.snap-counts { margin-left: auto; font-size: 0.8em; color: #6b6357; }
+
+.snap-chev::after { content: "▼"; font-size: 0.7em; color: #6b6357; margin-left: 6px; }
+
+.day-snap-section.is-open .snap-chev::after { content: "▲"; }
+
+.day-snap-snippet { padding: 6px 12px; font-size: 0.85em; color: #555555; }
+
+.day-snap-section.is-open .day-snap-snippet { display: none; }
+
+.day-snap-body { display: none; padding: 4px 12px 12px; }
+
+.day-snap-section.is-open .day-snap-body { display: block; }
+
+.snap-item { border-top: 1px solid #efe9df; padding: 8px 0; }
+
+.snap-item:first-child { border-top: none; }
+
+.snap-item-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.snap-item-title { font-weight: 600; color: #243447; cursor: pointer; text-decoration: underline dotted; }
+
+.snap-line { font-size: 0.85em; color: #444444; margin: 2px 0; }
+
+.snap-key { color: #8a5a18; font-weight: 600; }
+
+.snap-actions { margin-top: 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+.snap-actions button { font-size: 0.8em; padding: 3px 10px; }
+
+.snap-link { font-size: 0.8em; color: #C79C5D; font-weight: 600; }
+
+.snap-more { display: none; }
+
+.snap-more.is-open { display: block; }
+
+.snap-more-toggle { margin-top: 6px; font-size: 0.8em; background: none; border: none; color: #C79C5D; cursor: pointer; padding: 0; }
+
+.snap-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72em; font-weight: 700; white-space: nowrap; }
+
+.snap-badge.is-research { background: #e2e2e2; color: #555555; }
+
+.snap-badge.is-shortlisted { background: #fdebd0; color: #8a5a18; }
+
+.snap-badge.is-selected { background: #FFC107; color: #3a2f00; }
+
+.snap-badge.is-booked { background: #28a745; color: #ffffff; }
+
+.snap-badge.is-travel { background: #1e7e34; color: #ffffff; text-decoration: underline; }
+
+.snap-badge.is-review { background: #007bff; color: #ffffff; }
+
+</style>
+
+`;
   },
 };
