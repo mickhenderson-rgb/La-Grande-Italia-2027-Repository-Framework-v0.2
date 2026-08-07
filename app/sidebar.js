@@ -61,6 +61,12 @@ const Sidebar = {
     },
 
     {
+      id: "currency",
+      icon: "💱",
+      title: "Currency",
+    },
+
+    {
       id: "journal",
       icon: "📔",
       title: "Journal",

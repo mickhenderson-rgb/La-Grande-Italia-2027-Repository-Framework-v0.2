@@ -303,7 +303,7 @@ Research List
 
     <p>
 
-        ${amount}
+        ${amount}${Currency.inlineConversion(item.price)}
 
     </p>
 

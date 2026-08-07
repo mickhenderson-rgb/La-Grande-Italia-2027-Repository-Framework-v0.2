@@ -34,6 +34,11 @@ const Router = {
 
         break;
 
+      case "currency":
+        Currency.open();
+
+        break;
+
       case "accommodation":
         Accommodation.openAll();
 

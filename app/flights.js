@@ -255,7 +255,7 @@ const Flights = {
 
     <p>
 
-        ${amount}
+        ${amount}${Currency.inlineConversion(item.price)}
 
     </p>
 

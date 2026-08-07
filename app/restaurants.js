@@ -305,7 +305,7 @@ Research List
 
     <p>
 
-        ${item.cuisine || "Uncategorised"} · ${priceLevel}
+        ${item.cuisine || "Uncategorised"} · ${priceLevel}${Currency.inlineConversion(item.price)}
 
     </p>
 
