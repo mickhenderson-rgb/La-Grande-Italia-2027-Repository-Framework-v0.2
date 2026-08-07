@@ -84,6 +84,12 @@ const TripSetup = {
 
             </button>
 
+            <button type="button" onclick="TripSetup.createWithItinerary()">
+
+                📋 Create &amp; Load Itinerary
+
+            </button>
+
             <button type="button" onclick="Landing.open()">
 
                 Cancel
@@ -166,7 +172,15 @@ const TripSetup = {
     return Math.round((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1;
   },
 
-  async create() {
+  create() {
+    return this.submit(false);
+  },
+
+  createWithItinerary() {
+    return this.submit(true);
+  },
+
+  async submit(thenImport) {
     const name = document.getElementById("setup-name").value.trim();
 
     const subtitle = document.getElementById("setup-subtitle").value.trim();
@@ -208,7 +222,15 @@ const TripSetup = {
 
       statusEl.textContent = "Trip created - opening...";
 
-      await Landing.selectTrip(result.id);
+      if (thenImport) {
+        await Data.loadProject(result.id);
+
+        Dates.recalculateJourney();
+
+        ItineraryImport.open();
+      } else {
+        await Landing.selectTrip(result.id);
+      }
     } catch (error) {
       console.error("Could not create trip:", error);
 

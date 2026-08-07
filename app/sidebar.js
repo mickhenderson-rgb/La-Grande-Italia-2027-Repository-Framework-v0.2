@@ -25,6 +25,12 @@ const Sidebar = {
     },
 
     {
+      id: "itinerary",
+      icon: "📋",
+      title: "Itinerary",
+    },
+
+    {
       id: "destinations",
       icon: "📍",
       title: "Destinations",

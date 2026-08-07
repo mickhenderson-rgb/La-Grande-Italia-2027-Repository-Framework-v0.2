@@ -29,6 +29,11 @@ const Router = {
 
         break;
 
+      case "itinerary":
+        ItineraryImport.open();
+
+        break;
+
       case "accommodation":
         Accommodation.openAll();
 
