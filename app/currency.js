@@ -39,7 +39,11 @@ const Currency = {
 
   lastRefreshTs: null,
 
-  apiBase: "https://api.frankfurter.app",
+  // Frankfurter's hosted API moved to the .dev domain with a /v1 prefix.
+  // The old api.frankfurter.app now 301-redirects there, and that redirect
+  // carries no CORS header, so a browser fetch to the old host fails CORS.
+  // Call the canonical endpoint directly to avoid the redirect entirely.
+  apiBase: "https://api.frankfurter.dev/v1",
 
   currencies: [
     "AUD", "USD", "EUR", "GBP", "JPY", "CHF", "CNY", "INR",
@@ -102,7 +106,7 @@ const Currency = {
       return out;
     }
 
-    const url = `${this.apiBase}/latest?from=${from}&to=${missing.join(",")}`;
+    const url = `${this.apiBase}/latest?base=${from}&symbols=${missing.join(",")}`;
 
     const response = await fetch(url);
 
