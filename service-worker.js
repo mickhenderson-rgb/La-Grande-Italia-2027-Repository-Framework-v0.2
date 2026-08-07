@@ -32,7 +32,7 @@ Caching rules, deliberately conservative:
 =========================================================
 */
 
-const CACHE_NAME = "compass-tos-v4";
+const CACHE_NAME = "compass-tos-v5";
 
 const APP_SHELL = [
   "./",
@@ -77,6 +77,14 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
   if (event.request.method !== "GET") {
+    return;
+  }
+
+  // Only ever handle same-origin requests. Cross-origin calls - such as the
+  // Frankfurter currency API (api.frankfurter.app) - must pass straight through
+  // to the network. Intercepting them here breaks the CORS fetch and the browser
+  // reports it as net::ERR_FAILED.
+  if (url.origin !== self.location.origin) {
     return;
   }
 
