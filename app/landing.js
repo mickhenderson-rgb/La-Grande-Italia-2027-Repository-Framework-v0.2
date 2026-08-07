@@ -21,6 +21,9 @@ const Landing = {
   showArchived: false,
 
   async open() {
+    // No trip is loaded on the selection screen, so show the app name.
+    document.title = "COMPASS-TOS";
+
     Render.show(this.renderLoading());
 
     try {
