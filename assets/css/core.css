@@ -1,1 +1,33 @@
-:root{--color-bg:#F8F5F0;--color-primary:#34495E;--color-secondary:#C79C5D;--color-text:#2C3E50;--radius:14px;}
+:root {
+  /* Brand palette */
+  --color-bg: #F8F5F0;
+  --color-primary: #34495E;
+  --color-primary-dark: #2b3d4f;
+  --color-secondary: #C79C5D;
+  --color-text: #2C3E50;
+  --color-muted: #6b7280;
+  --color-surface: #ffffff;
+  --color-border: #e2e5ea;
+
+  /* Shape */
+  --radius: 14px;
+  --radius-sm: 8px;
+  --radius-pill: 999px;
+  --shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.08);
+
+  /* Spacing scale */
+  --space-1: 6px;
+  --space-2: 10px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 32px;
+
+  /* Status colours (Research / Selected / Booked) */
+  --status-research: #55606b;
+  --status-research-bg: #eceef1;
+  --status-selected: #8a5a18;
+  --status-selected-bg: #fbe9d0;
+  --status-booked: #2e7d4f;
+  --status-booked-bg: #e1f0e3;
+}
