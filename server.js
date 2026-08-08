@@ -969,6 +969,21 @@ function handleProjectsList(req, res) {
 const BASE_PATH = (process.env.BASE_PATH || "").replace(/\/$/, "");
 
 const server = http.createServer(async (req, res) => {
+  // A subfolder app MUST be served with a trailing slash. Without it the
+  // browser treats the mount name as a file and resolves every relative
+  // asset (app/*.js, CSS, manifest) AND window.API_BASE against the parent
+  // folder - the domain root - so everything 404s and the service worker
+  // registers at the wrong (root) scope. If the app is requested at exactly
+  // its mount point with no trailing slash (e.g. "/TOS" or "/TOS?x=1"),
+  // redirect to the slashed form ("/TOS/") before doing anything else.
+  if (BASE_PATH && (req.url === BASE_PATH || req.url.startsWith(BASE_PATH + "?"))) {
+    const query = req.url.slice(BASE_PATH.length);
+
+    res.writeHead(302, { Location: BASE_PATH + "/" + query });
+
+    return res.end();
+  }
+
   if (
     BASE_PATH &&
     (req.url === BASE_PATH || req.url.startsWith(BASE_PATH + "/") || req.url.startsWith(BASE_PATH + "?"))
