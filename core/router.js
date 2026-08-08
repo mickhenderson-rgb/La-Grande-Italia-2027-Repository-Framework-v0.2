@@ -29,6 +29,11 @@ const Router = {
 
         break;
 
+      case "map":
+        TripMap.open();
+
+        break;
+
       case "itinerary":
         ItineraryImport.open();
 

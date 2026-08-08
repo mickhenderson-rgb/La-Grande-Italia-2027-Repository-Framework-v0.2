@@ -31,6 +31,12 @@ const Sidebar = {
     },
 
     {
+      id: "map",
+      icon: "🗺",
+      title: "Trip Map",
+    },
+
+    {
       id: "destinations",
       icon: "📍",
       title: "Destinations",
