@@ -2,5 +2,10 @@
 # or trip-ownership records (this repo is public).
 data/auth/
 
+# Trip data - written by the app at runtime and contains real personal
+# itineraries. Kept out of this PUBLIC repo, and untracked so server
+# `git pull` never collides with live data on disk. Lives only on the server.
+data/projects/
+
 # Node
 node_modules/
