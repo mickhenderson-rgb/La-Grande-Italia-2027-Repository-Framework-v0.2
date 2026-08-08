@@ -233,25 +233,15 @@ ${selected.dates?.checkIn || "?"} → ${selected.dates?.checkOut || "?"}
 
 <div class="manager-card">
 
-<h2>
+    <div class="empty-state">
 
-Research List
+        <span class="empty-icon" aria-hidden="true">🛏</span>
 
-</h2>
+        <p>No accommodation here yet.</p>
 
-<p>
+        <button type="button" class="btn-primary" onclick="Accommodation.add()">Add accommodation</button>
 
-No accommodation has been added for this destination.
-
-</p>
-
-<button
-    type="button"
-    onclick="Accommodation.add()">
-
-Add Accommodation
-
-</button>
+    </div>
 
 </div>
 

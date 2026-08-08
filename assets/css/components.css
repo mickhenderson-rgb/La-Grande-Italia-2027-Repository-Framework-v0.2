@@ -716,6 +716,33 @@ button {
 
 .badge.badge--review { background: var(--status-review-bg); color: var(--status-review); }
 
+/* Empty states — one friendly "nothing here yet" pattern */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  text-align: center;
+  padding: var(--space-5) var(--space-3);
+  color: var(--color-muted);
+}
+
+.empty-state .empty-icon {
+  font-size: 2.2rem;
+  line-height: 1;
+  opacity: 0.75;
+}
+
+.empty-state p {
+  margin: 0;
+  max-width: 42ch;
+}
+
+.empty-state button {
+  margin-top: var(--space-1);
+}
+
 .manager-card button {
   margin-top: 15px;
 }

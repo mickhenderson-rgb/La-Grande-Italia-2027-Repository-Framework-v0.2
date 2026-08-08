@@ -226,25 +226,15 @@ Booked Restaurants
 
 <div class="manager-card">
 
-<h2>
+    <div class="empty-state">
 
-Research List
+        <span class="empty-icon" aria-hidden="true">🍽</span>
 
-</h2>
+        <p>No restaurants here yet.</p>
 
-<p>
+        <button type="button" class="btn-primary" onclick="Restaurants.add()">Add restaurant</button>
 
-No restaurants have been added for this destination.
-
-</p>
-
-<button
-    type="button"
-    onclick="Restaurants.add()">
-
-Add Restaurant
-
-</button>
+    </div>
 
 </div>
 

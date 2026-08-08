@@ -215,25 +215,15 @@ Booked Activities
 
 <div class="manager-card">
 
-<h2>
+    <div class="empty-state">
 
-Research List
+        <span class="empty-icon" aria-hidden="true">🎭</span>
 
-</h2>
+        <p>No activities here yet.</p>
 
-<p>
+        <button type="button" class="btn-primary" onclick="Activities.add()">Add activity</button>
 
-No activities have been added for this destination.
-
-</p>
-
-<button
-    type="button"
-    onclick="Activities.add()">
-
-Add Activity
-
-</button>
+    </div>
 
 </div>
 

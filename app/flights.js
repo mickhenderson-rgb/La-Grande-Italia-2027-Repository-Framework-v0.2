@@ -186,11 +186,15 @@ const Flights = {
 
 <div class="manager-card">
 
-<h2>Research List</h2>
+    <div class="empty-state">
 
-<p>No flights have been added ${this.showAll ? "" : "for this day "}yet.</p>
+        <span class="empty-icon" aria-hidden="true">✈</span>
 
-<button type="button" onclick="Flights.add()">Add Flight</button>
+        <p>No flights here yet.</p>
+
+        <button type="button" class="btn-primary" onclick="Flights.add()">Add flight</button>
+
+    </div>
 
 </div>
 

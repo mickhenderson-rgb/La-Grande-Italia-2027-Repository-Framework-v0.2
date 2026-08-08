@@ -231,25 +231,15 @@ Booked Transport
 
 <div class="manager-card">
 
-<h2>
+    <div class="empty-state">
 
-Research List
+        <span class="empty-icon" aria-hidden="true">🚗</span>
 
-</h2>
+        <p>No transport here yet.</p>
 
-<p>
+        <button type="button" class="btn-primary" onclick="Transport.add()">Add transport</button>
 
-No transport has been added for this day.
-
-</p>
-
-<button
-    type="button"
-    onclick="Transport.add()">
-
-Add Transport
-
-</button>
+    </div>
 
 </div>
 
