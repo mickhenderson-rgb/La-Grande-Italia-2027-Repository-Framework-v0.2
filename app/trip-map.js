@@ -409,13 +409,17 @@ ${this.styles()}
 
     </header>
 
-    <div id="trip-map-surface" class="tripmap-surface" role="region" aria-label="Trip route map"></div>
-
     <div class="tripmap-body">
 
-        <ol class="tripmap-rail" id="trip-map-rail" aria-label="Trip stops in day order"></ol>
+        <div class="tripmap-info">
 
-        <section class="tripmap-detail" id="trip-map-detail" tabindex="-1" aria-live="polite"></section>
+            <section class="tripmap-detail" id="trip-map-detail" tabindex="-1" aria-live="polite"></section>
+
+            <ol class="tripmap-rail" id="trip-map-rail" aria-label="Trip stops in day order"></ol>
+
+        </div>
+
+        <div id="trip-map-surface" class="tripmap-surface" role="region" aria-label="Trip route map"></div>
 
     </div>
 
@@ -748,6 +752,16 @@ ${unplotted}
     this.fitMap();
 
     this.highlightMarker(this.selectedStopIndex);
+
+    // Leaflet must re-measure once the grid/flex column has settled,
+    // otherwise a map created inside a just-laid-out column renders short.
+    setTimeout(() => {
+      if (this.map) {
+        this.map.invalidateSize();
+
+        this.fitMap();
+      }
+    }, 60);
   },
 
   plottedStops() {
@@ -1128,9 +1142,11 @@ ${unplotted}
 
 .tripmap-empty { color: #7a7a7a; font-style: italic; }
 
-.tripmap-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 16px; align-items: start; }
+.tripmap-body { display: grid; grid-template-columns: minmax(290px, 1fr) 2fr; gap: 16px; align-items: stretch; }
 
-.tripmap-rail { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.tripmap-info { display: flex; flex-direction: column; gap: 12px; height: 72vh; min-height: 500px; min-width: 0; }
+
+.tripmap-rail { list-style: none; margin: 0; padding: 0 4px 0 0; display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto; overflow-y: auto; }
 
 .tripmap-stop { margin: 0; }
 
@@ -1156,7 +1172,7 @@ ${unplotted}
 
 .tripmap-glyph.is-research { color: #9aa0a6; }
 
-.tripmap-detail { background: #ffffff; border: 1px solid #e4ddd0; border-radius: var(--radius, 8px); padding: 14px 16px; }
+.tripmap-detail { background: #ffffff; border: 1px solid #e4ddd0; border-radius: var(--radius, 8px); padding: 14px 16px; flex: 0 0 auto; max-height: 44%; overflow-y: auto; }
 
 .tripmap-detail:focus-visible { outline: 2px solid var(--color-primary, #34495E); outline-offset: 2px; }
 
@@ -1194,7 +1210,7 @@ ${unplotted}
 
 .tripmap-detail-actions button { padding: 8px 16px; border-radius: 999px; border: 1px solid var(--color-primary, #34495E); background: var(--color-primary, #34495E); color: #fff; cursor: pointer; font: inherit; }
 
-.tripmap-surface { height: 460px; border-radius: var(--radius, 8px); border: 1px solid #e4ddd0; overflow: hidden; background: #e8eaee; z-index: 0; }
+.tripmap-surface { height: 72vh; min-height: 500px; border-radius: var(--radius, 8px); border: 1px solid #e4ddd0; overflow: hidden; background: #e8eaee; z-index: 0; }
 
 .tripmap-map-msg { display: flex; height: 100%; align-items: center; justify-content: center; padding: 16px; color: #6b6357; font-style: italic; text-align: center; }
 
@@ -1220,7 +1236,9 @@ ${unplotted}
 
     .tripmap-body { grid-template-columns: 1fr; }
 
-    .tripmap-surface { height: 340px; }
+    .tripmap-surface { height: 340px; min-height: 0; order: -1; }
+
+    .tripmap-info { height: auto; min-height: 0; }
 
 }
 
