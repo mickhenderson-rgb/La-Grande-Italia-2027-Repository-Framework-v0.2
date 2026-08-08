@@ -609,7 +609,7 @@ ${rows}
 
             <label class="form-field">
                 Reservation Date
-                <input type="date" id="rst-res-date" value="${this.esc(item.reservation?.date)}">
+                <input type="date" id="rst-res-date" value="${this.esc(item.reservation?.date || Dates.getDayDate(item.dayRange?.[0]))}">
             </label>
 
             <label class="form-field">

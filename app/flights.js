@@ -532,7 +532,7 @@ const Flights = {
 
             <label class="form-field">
                 Departure Date
-                <input type="date" id="flt-dep-date" value="${this.esc(item.departure?.date)}">
+                <input type="date" id="flt-dep-date" value="${this.esc(item.departure?.date || Dates.getDayDate(item.day))}">
             </label>
 
             <label class="form-field">
@@ -547,7 +547,7 @@ const Flights = {
 
             <label class="form-field">
                 Arrival Date
-                <input type="date" id="flt-arr-date" value="${this.esc(item.arrival?.date)}">
+                <input type="date" id="flt-arr-date" value="${this.esc(item.arrival?.date || Dates.getDayDate(item.day))}">
                 <span class="form-hint">Can be a different day - this is what keeps later days in sync</span>
             </label>
 

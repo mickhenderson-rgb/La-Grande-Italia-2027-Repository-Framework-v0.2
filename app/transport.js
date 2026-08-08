@@ -641,7 +641,7 @@ ${rows}
 
             <label class="form-field">
                 Departure Date
-                <input type="date" id="trn-date" value="${this.esc(item.schedule?.date)}">
+                <input type="date" id="trn-date" value="${this.esc(item.schedule?.date || Dates.getDayDate(item.day))}">
             </label>
 
             <label class="form-field">
@@ -651,7 +651,7 @@ ${rows}
 
             <label class="form-field">
                 Arrival Date
-                <input type="date" id="trn-arrive-date" value="${this.esc(item.schedule?.arriveDate)}">
+                <input type="date" id="trn-arrive-date" value="${this.esc(item.schedule?.arriveDate || Dates.getDayDate(item.day))}">
                 <span class="form-hint">If it lands a different day (e.g. overnight flight)</span>
             </label>
 

@@ -607,7 +607,7 @@ ${rows}
 
             <label class="form-field">
                 Date
-                <input type="date" id="act-date" value="${this.esc(item.schedule?.date)}">
+                <input type="date" id="act-date" value="${this.esc(item.schedule?.date || Dates.getDayDate(item.dayRange?.[0]))}">
             </label>
 
             <label class="form-field">

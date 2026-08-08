@@ -695,12 +695,12 @@ ${selected ? selected.planning.notes : ""}
 
             <label class="form-field">
                 Check In
-                <input type="date" id="acc-checkin" value="${this.esc(item.dates?.checkIn)}">
+                <input type="date" id="acc-checkin" value="${this.esc(item.dates?.checkIn || Dates.getDayDate(item.dayRange?.[0]))}">
             </label>
 
             <label class="form-field">
                 Check Out
-                <input type="date" id="acc-checkout" value="${this.esc(item.dates?.checkOut)}">
+                <input type="date" id="acc-checkout" value="${this.esc(item.dates?.checkOut || Dates.getDayDate(item.dayRange?.[1]))}">
             </label>
 
             <label class="form-field">

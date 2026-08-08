@@ -38,6 +38,21 @@ const Dates = {
     return `${yyyy}-${mm}-${dd}`;
   },
 
+  // Maps a journey day number to its ISO date (YYYY-MM-DD), or "" if the
+  // day (or journey) doesn't exist. Used to pre-select date pickers on
+  // booking forms so the native calendar opens on the relevant day.
+  getDayDate(dayNumber) {
+    const journey = Project.get("journey");
+
+    if (!journey || !Array.isArray(journey.days)) {
+      return "";
+    }
+
+    const day = journey.days.find((d) => d.day === dayNumber);
+
+    return day && day.date ? day.date : "";
+  },
+
   findArrivalDate(day) {
     const flights = Project.get("flights");
 
