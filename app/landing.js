@@ -163,6 +163,28 @@ ${
         ? `${project.departureDate} - ${project.returnDate}`
         : "Dates not set";
 
+    const isOwner = project.role !== "collaborator";
+
+    const roleBadge = isOwner
+      ? ""
+      : `<p><span class="badge">Shared with you · ${project.permission === "write" ? "Read / Write" : "Read-only"}</span></p>`;
+
+    const ownerActions = isOwner
+      ? `
+
+    <div class="planner-buttons" style="justify-content: center; gap: 8px;">
+
+        <button type="button" onclick="Sharing.open('${project.id}', '${this.jsArg(project.name)}')" style="font-size: 0.8em; padding: 5px 14px;">Share</button>
+
+        <button type="button" onclick="Landing.setArchived('${project.id}', ${!project.archived})" style="font-size: 0.8em; padding: 5px 14px;">${project.archived ? "Unarchive" : "Archive"}</button>
+
+        <button type="button" onclick="Landing.confirmDelete('${project.id}', '${this.jsArg(project.name)}')" style="font-size: 0.8em; padding: 5px 14px;">Delete</button>
+
+    </div>
+
+`
+      : "";
+
     return `
 
 <div class="landing-card">
@@ -173,27 +195,15 @@ ${
 
     <p>${this.esc(dates)}</p>
 
+    ${roleBadge}
+
     <button type="button" onclick="Landing.selectTrip('${project.id}')" style="display: block; width: 100%; margin: 14px 0 12px; padding: 14px 24px; font-size: 1.15em; font-weight: 700; background: #34495E; color: #ffffff; border: none; border-radius: var(--radius, 8px); cursor: pointer;">
 
         Open Trip
 
     </button>
 
-    <div class="planner-buttons" style="justify-content: center; gap: 8px;">
-
-        <button type="button" onclick="Landing.setArchived('${project.id}', ${!project.archived})" style="font-size: 0.8em; padding: 5px 14px;">
-
-            ${project.archived ? "Unarchive" : "Archive"}
-
-        </button>
-
-        <button type="button" onclick="Landing.deleteTrip('${project.id}', '${this.esc(project.name)}')" style="font-size: 0.8em; padding: 5px 14px;">
-
-            Delete
-
-        </button>
-
-    </div>
+    ${ownerActions}
 
 </div>
 
@@ -220,20 +230,46 @@ ${
     }
   },
 
-  async deleteTrip(id, name) {
-    const confirmed = confirm(
-      `Delete "${name}" permanently? This removes all its data - accommodation, activities, journal entries, photos, everything. This cannot be undone.`,
-    );
+  confirmDelete(id, name) {
+    Render.show(this.renderDeleteConfirm(id, name));
+  },
 
-    if (!confirmed) {
-      return;
-    }
+  renderDeleteConfirm(id, name) {
+    return `
 
+<div class="landing">
+
+    <div class="landing-card" style="max-width: 440px; border: 2px solid #b3261e;">
+
+        <h1 style="text-align: center;">⚠️ Delete this trip?</h1>
+
+        <p style="text-align: center;"><strong>${this.esc(name)}</strong> will be deleted permanently. All of its planning data — accommodation, activities, journal entries, photos, everything — will be gone forever. This cannot be undone.</p>
+
+        <div class="planner-buttons" style="justify-content: center; gap: 10px; margin-top: 16px;">
+
+            <button type="button" onclick="Landing.open()">Cancel</button>
+
+            <button type="button" onclick="Landing.reallyDelete('${id}')" style="background: #b3261e; color: #ffffff; border: none;">Yes, delete permanently</button>
+
+        </div>
+
+    </div>
+
+</div>
+
+`;
+  },
+
+  async reallyDelete(id) {
     try {
       const response = await fetch(`${window.API_BASE}/api/projects/${id}`, { method: "DELETE" });
 
       if (!response.ok) {
-        throw new Error(`Status ${response.status}`);
+        const data = await response.json().catch(() => ({}));
+
+        alert(data.error || "Couldn't delete that trip.");
+
+        return;
       }
 
       this.open();
@@ -290,6 +326,18 @@ ${
         result.textContent = "Couldn't reach the server. Try again.";
       }
     }
+  },
+
+  // Safe to drop into a single-quoted JS string inside a double-quoted HTML
+  // attribute (an onclick=). Escapes the JS string first, then the HTML.
+  jsArg(value) {
+    return String(value ?? "")
+      .replace(/\\/g, "\\\\")
+      .replace(/'/g, "\\'")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   },
 
   esc(value) {

@@ -949,6 +949,88 @@ function claimUnownedTrips(userId) {
   }
 }
 
+// --- Collaborators (Build 47 Phase 2 - trip sharing) ---
+
+function findUserByEmail(email) {
+  const lower = String(email || "").trim().toLowerCase();
+
+  if (!lower) {
+    return null;
+  }
+
+  return readUsers().find((u) => String(u.email || "").toLowerCase() === lower) || null;
+}
+
+function addCollaborator(tripId, userId, permission) {
+  const trips = readOwnership();
+
+  const entry = trips[tripId];
+
+  if (!entry) {
+    return;
+  }
+
+  entry.collaborators = entry.collaborators || [];
+
+  const existing = entry.collaborators.find((c) => c.userId === userId);
+
+  if (existing) {
+    existing.permission = permission;
+  } else {
+    entry.collaborators.push({ userId, permission, addedAt: new Date().toISOString() });
+  }
+
+  writeOwnership(trips);
+}
+
+function removeCollaborator(tripId, userId) {
+  const trips = readOwnership();
+
+  const entry = trips[tripId];
+
+  if (!entry) {
+    return;
+  }
+
+  entry.collaborators = (entry.collaborators || []).filter((c) => c.userId !== userId);
+
+  writeOwnership(trips);
+}
+
+// When someone registers, pick up any trips that were shared to their email
+// before they had an account, and add them as a collaborator automatically.
+function claimPendingShares(user) {
+  const trips = readOwnership();
+
+  let changed = false;
+
+  Object.keys(trips).forEach((tripId) => {
+    const entry = trips[tripId];
+
+    const pending = (entry.pendingShares || []).filter((p) => p.email === user.email);
+
+    if (pending.length === 0) {
+      return;
+    }
+
+    entry.collaborators = entry.collaborators || [];
+
+    pending.forEach((p) => {
+      if (!entry.collaborators.find((c) => c.userId === user.id)) {
+        entry.collaborators.push({ userId: user.id, permission: p.permission, addedAt: new Date().toISOString() });
+      }
+    });
+
+    entry.pendingShares = (entry.pendingShares || []).filter((p) => p.email !== user.email);
+
+    changed = true;
+  });
+
+  if (changed) {
+    writeOwnership(trips);
+  }
+}
+
 // --- Auth route handling (all public - these ARE the login gate) ---
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1171,9 +1253,100 @@ function handleRegister(req, res, body) {
     claimUnownedTrips(user.id);
   }
 
+  claimPendingShares(user);
+
   res.setHeader("Set-Cookie", sessionSetCookie(req, createSession(user.id)));
 
   return sendJSON(res, 200, { ok: true, user: publicUser(user) });
+}
+
+async function handleShareAdd(req, res, tripId, owner) {
+  let body;
+
+  try {
+    body = JSON.parse(await readBody(req));
+  } catch (error) {
+    return sendJSON(res, 400, { error: "Bad request." });
+  }
+
+  const identifier = String(body.identifier || "").trim();
+
+  const permission = body.permission === "write" ? "write" : "read";
+
+  if (!identifier) {
+    return sendJSON(res, 400, { error: "Enter a username or email." });
+  }
+
+  const isEmail = EMAIL_RE.test(identifier);
+
+  const user = isEmail ? findUserByEmail(identifier) : findUserByUsername(identifier);
+
+  if (user) {
+    if (user.id === owner.id) {
+      return sendJSON(res, 400, { error: "You already own this trip." });
+    }
+
+    addCollaborator(tripId, user.id, permission);
+
+    return sendJSON(res, 200, { ok: true, added: user.username, permission });
+  }
+
+  // Not a registered user. If they gave an email, create a pending share plus
+  // an invite, so when they register they're added to this trip automatically.
+  if (isEmail) {
+    const token = crypto.randomBytes(18).toString("hex");
+
+    const trips = readOwnership();
+
+    const entry = trips[tripId];
+
+    entry.pendingShares = (entry.pendingShares || []).filter((p) => p.email !== identifier.toLowerCase());
+
+    entry.pendingShares.push({ email: identifier.toLowerCase(), permission, token, invitedAt: new Date().toISOString() });
+
+    writeOwnership(trips);
+
+    const invites = readInvites();
+
+    invites.push({
+      token,
+      createdBy: owner.id,
+      email: identifier.toLowerCase(),
+      note: "Shared trip: " + (entry.name || tripId),
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      used: false,
+      usedAt: null,
+    });
+
+    writeInvites(invites);
+
+    return sendJSON(res, 200, { ok: true, pending: true, token });
+  }
+
+  return sendJSON(res, 404, { error: "No user with that username. To invite someone new, share using their email address." });
+}
+
+function handleShareList(req, res, tripId) {
+  const entry = readOwnership()[tripId] || {};
+
+  const users = readUsers();
+
+  const collaborators = (entry.collaborators || []).map((c) => {
+    const u = users.find((x) => x.id === c.userId);
+
+    return { userId: c.userId, username: u ? u.username : "(unknown)", permission: c.permission };
+  });
+
+  const pending = (entry.pendingShares || []).map((p) => ({ email: p.email, permission: p.permission }));
+
+  return sendJSON(res, 200, { collaborators, pending });
+}
+
+function handleShareRemove(req, res, tripId, target) {
+  removeCollaborator(tripId, target);
+
+  return sendJSON(res, 200, { ok: true });
 }
 
 function slugify(value) {
@@ -1487,6 +1660,12 @@ function handleProjectsList(req, res) {
     const projects = entries.map((entry) => {
       const id = entry.name;
 
+      const ownEntry = ownership[id];
+
+      const role = ownEntry && ownEntry.owner === user.id ? "owner" : "collaborator";
+
+      const collab = role === "collaborator" ? (ownEntry.collaborators || []).find((c) => c.userId === user.id) : null;
+
       const summary = {
         id,
         name: id,
@@ -1494,6 +1673,8 @@ function handleProjectsList(req, res) {
         departureDate: "",
         returnDate: "",
         archived: false,
+        role,
+        permission: role === "owner" ? "write" : collab ? collab.permission : "read",
       };
 
       try {
@@ -1596,6 +1777,31 @@ const server = http.createServer(async (req, res) => {
 
   if (req.url.match(/^\/api\/whoami\/?(?:\?.*)?$/) && req.method === "GET") {
     return sendJSON(res, 200, { user: req.authUser });
+  }
+
+  // Trip sharing (owner only): list / add / remove collaborators.
+  const shareMatch = req.url.match(/^\/api\/trips\/([^/]+)\/share(?:\/([^/?]+))?\/?(?:\?.*)?$/);
+
+  if (shareMatch) {
+    const [, tripId, target] = shareMatch;
+
+    if (!isTripOwner(sessionUser, tripId)) {
+      return sendJSON(res, 403, { error: "Only the trip owner can manage sharing." });
+    }
+
+    if (req.method === "GET" && !target) {
+      return handleShareList(req, res, tripId);
+    }
+
+    if (req.method === "POST" && !target) {
+      return handleShareAdd(req, res, tripId, sessionUser);
+    }
+
+    if (req.method === "DELETE" && target) {
+      return handleShareRemove(req, res, tripId, target);
+    }
+
+    return sendJSON(res, 405, { error: "Unsupported method for this route." });
   }
 
   if (req.url.match(/^\/api\/projects\/?(?:\?.*)?$/) && req.method === "GET") {
