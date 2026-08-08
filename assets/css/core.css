@@ -30,4 +30,10 @@
   --status-selected-bg: #fbe9d0;
   --status-booked: #2e7d4f;
   --status-booked-bg: #e1f0e3;
+  --status-shortlisted: #7a5f22;
+  --status-shortlisted-bg: #f5ecd8;
+  --status-travel: #1e6b3d;
+  --status-travel-bg: #cfe6d4;
+  --status-review: #2f5a8a;
+  --status-review-bg: #e3ecf7;
 }

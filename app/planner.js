@@ -1063,17 +1063,17 @@ ${this.snapshotStyles()}
 
 .snap-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72em; font-weight: 700; white-space: nowrap; }
 
-.snap-badge.is-research { background: #e2e2e2; color: #555555; }
+.snap-badge.is-research { background: var(--status-research-bg); color: var(--status-research); }
 
-.snap-badge.is-shortlisted { background: #fdebd0; color: #8a5a18; }
+.snap-badge.is-shortlisted { background: var(--status-shortlisted-bg); color: var(--status-shortlisted); }
 
-.snap-badge.is-selected { background: #FFC107; color: #3a2f00; }
+.snap-badge.is-selected { background: var(--status-selected-bg); color: var(--status-selected); }
 
-.snap-badge.is-booked { background: #28a745; color: #ffffff; }
+.snap-badge.is-booked { background: var(--status-booked-bg); color: var(--status-booked); }
 
-.snap-badge.is-travel { background: #1e7e34; color: #ffffff; text-decoration: underline; }
+.snap-badge.is-travel { background: var(--status-travel-bg); color: var(--status-travel); }
 
-.snap-badge.is-review { background: #007bff; color: #ffffff; }
+.snap-badge.is-review { background: var(--status-review-bg); color: var(--status-review); }
 
 </style>
 

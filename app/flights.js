@@ -269,7 +269,7 @@ const Flights = {
     <p>
 
         Status:
-        <span class="badge">${item.status}</span>
+        <span class="badge badge--${String(item.status || "").toLowerCase()}">${item.status}</span>
         ${item.addedBy ? `<span class="badge">Added by ${this.esc(item.addedBy)}</span>` : ""}
 
     </p>

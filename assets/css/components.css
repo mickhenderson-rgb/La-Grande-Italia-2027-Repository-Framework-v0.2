@@ -702,6 +702,20 @@ button {
   font-size: 0.85em;
 }
 
+/* Status pills — one muted palette, Research → Booked, used everywhere */
+
+.badge.badge--research { background: var(--status-research-bg); color: var(--status-research); }
+
+.badge.badge--shortlisted { background: var(--status-shortlisted-bg); color: var(--status-shortlisted); }
+
+.badge.badge--selected { background: var(--status-selected-bg); color: var(--status-selected); }
+
+.badge.badge--booked { background: var(--status-booked-bg); color: var(--status-booked); }
+
+.badge.badge--travel { background: var(--status-travel-bg); color: var(--status-travel); }
+
+.badge.badge--review { background: var(--status-review-bg); color: var(--status-review); }
+
 .manager-card button {
   margin-top: 15px;
 }

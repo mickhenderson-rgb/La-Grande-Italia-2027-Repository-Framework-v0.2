@@ -327,7 +327,7 @@ Research List
     <p>
 
         Status:
-        <span class="badge">${item.status}</span>
+        <span class="badge badge--${String(item.status || "").toLowerCase()}">${item.status}</span>
         ${item.selected ? '<span class="badge">Selected</span>' : ""}
         ${item.addedBy ? `<span class="badge">Added by ${this.esc(item.addedBy)}</span>` : ""}
 
