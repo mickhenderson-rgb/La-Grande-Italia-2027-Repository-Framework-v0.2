@@ -916,7 +916,14 @@ ${unplotted}
 
     el.innerHTML = "";
 
-    this.map = L.map(el, { scrollWheelZoom: true });
+    const rm = this.reducedMotion();
+
+    this.map = L.map(el, {
+      scrollWheelZoom: true,
+      zoomAnimation: !rm,
+      fadeAnimation: !rm,
+      markerZoomAnimation: !rm,
+    });
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 18,
@@ -973,21 +980,30 @@ ${unplotted}
 
     this._markers = [];
 
+    // Larger tap target on touch/narrow screens.
+    const size = (window.innerWidth || 1024) < 768 ? 34 : 26;
+
+    const half = Math.round(size / 2);
+
     this.stops.forEach((stop, idx) => {
       if (!stop.coords) {
         return;
       }
 
+      // aria-hidden in the markup (not after addTo - the icon element does
+      // not exist until the map gets a view) so pins are silent to screen
+      // readers; the labelled stop rail is the accessible interface.
       const icon = L.divIcon({
         className: "tripmap-pin-wrap",
         html:
-          `<span class="tm-pin ${this.statusClass(stop.status)}">${this.statusGlyph(stop.status)}</span>` +
-          `<span class="tm-plabel">${this.esc(this.pinLabel(stop))}</span>`,
-        iconSize: [26, 26],
-        iconAnchor: [13, 13],
+          `<span class="tm-pin ${this.statusClass(stop.status)}" aria-hidden="true">${this.statusGlyph(stop.status)}</span>` +
+          `<span class="tm-plabel" aria-hidden="true">${this.esc(this.pinLabel(stop))}</span>`,
+        iconSize: [size, size],
+        iconAnchor: [half, half],
       });
 
-      const marker = L.marker(stop.coords, { icon }).addTo(this.map);
+      // keyboard: false keeps pins out of the tab order.
+      const marker = L.marker(stop.coords, { icon, keyboard: false }).addTo(this.map);
 
       marker.on("click", () => this.selectStop(idx));
 
@@ -1069,6 +1085,12 @@ ${unplotted}
     const tag = event.target && event.target.tagName ? event.target.tagName.toLowerCase() : "";
 
     if (tag === "input" || tag === "textarea" || tag === "select" || (event.target && event.target.isContentEditable)) {
+      return;
+    }
+
+    // When the map itself has focus, let Leaflet handle arrows (pan) and
+    // +/- (zoom) - only steer the stop rail when focus is outside the map.
+    if (event.target && event.target.closest && event.target.closest(".leaflet-container")) {
       return;
     }
 
@@ -1404,7 +1426,7 @@ ${unplotted}
 
 .tripmap-pin-wrap { background: transparent; border: none; }
 
-.tm-pin { width: 26px; height: 26px; border-radius: 50%; background: #ffffff; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 15px; line-height: 1; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); cursor: pointer; transition: transform 0.12s; }
+.tm-pin { width: 100%; height: 100%; border-radius: 50%; background: #ffffff; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 15px; line-height: 1; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); cursor: pointer; transition: transform 0.12s; }
 
 .tm-pin.is-booked { border: 2px solid var(--color-primary, #34495E); color: var(--color-primary, #34495E); }
 
@@ -1441,6 +1463,14 @@ ${unplotted}
     .tripmap-surface { height: 340px; min-height: 0; order: -1; }
 
     .tripmap-info { height: auto; min-height: 0; }
+
+    .tripmap-detail { max-height: none; overflow-y: visible; }
+
+    .tripmap-rail { overflow-y: visible; flex: none; }
+
+    .tm-pin { font-size: 18px; }
+
+    .tripmap-actions { flex-wrap: wrap; }
 
 }
 
