@@ -32,17 +32,45 @@ const TripMap = {
 
   _keyHandler: null,
 
+  map: null,
+
+  _markers: null,
+
+  _route: null,
+
   // A small built-in lookup so common cities plot even when a trip
   // has no per-day coordinates. Per-day journey lat/lng (added in the
   // Italy test trip, and the Build 49 shape) always take precedence.
   cityCoords: {
+    // Cities / towns used by real trips, plus common Italian/European anchors.
+    // Region names (dolomites, tuscany) use a representative central point.
     rome: [41.9028, 12.4964],
-    florence: [43.7696, 11.2558],
-    venice: [45.4408, 12.3155],
-    bologna: [44.4939, 11.3426],
     milan: [45.4642, 9.19],
+    venice: [45.4408, 12.3155],
+    florence: [43.7696, 11.2558],
+    bologna: [44.4939, 11.3426],
     naples: [40.8518, 14.2681],
     verona: [45.4384, 10.9916],
+    turin: [45.0703, 7.6869],
+    genoa: [44.4056, 8.9463],
+    pisa: [43.7228, 10.4017],
+    siena: [43.3188, 11.3308],
+    bari: [41.1171, 16.8719],
+    "le noirmont": [47.2306, 6.9628],
+    "vigano san martino": [45.7197, 9.8036],
+    dolomites: [46.4102, 11.844],
+    tuscany: [43.46, 11.15],
+    sorrento: [40.6263, 14.3757],
+    palermo: [38.1157, 13.3615],
+    cefalu: [38.0397, 14.023],
+    "cefalù": [38.0397, 14.023],
+    syracuse: [37.0755, 15.2866],
+    siracusa: [37.0755, 15.2866],
+    taormina: [37.8526, 15.2876],
+    tropea: [38.6776, 15.8969],
+    maratea: [39.9936, 15.7203],
+    locorotondo: [40.7546, 17.3266],
+    matera: [40.6664, 16.6043],
     vienna: [48.2082, 16.3738],
     ljubljana: [46.0569, 14.5058],
   },
@@ -63,6 +91,8 @@ const TripMap = {
     this.renderDetail(this.selectedStopIndex);
 
     this.registerKeyboard();
+
+    this.loadMap();
   },
 
   // =========================================================
@@ -379,7 +409,7 @@ ${this.styles()}
 
     </header>
 
-    <div class="tripmap-note">🗺 Map view arrives in Step 2 — the stop list below is fully functional.</div>
+    <div id="trip-map-surface" class="tripmap-surface" role="region" aria-label="Trip route map"></div>
 
     <div class="tripmap-body">
 
@@ -578,6 +608,8 @@ ${unplotted}
 
     this.saveLastViewed(idx);
 
+    this.highlightMarker(idx);
+
     const btn = document.getElementById(`trip-map-stop-${idx}`);
 
     if (btn) {
@@ -600,6 +632,235 @@ ${unplotted}
       document.removeEventListener("keydown", this._keyHandler);
 
       this._keyHandler = null;
+    }
+
+    if (this.map) {
+      try {
+        this.map.remove();
+      } catch (error) {
+        // ignore teardown errors
+      }
+
+      this.map = null;
+
+      this._markers = null;
+
+      this._route = null;
+    }
+  },
+
+  // =========================================================
+  // Map (Step 2) - Leaflet substrate + custom pin/route overlay.
+  // Leaflet is vendored locally and lazy-loaded only when the map
+  // view opens. Everything degrades to the rail if it fails.
+  // =========================================================
+
+  loadMap() {
+    const plotted = this.stops.filter((s) => s.coords);
+
+    if (plotted.length === 0) {
+      this.mapMessage("No stops have map coordinates yet — see the list below.");
+
+      return;
+    }
+
+    this.ensureLeaflet(
+      () => this.initMap(),
+      () => this.mapMessage("Map unavailable — showing the stop list below."),
+    );
+  },
+
+  ensureLeaflet(onReady, onFail) {
+    if (window.L) {
+      onReady();
+
+      return;
+    }
+
+    const base = window.API_BASE || "";
+
+    if (!document.getElementById("leaflet-css")) {
+      const link = document.createElement("link");
+
+      link.id = "leaflet-css";
+
+      link.rel = "stylesheet";
+
+      link.href = `${base}/assets/vendor/leaflet/leaflet.css`;
+
+      document.head.appendChild(link);
+    }
+
+    let script = document.getElementById("leaflet-js");
+
+    if (!script) {
+      script = document.createElement("script");
+
+      script.id = "leaflet-js";
+
+      script.src = `${base}/assets/vendor/leaflet/leaflet.js`;
+
+      document.head.appendChild(script);
+    }
+
+    script.addEventListener("load", () => onReady());
+
+    script.addEventListener("error", () => onFail());
+
+    // If it was already loaded between checks, fire now.
+    if (window.L) {
+      onReady();
+    }
+  },
+
+  initMap() {
+    const el = document.getElementById("trip-map-surface");
+
+    if (!el || !window.L) {
+      return;
+    }
+
+    const L = window.L;
+
+    if (this.map) {
+      try {
+        this.map.remove();
+      } catch (error) {
+        // ignore
+      }
+
+      this.map = null;
+    }
+
+    el.innerHTML = "";
+
+    this.map = L.map(el, { scrollWheelZoom: true });
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+      attribution: "&copy; OpenStreetMap contributors",
+    }).addTo(this.map);
+
+    this.renderRoute();
+
+    this.renderPins();
+
+    this.fitMap();
+
+    this.highlightMarker(this.selectedStopIndex);
+  },
+
+  plottedStops() {
+    return this.stops.filter((s) => s.coords);
+  },
+
+  renderRoute() {
+    if (!this.map || !window.L) {
+      return;
+    }
+
+    const pts = this.plottedStops().map((s) => s.coords);
+
+    if (pts.length > 1) {
+      this._route = window.L.polyline(pts, {
+        color: "#34495E",
+        weight: 3,
+        opacity: 0.6,
+      }).addTo(this.map);
+    }
+  },
+
+  renderPins() {
+    if (!this.map || !window.L) {
+      return;
+    }
+
+    const L = window.L;
+
+    this._markers = [];
+
+    this.stops.forEach((stop, idx) => {
+      if (!stop.coords) {
+        return;
+      }
+
+      const icon = L.divIcon({
+        className: "tripmap-pin-wrap",
+        html:
+          `<span class="tm-pin ${this.statusClass(stop.status)}">${this.statusGlyph(stop.status)}</span>` +
+          `<span class="tm-plabel">${this.esc(this.pinLabel(stop))}</span>`,
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
+      });
+
+      const marker = L.marker(stop.coords, { icon }).addTo(this.map);
+
+      marker.on("click", () => this.selectStop(idx));
+
+      this._markers[idx] = marker;
+    });
+  },
+
+  pinLabel(stop) {
+    return `${this.pretty(stop.location)}  ${this.formatDateRange(stop)}`;
+  },
+
+  fitMap() {
+    if (!this.map) {
+      return;
+    }
+
+    const pts = this.plottedStops().map((s) => s.coords);
+
+    if (pts.length === 1) {
+      this.map.setView(pts[0], 9);
+    } else if (pts.length > 1) {
+      this.map.fitBounds(pts, { padding: [45, 45] });
+    }
+  },
+
+  highlightMarker(idx) {
+    if (!this.map || !this._markers) {
+      return;
+    }
+
+    this._markers.forEach((marker, i) => {
+      if (!marker) {
+        return;
+      }
+
+      const el = marker.getElement();
+
+      if (el) {
+        const pin = el.querySelector(".tm-pin");
+
+        if (pin) {
+          pin.classList.toggle("is-active", i === idx);
+        }
+      }
+
+      marker.setZIndexOffset(i === idx ? 1000 : 0);
+    });
+
+    const stop = this.stops[idx];
+
+    if (stop && stop.coords) {
+      this.map.panTo(stop.coords, { animate: !this.reducedMotion() });
+    }
+  },
+
+  reducedMotion() {
+    return (
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    );
+  },
+
+  mapMessage(text) {
+    const el = document.getElementById("trip-map-surface");
+
+    if (el) {
+      el.innerHTML = `<div class="tripmap-map-msg">${this.esc(text)}</div>`;
     }
   },
 
@@ -933,15 +1194,41 @@ ${unplotted}
 
 .tripmap-detail-actions button { padding: 8px 16px; border-radius: 999px; border: 1px solid var(--color-primary, #34495E); background: var(--color-primary, #34495E); color: #fff; cursor: pointer; font: inherit; }
 
+.tripmap-surface { height: 460px; border-radius: var(--radius, 8px); border: 1px solid #e4ddd0; overflow: hidden; background: #e8eaee; z-index: 0; }
+
+.tripmap-map-msg { display: flex; height: 100%; align-items: center; justify-content: center; padding: 16px; color: #6b6357; font-style: italic; text-align: center; }
+
+.leaflet-container { font: inherit; background: #e8eaee; }
+
+.tripmap-pin-wrap { background: transparent; border: none; }
+
+.tm-pin { width: 26px; height: 26px; border-radius: 50%; background: #ffffff; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 15px; line-height: 1; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); cursor: pointer; transition: transform 0.12s; }
+
+.tm-pin.is-booked { border: 2px solid var(--color-primary, #34495E); color: var(--color-primary, #34495E); }
+
+.tm-pin.is-selected { border: 3px double var(--color-secondary, #C79C5D); color: #9a7736; }
+
+.tm-pin.is-research { border: 2px dashed #9aa0a6; color: #6b7075; background: #f4f4f5; }
+
+.tm-pin.is-active { transform: scale(1.3); box-shadow: 0 0 0 6px rgba(52, 73, 94, 0.22), 0 1px 3px rgba(0, 0, 0, 0.4); }
+
+.tm-plabel { display: none; position: absolute; left: 32px; top: 2px; white-space: nowrap; background: rgba(255, 255, 255, 0.94); border: 1px solid #e4ddd0; border-radius: 6px; padding: 1px 7px; font-size: 11px; font-weight: 600; color: #243447; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18); pointer-events: none; }
+
+.tripmap-pin-wrap:hover .tm-plabel, .tm-pin.is-active + .tm-plabel { display: block; }
+
 @media (max-width: 820px) {
 
     .tripmap-body { grid-template-columns: 1fr; }
+
+    .tripmap-surface { height: 340px; }
 
 }
 
 @media (prefers-reduced-motion: reduce) {
 
     .tripmap-stop-btn { transition: none; }
+
+    .tm-pin { transition: none; }
 
 }
 

@@ -32,7 +32,7 @@ Caching rules, deliberately conservative:
 =========================================================
 */
 
-const CACHE_NAME = "compass-tos-v18";
+const CACHE_NAME = "compass-tos-v19";
 
 const APP_SHELL = [
   "./",
@@ -46,6 +46,8 @@ const APP_SHELL = [
   "assets/css/themes/light.css",
   "assets/icons/icon-192.png",
   "assets/icons/icon-512.png",
+  "assets/vendor/leaflet/leaflet.css",
+  "assets/vendor/leaflet/leaflet.js",
 ];
 
 self.addEventListener("install", (event) => {
