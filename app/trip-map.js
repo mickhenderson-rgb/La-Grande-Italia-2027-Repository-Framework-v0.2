@@ -82,6 +82,8 @@ const TripMap = {
 
     this.computeStops();
 
+    this.computeTemporal();
+
     this.restoreLastViewed();
 
     Render.show(Layout.render(this.getBodyHTML()));
@@ -89,6 +91,8 @@ const TripMap = {
     this.renderRail();
 
     this.renderDetail(this.selectedStopIndex);
+
+    this.renderHeaderControls();
 
     this.registerKeyboard();
 
@@ -285,32 +289,12 @@ const TripMap = {
   },
 
   // =========================================================
-  // Trip state (used by header metadata; halo/fade is Step 3)
+  // Trip state + temporal treatment (Step 3): halo today's stop, fade
+  // past stops, "Jump to today", plus a preview toggle so the
+  // in-progress look can be seen before the trip actually begins.
   // =========================================================
 
-  tripState() {
-    const p = this.trip && this.trip.project ? this.trip.project : {};
-
-    const start = p.departureDate;
-
-    const end = p.returnDate;
-
-    if (!start) {
-      return "planning";
-    }
-
-    const today = this.todayIso();
-
-    if (today < start) {
-      return "planning";
-    }
-
-    if (end && today > end) {
-      return "completed";
-    }
-
-    return "in-progress";
-  },
+  _previewToday: null,
 
   todayIso() {
     const now = new Date();
@@ -322,6 +306,204 @@ const TripMap = {
     const dd = String(now.getDate()).padStart(2, "0");
 
     return `${yyyy}-${mm}-${dd}`;
+  },
+
+  effectiveToday() {
+    return this._previewToday || this.todayIso();
+  },
+
+  stateForDate(today) {
+    const p = this.trip && this.trip.project ? this.trip.project : {};
+
+    if (!p.departureDate || today < p.departureDate) {
+      return "planning";
+    }
+
+    if (p.returnDate && today > p.returnDate) {
+      return "completed";
+    }
+
+    return "in-progress";
+  },
+
+  effectiveState() {
+    return this.stateForDate(this.effectiveToday());
+  },
+
+  realState() {
+    return this.stateForDate(this.todayIso());
+  },
+
+  tripMidpointIso() {
+    const p = this.trip && this.trip.project ? this.trip.project : {};
+
+    const a = this.parseIso(p.departureDate);
+
+    const b = this.parseIso(p.returnDate);
+
+    if (!a) {
+      return this.todayIso();
+    }
+
+    if (!b) {
+      return p.departureDate;
+    }
+
+    const d1 = Date.UTC(a.y, a.m - 1, a.d);
+
+    const d2 = Date.UTC(b.y, b.m - 1, b.d);
+
+    const mid = new Date(d1 + Math.floor((d2 - d1) / 2));
+
+    const yyyy = mid.getUTCFullYear();
+
+    const mm = String(mid.getUTCMonth() + 1).padStart(2, "0");
+
+    const dd = String(mid.getUTCDate()).padStart(2, "0");
+
+    return `${yyyy}-${mm}-${dd}`;
+  },
+
+  computeTemporal() {
+    const today = this.effectiveToday();
+
+    this.stops.forEach((stop) => {
+      const first = stop.days[0] && stop.days[0].date;
+
+      const last = stop.days[stop.days.length - 1] && stop.days[stop.days.length - 1].date;
+
+      if (last && today > last) {
+        stop.temporal = "past";
+      } else if (first && today < first) {
+        stop.temporal = "future";
+      } else {
+        stop.temporal = "today";
+      }
+    });
+  },
+
+  railTemporalClass(stop) {
+    if (this.effectiveState() !== "in-progress") {
+      return "";
+    }
+
+    if (stop.temporal === "today") {
+      return " is-today";
+    }
+
+    if (stop.temporal === "past") {
+      return " is-past";
+    }
+
+    return "";
+  },
+
+  stateChip() {
+    const s = this.effectiveState();
+
+    const label = s === "in-progress" ? "In progress" : s === "completed" ? "Completed" : "Planning";
+
+    const preview = this._previewToday ? " · preview" : "";
+
+    return `<span class="tripmap-state is-${s}">${label}${preview}</span>`;
+  },
+
+  updateStateChip() {
+    const el = document.getElementById("trip-map-statechip");
+
+    if (el) {
+      el.innerHTML = this.stateChip();
+    }
+  },
+
+  renderHeaderControls() {
+    const el = document.getElementById("trip-map-actions");
+
+    if (!el) {
+      return;
+    }
+
+    let html = "";
+
+    if (this.effectiveState() === "in-progress") {
+      html += `<button type="button" onclick="TripMap.jumpToToday()">Jump to today</button>`;
+    }
+
+    if (this._previewToday) {
+      html += `<button type="button" onclick="TripMap.togglePreview()">Exit preview</button>`;
+    } else if (this.realState() !== "in-progress") {
+      html += `<button type="button" onclick="TripMap.togglePreview()">Preview in-progress</button>`;
+    }
+
+    html += `<button type="button" onclick="window.print()">Print</button>`;
+
+    el.innerHTML = html;
+  },
+
+  jumpToToday() {
+    let idx = this.stops.findIndex((s) => s.temporal === "today" && s.coords);
+
+    if (idx === -1) {
+      idx = this.stops.findIndex((s) => s.temporal === "today");
+    }
+
+    if (idx === -1) {
+      idx = 0;
+    }
+
+    this.selectStop(idx);
+  },
+
+  togglePreview() {
+    this._previewToday = this._previewToday ? null : this.tripMidpointIso();
+
+    this.computeTemporal();
+
+    this.renderRail();
+
+    this.renderDetail(this.selectedStopIndex);
+
+    this.applyTemporalToPins();
+
+    this.renderHeaderControls();
+
+    this.updateStateChip();
+
+    if (this._previewToday) {
+      this.jumpToToday();
+    }
+  },
+
+  applyTemporalToPins() {
+    if (!this._markers) {
+      return;
+    }
+
+    const inProgress = this.effectiveState() === "in-progress";
+
+    this._markers.forEach((marker, i) => {
+      if (!marker) {
+        return;
+      }
+
+      const el = marker.getElement();
+
+      if (!el) {
+        return;
+      }
+
+      const pin = el.querySelector(".tm-pin");
+
+      if (!pin) {
+        return;
+      }
+
+      const t = this.stops[i].temporal;
+
+      pin.classList.toggle("is-past", inProgress && t === "past");
+
+      pin.classList.toggle("is-today", inProgress && t === "today");
+    });
   },
 
   // =========================================================
@@ -397,15 +579,11 @@ ${this.styles()}
 
             <h1>${this.esc(this.tripName())}</h1>
 
-            <p class="tripmap-meta">${this.esc(this.headerMeta())}</p>
+            <p class="tripmap-meta">${this.esc(this.headerMeta())} <span id="trip-map-statechip">${this.stateChip()}</span></p>
 
         </div>
 
-        <div class="tripmap-actions">
-
-            <button type="button" onclick="window.print()">Print</button>
-
-        </div>
+        <div class="tripmap-actions" id="trip-map-actions"></div>
 
     </header>
 
@@ -445,7 +623,7 @@ ${this.styles()}
 
         return `
 
-<li class="tripmap-stop${active ? " is-active" : ""}">
+<li class="tripmap-stop${active ? " is-active" : ""}${this.railTemporalClass(stop)}">
 
     <button
         type="button"
@@ -752,6 +930,8 @@ ${unplotted}
     this.fitMap();
 
     this.highlightMarker(this.selectedStopIndex);
+
+    this.applyTemporalToPins();
 
     // Leaflet must re-measure once the grid/flex column has settled,
     // otherwise a map created inside a just-laid-out column renders short.
@@ -1231,6 +1411,22 @@ ${unplotted}
 .tm-plabel { display: none; position: absolute; left: 32px; top: 2px; white-space: nowrap; background: rgba(255, 255, 255, 0.94); border: 1px solid #e4ddd0; border-radius: 6px; padding: 1px 7px; font-size: 11px; font-weight: 600; color: #243447; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18); pointer-events: none; }
 
 .tripmap-pin-wrap:hover .tm-plabel, .tm-pin.is-active + .tm-plabel { display: block; }
+
+.tripmap-state { display: inline-block; margin-left: 6px; padding: 1px 9px; border-radius: 999px; font-size: 0.72em; font-weight: 700; letter-spacing: 0.02em; vertical-align: middle; }
+
+.tripmap-state.is-planning { background: #eef1f4; color: #46586b; }
+
+.tripmap-state.is-in-progress { background: #e1f0e3; color: #2e7d4f; }
+
+.tripmap-state.is-completed { background: #f3eee6; color: #8a5a18; }
+
+.tripmap-stop.is-past { opacity: 0.5; }
+
+.tripmap-stop.is-today .tripmap-stop-btn { border-color: #2e7d4f; box-shadow: 0 0 0 2px rgba(46, 125, 79, 0.22); }
+
+.tm-pin.is-past { opacity: 0.45; }
+
+.tm-pin.is-today { box-shadow: 0 0 0 7px rgba(46, 125, 79, 0.28), 0 1px 3px rgba(0, 0, 0, 0.4); }
 
 @media (max-width: 820px) {
 
