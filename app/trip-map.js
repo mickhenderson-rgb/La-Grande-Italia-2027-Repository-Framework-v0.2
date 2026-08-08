@@ -426,7 +426,7 @@ const TripMap = {
     let html = "";
 
     if (this.effectiveState() === "in-progress") {
-      html += `<button type="button" onclick="TripMap.jumpToToday()">Jump to today</button>`;
+      html += `<button type="button" class="tm-btn-primary" onclick="TripMap.jumpToToday()">Jump to today</button>`;
     }
 
     if (this._previewToday) {
@@ -1316,7 +1316,13 @@ ${unplotted}
 
 .tripmap-actions { display: flex; gap: 8px; }
 
-.tripmap-actions button { padding: 6px 14px; border-radius: 999px; border: 1px solid #dcc9b7; background: #fff; cursor: pointer; font: inherit; }
+.tripmap-actions button { padding: 7px 15px; border-radius: 999px; border: 1px solid #c9cfd6; background: #ffffff; color: #243447; cursor: pointer; font: inherit; font-weight: 600; }
+
+.tripmap-actions button:hover { background: #eef1f4; border-color: var(--color-primary, #34495E); }
+
+.tripmap-actions button.tm-btn-primary { background: var(--color-primary, #34495E); border-color: var(--color-primary, #34495E); color: #ffffff; }
+
+.tripmap-actions button.tm-btn-primary:hover { background: #2b3d4f; border-color: #2b3d4f; }
 
 .tripmap-note { background: #f3eee6; border: 1px solid #e4ddd0; border-radius: var(--radius, 8px); padding: 8px 12px; font-size: 0.86em; color: #6b6357; }
 
