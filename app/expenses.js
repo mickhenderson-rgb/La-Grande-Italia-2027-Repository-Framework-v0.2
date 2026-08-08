@@ -471,8 +471,8 @@ ${rows}
     });
 
     const url = isNew
-      ? `/api/items/${Data.currentProjectFolder}/expenses`
-      : `/api/items/${Data.currentProjectFolder}/expenses/${id}`;
+      ? `${window.API_BASE}/api/items/${Data.currentProjectFolder}/expenses`
+      : `${window.API_BASE}/api/items/${Data.currentProjectFolder}/expenses/${id}`;
 
     fetch(url, {
       method: isNew ? "POST" : "PUT",

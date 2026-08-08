@@ -752,8 +752,8 @@ ${rows}
     });
 
     const url = isNew
-      ? `/api/items/${Data.currentProjectFolder}/restaurants`
-      : `/api/items/${Data.currentProjectFolder}/restaurants/${id}`;
+      ? `${window.API_BASE}/api/items/${Data.currentProjectFolder}/restaurants`
+      : `${window.API_BASE}/api/items/${Data.currentProjectFolder}/restaurants/${id}`;
 
     fetch(url, {
       method: isNew ? "POST" : "PUT",

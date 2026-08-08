@@ -829,8 +829,8 @@ ${rows}
     });
 
     const url = isNew
-      ? `/api/items/${Data.currentProjectFolder}/transport`
-      : `/api/items/${Data.currentProjectFolder}/transport/${id}`;
+      ? `${window.API_BASE}/api/items/${Data.currentProjectFolder}/transport`
+      : `${window.API_BASE}/api/items/${Data.currentProjectFolder}/transport/${id}`;
 
     fetch(url, {
       method: isNew ? "POST" : "PUT",

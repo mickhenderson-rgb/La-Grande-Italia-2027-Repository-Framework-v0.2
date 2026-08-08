@@ -892,8 +892,8 @@ ${selected ? selected.planning.notes : ""}
     });
 
     const url = isNew
-      ? `/api/items/${Data.currentProjectFolder}/accommodation`
-      : `/api/items/${Data.currentProjectFolder}/accommodation/${id}`;
+      ? `${window.API_BASE}/api/items/${Data.currentProjectFolder}/accommodation`
+      : `${window.API_BASE}/api/items/${Data.currentProjectFolder}/accommodation/${id}`;
 
     fetch(url, {
       method: isNew ? "POST" : "PUT",
