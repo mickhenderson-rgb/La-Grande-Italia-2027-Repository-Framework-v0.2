@@ -38,6 +38,16 @@ const TripMap = {
 
   _route: null,
 
+  mode: "overview",
+
+  selectedDay: null,
+
+  _dayMarkers: null,
+
+  _armedItem: null,
+
+  _placeHandler: null,
+
   // A small built-in lookup so common cities plot even when a trip
   // has no per-day coordinates. Per-day journey lat/lng (added in the
   // Italy test trip, and the Build 49 shape) always take precedence.
@@ -79,6 +89,12 @@ const TripMap = {
     this.trip = Project.get("project");
 
     this.journey = Project.get("journey");
+
+    this.mode = "overview";
+
+    this.selectedDay = null;
+
+    this._armedItem = null;
 
     this.computeStops();
 
@@ -696,6 +712,8 @@ ${this.styles()}
 
 </div>
 
+${this.renderDayTabs(stop)}
+
 ${unplotted}
 
 <div class="tripmap-detail-items">
@@ -782,6 +800,17 @@ ${unplotted}
       idx = this.stops.length - 1;
     }
 
+    // Selecting a stop leaves day mode and restores the overview map.
+    if (this.mode === "day") {
+      this.mode = "overview";
+
+      this.selectedDay = null;
+
+      this._armedItem = null;
+
+      this.restoreOverviewMap();
+    }
+
     this.selectedStopIndex = idx;
 
     this.renderRail();
@@ -828,7 +857,15 @@ ${unplotted}
       this._markers = null;
 
       this._route = null;
+
+      this._dayMarkers = null;
     }
+
+    this.mode = "overview";
+
+    this.selectedDay = null;
+
+    this._armedItem = null;
   },
 
   // =========================================================
@@ -1072,6 +1109,443 @@ ${unplotted}
     if (el) {
       el.innerHTML = `<div class="tripmap-map-msg">${this.esc(text)}</div>`;
     }
+  },
+
+  // =========================================================
+  // Day map (Build 49) - drill from a stop into a single day, plot
+  // that day's items, and click-to-place coordinates onto an item.
+  // Saves via the atomic PUT /api/items/<folder>/<collection>/<id>
+  // (API_BASE-prefixed, shallow-merges). No Plus Code / geocoding.
+  // =========================================================
+
+  dayItemColl: [
+    { key: "accommodation", icon: "🛏" },
+    { key: "activities", icon: "🎭" },
+    { key: "restaurants", icon: "🍽" },
+    { key: "transport", icon: "🚗" },
+  ],
+
+  stopForDay(dayNum) {
+    return this.stops.find((s) => dayNum >= s.dayRange[0] && dayNum <= s.dayRange[1]);
+  },
+
+  getItemsForDay(dayNum) {
+    const out = [];
+
+    this.dayItemColl.forEach((c) => {
+      const data = Project.get(c.key);
+
+      const items = data && Array.isArray(data.items) ? data.items : [];
+
+      items.forEach((item) => {
+        let a;
+
+        let b;
+
+        if (Array.isArray(item.dayRange) && item.dayRange.length >= 1) {
+          a = item.dayRange[0];
+
+          b = item.dayRange[item.dayRange.length - 1];
+        } else if (typeof item.day === "number") {
+          a = item.day;
+
+          b = item.day;
+        } else {
+          return;
+        }
+
+        // Range overlap (dayRange is [first,last], NOT enumerated).
+        if (dayNum >= a && dayNum <= b) {
+          out.push({ collection: c.key, icon: c.icon, item });
+        }
+      });
+    });
+
+    return out;
+  },
+
+  itemCoords(item) {
+    const loc = item && item.location;
+
+    if (loc && typeof loc.latitude === "number" && typeof loc.longitude === "number") {
+      return [loc.latitude, loc.longitude];
+    }
+
+    return null;
+  },
+
+  formatOneDay(iso) {
+    const p = this.parseIso(iso);
+
+    if (!p) {
+      return "";
+    }
+
+    return `${p.d} ${this.months[p.m - 1]}`;
+  },
+
+  renderDayTabs(stop) {
+    if (!stop.days || stop.days.length === 0) {
+      return "";
+    }
+
+    const tabs = stop.days
+      .map((d) => {
+        const label = this.formatOneDay(d.date) || `Day ${d.day}`;
+
+        const n = this.getItemsForDay(d.day).length;
+
+        return `<button type="button" class="tm-daytab" onclick="TripMap.enterDayMode(${d.day})">${this.esc(label)}${n ? `<span class="tm-daytab-count">${n}</span>` : ""}</button>`;
+      })
+      .join("");
+
+    return `
+
+<div class="tripmap-daytabs" role="group" aria-label="Open a day map">
+
+    <span class="tm-daytabs-label">Day maps</span>
+
+    ${tabs}
+
+</div>
+
+`;
+  },
+
+  enterDayMode(dayNum) {
+    this.mode = "day";
+
+    this.selectedDay = dayNum;
+
+    this._armedItem = null;
+
+    this.renderDayDetail(dayNum);
+
+    if (this.map) {
+      this.clearOverviewLayers();
+
+      this.renderDayPins();
+
+      this.fitDay(dayNum);
+
+      this.enableMapPlacement();
+    }
+  },
+
+  exitDayMode() {
+    this.mode = "overview";
+
+    this.selectedDay = null;
+
+    this._armedItem = null;
+
+    this.restoreOverviewMap();
+
+    this.renderDetail(this.selectedStopIndex);
+  },
+
+  restoreOverviewMap() {
+    if (!this.map) {
+      return;
+    }
+
+    this.disableMapPlacement();
+
+    this.clearDayLayers();
+
+    this.renderRoute();
+
+    this.renderPins();
+
+    this.fitMap();
+
+    this.highlightMarker(this.selectedStopIndex);
+
+    this.applyTemporalToPins();
+  },
+
+  clearOverviewLayers() {
+    if (!this.map) {
+      return;
+    }
+
+    if (this._markers) {
+      this._markers.forEach((m) => {
+        if (m) {
+          this.map.removeLayer(m);
+        }
+      });
+    }
+
+    if (this._route) {
+      this.map.removeLayer(this._route);
+
+      this._route = null;
+    }
+  },
+
+  clearDayLayers() {
+    if (this.map && this._dayMarkers) {
+      this._dayMarkers.forEach((m) => {
+        if (m) {
+          this.map.removeLayer(m);
+        }
+      });
+    }
+
+    this._dayMarkers = null;
+  },
+
+  renderDayPins() {
+    if (!this.map || !window.L) {
+      return;
+    }
+
+    const L = window.L;
+
+    this.clearDayLayers();
+
+    this._dayMarkers = [];
+
+    this.getItemsForDay(this.selectedDay).forEach((entry) => {
+      const coords = this.itemCoords(entry.item);
+
+      if (!coords) {
+        return;
+      }
+
+      const bucket = this.bucket(entry.item.status || "Research");
+
+      const icon = L.divIcon({
+        className: "tripmap-pin-wrap",
+        html:
+          `<span class="tm-daypin ${this.statusClass(bucket)}" aria-hidden="true">${entry.icon}</span>` +
+          `<span class="tm-plabel" aria-hidden="true">${this.esc(this.itemName(entry.collection, entry.item))}</span>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15],
+      });
+
+      this._dayMarkers.push(L.marker(coords, { icon, keyboard: false }).addTo(this.map));
+    });
+  },
+
+  fitDay(dayNum) {
+    if (!this.map) {
+      return;
+    }
+
+    const pts = this.getItemsForDay(dayNum)
+      .map((e) => this.itemCoords(e.item))
+      .filter(Boolean);
+
+    if (pts.length === 1) {
+      this.map.setView(pts[0], 15);
+    } else if (pts.length > 1) {
+      this.map.fitBounds(pts, { padding: [50, 50], maxZoom: 15 });
+    } else {
+      const stop = this.stopForDay(dayNum);
+
+      if (stop && stop.coords) {
+        this.map.setView(stop.coords, 13);
+      }
+    }
+
+    setTimeout(() => {
+      if (this.map) {
+        this.map.invalidateSize();
+      }
+    }, 60);
+  },
+
+  renderDayDetail(dayNum) {
+    const panel = document.getElementById("trip-map-detail");
+
+    if (!panel) {
+      return;
+    }
+
+    const day = this.days().find((d) => d.day === dayNum);
+
+    const dateLabel = day ? this.formatOneDay(day.date) : `Day ${dayNum}`;
+
+    const items = this.getItemsForDay(dayNum);
+
+    const rows =
+      items.length === 0
+        ? `<p class="tripmap-detail-empty">No items for this day yet. Add them in the Planner, then place them on the map here.</p>`
+        : items.map((e) => this.renderDayItemRow(e)).join("");
+
+    const hint = this._armedItem
+      ? `<p class="tripmap-place-hint">📍 Click the map to drop “${this.esc(this.armedItemName())}”. <button type="button" class="tm-linkbtn" onclick="TripMap.disarm()">cancel</button></p>`
+      : this.map
+        ? `<p class="tripmap-place-tip">Press <strong>Place</strong> on an item, then click the map to drop its pin.</p>`
+        : "";
+
+    panel.innerHTML = `
+
+<div class="tripmap-detail-head">
+
+    <button type="button" class="tm-back" onclick="TripMap.exitDayMode()">← All stops</button>
+
+</div>
+
+<h2 class="tripmap-day-title">${this.esc(day ? day.title : dateLabel)}</h2>
+
+<p class="tripmap-detail-sub">${this.esc(dateLabel)}</p>
+
+${hint}
+
+<div class="tripmap-detail-items">
+
+    ${rows}
+
+</div>
+
+`;
+  },
+
+  renderDayItemRow(entry) {
+    const { collection, item, icon } = entry;
+
+    const name = this.esc(this.itemName(collection, item));
+
+    const status = String(item.status || "Research");
+
+    const coords = this.itemCoords(item);
+
+    const armed =
+      this._armedItem &&
+      this._armedItem.collection === collection &&
+      String(this._armedItem.id) === String(item.id);
+
+    const coordLine = coords
+      ? `<span class="tm-item-coords">📍 ${coords[0].toFixed(4)}, ${coords[1].toFixed(4)}</span>`
+      : `<span class="tm-item-nocoords">⚑ no location</span>`;
+
+    const placeBtn = this.map
+      ? `<button type="button" class="tm-place-btn${armed ? " is-armed" : ""}" onclick="TripMap.armPlace('${collection}', '${this.esc(String(item.id))}')">${coords ? "Move" : "Place"}</button>`
+      : "";
+
+    return `
+
+<div class="tripmap-day-item${armed ? " is-armed" : ""}">
+
+    <span class="tm-item-icon" aria-hidden="true">${icon}</span>
+
+    <span class="tm-item-body">
+
+        <span class="tripmap-item-name">${name}</span>
+
+        <span class="tm-item-meta">${coordLine} · <span class="tripmap-badge ${this.statusClass(this.bucket(status))}">${this.esc(status)}</span></span>
+
+    </span>
+
+    ${placeBtn}
+
+</div>
+
+`;
+  },
+
+  armPlace(collection, id) {
+    this._armedItem = { collection, id };
+
+    this.renderDayDetail(this.selectedDay);
+  },
+
+  disarm() {
+    this._armedItem = null;
+
+    this.renderDayDetail(this.selectedDay);
+  },
+
+  armedItemName() {
+    if (!this._armedItem) {
+      return "";
+    }
+
+    const data = Project.get(this._armedItem.collection);
+
+    const item =
+      data && Array.isArray(data.items)
+        ? data.items.find((i) => String(i.id) === String(this._armedItem.id))
+        : null;
+
+    return item ? this.itemName(this._armedItem.collection, item) : "";
+  },
+
+  enableMapPlacement() {
+    if (!this.map) {
+      return;
+    }
+
+    if (!this._placeHandler) {
+      this._placeHandler = (e) => this.onMapPlace(e.latlng);
+    }
+
+    this.map.off("click", this._placeHandler);
+
+    this.map.on("click", this._placeHandler);
+  },
+
+  disableMapPlacement() {
+    if (this.map && this._placeHandler) {
+      this.map.off("click", this._placeHandler);
+    }
+  },
+
+  onMapPlace(latlng) {
+    if (!this._armedItem || !latlng) {
+      return;
+    }
+
+    this.saveItemCoords(this._armedItem.collection, this._armedItem.id, latlng.lat, latlng.lng);
+  },
+
+  saveItemCoords(collection, id, lat, lng) {
+    const data = Project.get(collection);
+
+    const item =
+      data && Array.isArray(data.items)
+        ? data.items.find((i) => String(i.id) === String(id))
+        : null;
+
+    if (!item) {
+      return;
+    }
+
+    const location = Object.assign({}, item.location || {}, {
+      latitude: Number(lat.toFixed(6)),
+      longitude: Number(lng.toFixed(6)),
+    });
+
+    // Optimistic in-memory update + re-render.
+    item.location = location;
+
+    this._armedItem = null;
+
+    this.renderDayDetail(this.selectedDay);
+
+    this.renderDayPins();
+
+    // Persist to the item via the atomic merge endpoint (API_BASE prefixed).
+    const base = window.API_BASE || "";
+
+    fetch(`${base}/api/items/${Project.projectFolder}/${collection}/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ location }),
+    })
+      .then((r) => {
+        if (!r.ok) {
+          throw new Error("status " + r.status);
+        }
+      })
+      .catch((error) => {
+        console.warn("[trip-map] item location save failed:", error);
+
+        alert("Pin placed on screen, but saving it to the server failed. Check the connection and try again.");
+      });
   },
 
   handleKey(event) {
@@ -1455,6 +1929,58 @@ ${unplotted}
 .tm-pin.is-past { opacity: 0.45; }
 
 .tm-pin.is-today { box-shadow: 0 0 0 7px rgba(46, 125, 79, 0.28), 0 1px 3px rgba(0, 0, 0, 0.4); }
+
+.tripmap-daytabs { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+
+.tm-daytabs-label { font-size: 0.7em; text-transform: uppercase; letter-spacing: 0.06em; color: #6b6357; margin-right: 2px; }
+
+.tm-daytab { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; border: 1px solid #cbd2da; background: #fff; color: #243447; font: inherit; font-size: 0.82em; cursor: pointer; }
+
+.tm-daytab:hover { border-color: var(--color-primary, #34495E); background: #eef1f4; }
+
+.tm-daytab-count { background: var(--color-primary, #34495E); color: #fff; border-radius: 999px; font-size: 0.85em; padding: 0 6px; min-width: 16px; text-align: center; }
+
+.tm-back { padding: 4px 10px; border-radius: 999px; border: 1px solid #cbd2da; background: #fff; color: #243447; font: inherit; font-weight: 600; cursor: pointer; }
+
+.tm-back:hover { border-color: var(--color-primary, #34495E); background: #eef1f4; }
+
+.tripmap-day-title { margin: 8px 0 0; font-size: 1.15em; }
+
+.tripmap-place-tip { font-size: 0.82em; color: #6b6357; margin: 6px 0; }
+
+.tripmap-place-hint { font-size: 0.85em; color: #2e7d4f; background: #e1f0e3; border: 1px solid #bfe0c4; border-radius: 6px; padding: 6px 10px; margin: 6px 0; }
+
+.tm-linkbtn { background: none; border: none; color: #8a5a18; text-decoration: underline; cursor: pointer; font: inherit; padding: 0; }
+
+.tripmap-day-item { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-top: 1px solid #efe9df; }
+
+.tripmap-day-item:first-child { border-top: none; }
+
+.tripmap-day-item.is-armed { background: #f2f8f3; border-radius: 8px; }
+
+.tm-item-icon { font-size: 1.15em; flex: none; }
+
+.tm-item-body { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+
+.tm-item-meta { font-size: 0.78em; color: #6b6357; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+.tm-item-coords { color: #2e7d4f; }
+
+.tm-item-nocoords { color: #8a5a18; font-weight: 600; }
+
+.tm-place-btn { flex: none; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--color-primary, #34495E); background: #fff; color: var(--color-primary, #34495E); font: inherit; font-size: 0.82em; font-weight: 600; cursor: pointer; }
+
+.tm-place-btn:hover { background: var(--color-primary, #34495E); color: #fff; }
+
+.tm-place-btn.is-armed { background: #2e7d4f; border-color: #2e7d4f; color: #fff; }
+
+.tm-daypin { width: 100%; height: 100%; border-radius: 50%; background: #ffffff; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 15px; line-height: 1; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); border: 2px solid #9aa0a6; }
+
+.tm-daypin.is-booked { border-color: var(--color-primary, #34495E); }
+
+.tm-daypin.is-selected { border-color: var(--color-secondary, #C79C5D); }
+
+.tm-daypin.is-research { border-color: #9aa0a6; }
 
 @media (max-width: 820px) {
 
