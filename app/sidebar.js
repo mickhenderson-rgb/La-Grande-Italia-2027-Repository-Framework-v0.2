@@ -136,6 +136,8 @@ const Sidebar = {
 
         <a href="#" class="switch-trip-link" onclick="Landing.open(); return false;">Switch Trip</a>
 
+        <a href="#" class="switch-trip-link" onclick="Auth.logout(); return false;">Log Out</a>
+
         Version 1.0
 
     </div>

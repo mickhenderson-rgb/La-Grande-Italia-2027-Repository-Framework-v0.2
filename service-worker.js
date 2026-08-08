@@ -32,7 +32,7 @@ Caching rules, deliberately conservative:
 =========================================================
 */
 
-const CACHE_NAME = "compass-tos-v13";
+const CACHE_NAME = "compass-tos-v14";
 
 const APP_SHELL = [
   "./",
@@ -88,7 +88,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.pathname.includes("/api/")) {
+  if (url.pathname.includes("/api/") || url.pathname.includes("/auth/")) {
     return;
   }
 

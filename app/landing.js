@@ -102,6 +102,14 @@ const Landing = {
 
         </button>
 
+        <button type="button" onclick="Landing.createInvite()">
+
+            + Invite Someone
+
+        </button>
+
+        <div id="invite-result" class="form-hint" style="margin-top: 10px;"></div>
+
     </div>
 
     <div class="landing-grid">
@@ -246,7 +254,49 @@ ${
     Router.navigate("dashboard");
   },
 
+  async createInvite() {
+    const email = (prompt("Email of the person you're inviting (recommended - the invite is tied to it):", "") || "").trim();
+
+    const result = document.getElementById("invite-result");
+
+    if (result) {
+      result.textContent = "Creating invite…";
+    }
+
+    try {
+      const response = await fetch(`${window.API_BASE}/auth/invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (result) {
+          result.textContent = data.error || "Could not create the invite.";
+        }
+
+        return;
+      }
+
+      const link = `${window.location.origin}${window.API_BASE}/?invite=${data.token}`;
+
+      if (result) {
+        result.innerHTML = `Invite link — send this to ${email ? this.esc(email) : "them"} (expires in 7 days):<br><input type="text" readonly value="${this.esc(link)}" style="width: 100%; margin-top: 6px;" onclick="this.select()">`;
+      }
+    } catch (error) {
+      if (result) {
+        result.textContent = "Couldn't reach the server. Try again.";
+      }
+    }
+  },
+
   esc(value) {
-    return String(value ?? "").replace(/"/g, "&quot;");
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   },
 };

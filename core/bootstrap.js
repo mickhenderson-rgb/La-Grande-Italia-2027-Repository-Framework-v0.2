@@ -20,17 +20,26 @@ document.addEventListener(
 
     Project.initialise();
 
-    try {
-      const response = await fetch(`${window.API_BASE}/api/whoami`);
+    // Check for an existing session. If not signed in, show the right
+    // entry screen (register when invited or on first-run setup, else login)
+    // and stop here - nothing else loads until there's a session.
+    const auth = await Auth.check();
 
-      if (response.ok) {
-        const result = await response.json();
+    if (!auth.user) {
+      const invite = new URLSearchParams(window.location.search).get("invite");
 
-        Project.currentUser = result.user || "";
+      if (invite) {
+        Auth.showRegister(invite);
+      } else if (auth.needsBootstrap || auth.registrationMode === "open") {
+        Auth.showRegister("");
+      } else {
+        Auth.showLogin();
       }
-    } catch (error) {
-      console.warn("Could not determine current user:", error);
+
+      return;
     }
+
+    Project.currentUser = auth.user.username || "";
 
     Repository.setStatus("Application Ready");
 

@@ -1,0 +1,6 @@
+# Runtime auth state - NEVER commit password hashes, sessions, invites
+# or trip-ownership records (this repo is public).
+data/auth/
+
+# Node
+node_modules/
