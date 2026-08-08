@@ -102,7 +102,7 @@ const Landing = {
 
         </button>
 
-        <button type="button" onclick="Landing.createInvite()">
+        <button type="button" onclick="Landing.showInviteForm()">
 
             + Invite Someone
 
@@ -290,13 +290,41 @@ ${
     Router.navigate("dashboard");
   },
 
-  async createInvite() {
-    const email = (prompt("Email of the person you're inviting (recommended - the invite is tied to it):", "") || "").trim();
-
+  showInviteForm() {
     const result = document.getElementById("invite-result");
 
-    if (result) {
-      result.textContent = "Creating invite…";
+    if (!result) {
+      return;
+    }
+
+    result.innerHTML = `
+
+<div style="margin-top: 6px; text-align: left; max-width: 420px; margin-left: auto; margin-right: auto;">
+
+    <input type="email" id="invite-email" placeholder="Their email (optional - to also email the invite)" style="width: 100%;">
+
+    <div class="planner-buttons" style="justify-content: center; gap: 8px; margin-top: 6px;">
+
+        <button type="button" onclick="Landing.generateInvite()">Get Invite Link</button>
+
+    </div>
+
+    <div id="invite-output" class="form-hint" style="margin-top: 8px;"></div>
+
+</div>
+
+`;
+  },
+
+  async generateInvite() {
+    const emailEl = document.getElementById("invite-email");
+
+    const email = emailEl ? emailEl.value.trim() : "";
+
+    const out = document.getElementById("invite-output");
+
+    if (out) {
+      out.textContent = "Creating invite…";
     }
 
     try {
@@ -309,8 +337,8 @@ ${
       const data = await response.json();
 
       if (!response.ok) {
-        if (result) {
-          result.textContent = data.error || "Could not create the invite.";
+        if (out) {
+          out.textContent = data.error || "Could not create the invite.";
         }
 
         return;
@@ -318,12 +346,65 @@ ${
 
       const link = `${window.location.origin}${window.API_BASE}/?invite=${data.token}`;
 
-      if (result) {
-        result.innerHTML = `Invite link — send this to ${email ? this.esc(email) : "them"} (expires in 7 days):<br><input type="text" readonly value="${this.esc(link)}" style="width: 100%; margin-top: 6px;" onclick="this.select()">`;
+      const emailedNote = data.emailed && email ? `We've also emailed it to ${this.esc(email)}. ` : "";
+
+      if (out) {
+        out.innerHTML = `${emailedNote}Share this invite link any way you like — WhatsApp, text, etc. (expires in 7 days):
+
+<div class="planner-buttons" style="justify-content: flex-start; gap: 8px; margin-top: 6px;">
+
+    <input type="text" id="invite-link-field" readonly value="${this.esc(link)}" style="flex: 1; min-width: 200px;" onclick="this.select()">
+
+    <button type="button" onclick="Landing.copyInviteLink()">Copy</button>
+
+</div>
+
+<span id="invite-copy-note" class="muted" style="font-size: 0.85em;"></span>`;
       }
     } catch (error) {
-      if (result) {
-        result.textContent = "Couldn't reach the server. Try again.";
+      if (out) {
+        out.textContent = "Couldn't reach the server. Try again.";
+      }
+    }
+  },
+
+  copyInviteLink() {
+    Landing.copyFieldToClipboard("invite-link-field", "invite-copy-note");
+  },
+
+  copyFieldToClipboard(fieldId, noteId) {
+    const field = document.getElementById(fieldId);
+
+    const note = document.getElementById(noteId);
+
+    if (!field) {
+      return;
+    }
+
+    field.select();
+
+    const done = (ok) => {
+      if (note) {
+        note.textContent = ok ? "Copied to clipboard!" : "Couldn't auto-copy — press Ctrl+C to copy the selected link.";
+      }
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(field.value).then(
+        () => done(true),
+        () => {
+          try {
+            done(document.execCommand("copy"));
+          } catch (error) {
+            done(false);
+          }
+        },
+      );
+    } else {
+      try {
+        done(document.execCommand("copy"));
+      } catch (error) {
+        done(false);
       }
     }
   },

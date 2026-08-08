@@ -1136,7 +1136,9 @@ async function handleAuthRoute(req, res) {
 
     writeInvites(invites);
 
-    return sendJSON(res, 200, { ok: true, token });
+    const emailed = sendInviteEmail(req, email, token, { inviter: user.username });
+
+    return sendJSON(res, 200, { ok: true, token, emailed });
   }
 
   if (url === "/auth/invites" && req.method === "GET") {
@@ -1321,7 +1323,9 @@ async function handleShareAdd(req, res, tripId, owner) {
 
     writeInvites(invites);
 
-    return sendJSON(res, 200, { ok: true, pending: true, token });
+    const emailed = sendInviteEmail(req, identifier.toLowerCase(), token, { inviter: owner.username, tripName: entry.name });
+
+    return sendJSON(res, 200, { ok: true, pending: true, token, emailed });
   }
 
   return sendJSON(res, 404, { error: "No user with that username. To invite someone new, share using their email address." });
@@ -1347,6 +1351,109 @@ function handleShareRemove(req, res, tripId, target) {
   removeCollaborator(tripId, target);
 
   return sendJSON(res, 200, { ok: true });
+}
+
+// --- Email (best-effort, zero-dependency via the server's sendmail) ---
+//
+// cPanel/LiteSpeed hosting provides a local mail transfer agent, so we can
+// hand a message to /usr/sbin/sendmail with no npm packages. This is
+// best-effort: if it isn't available or fails, the caller still returns the
+// invite link so it can be shared manually. Configure with env vars:
+//   MAIL_ENABLED=false      - turn email sending off entirely
+//   MAIL_FROM="Name <a@b>"  - the From address (use one on your own domain)
+//   SENDMAIL_PATH=/path      - if sendmail lives somewhere else
+
+const MAIL_ENABLED = process.env.MAIL_ENABLED !== "false";
+
+const SENDMAIL_PATH = process.env.SENDMAIL_PATH || "/usr/sbin/sendmail";
+
+const MAIL_FROM = process.env.MAIL_FROM || "COMPASS-TOS <noreply@deploytelco.com.au>";
+
+function publicOrigin(req) {
+  const proto = String(req.headers["x-forwarded-proto"] || (isSecureRequest(req) ? "https" : "http"))
+    .split(",")[0]
+    .trim();
+
+  const host = req.headers["host"] || "localhost";
+
+  return `${proto}://${host}`;
+}
+
+function inviteLink(req, token) {
+  return `${publicOrigin(req)}${BASE_PATH || ""}/?invite=${token}`;
+}
+
+function buildInviteEmail(toEmail, link, opts) {
+  const options = opts || {};
+
+  const inviter = options.inviter || "Someone";
+
+  const forTrip = options.tripName ? ` to help plan the trip "${options.tripName}"` : "";
+
+  const subject = options.tripName
+    ? `${inviter} shared a trip with you on COMPASS-TOS`
+    : `${inviter} invited you to COMPASS-TOS`;
+
+  const bodyLines = [
+    "Hi,",
+    "",
+    `${inviter} has invited you${forTrip} on COMPASS-TOS, a private travel planner.`,
+    "",
+    "Create your account here (this link expires in 7 days):",
+    link,
+    "",
+    "If you weren't expecting this, you can safely ignore this email.",
+    "",
+    "- COMPASS-TOS",
+  ];
+
+  const message =
+    `From: ${MAIL_FROM}\r\n` +
+    `To: ${toEmail}\r\n` +
+    `Subject: ${subject}\r\n` +
+    `MIME-Version: 1.0\r\n` +
+    `Content-Type: text/plain; charset=UTF-8\r\n` +
+    `\r\n` +
+    bodyLines.join("\r\n") +
+    `\r\n`;
+
+  return { subject, message };
+}
+
+function sendInviteEmail(req, toEmail, token, opts) {
+  if (!MAIL_ENABLED || !toEmail) {
+    return false;
+  }
+
+  const link = inviteLink(req, token);
+
+  const { message } = buildInviteEmail(toEmail, link, opts || {});
+
+  try {
+    const child = require("child_process").spawn(SENDMAIL_PATH, ["-t", "-oi"], {
+      stdio: ["pipe", "ignore", "ignore"],
+    });
+
+    child.on("error", (error) => {
+      console.warn("[mail] sendmail unavailable:", error.message);
+    });
+
+    child.stdin.on("error", () => {
+      // Broken pipe if sendmail isn't there - the .on("error") above logs it.
+    });
+
+    child.stdin.write(message);
+
+    child.stdin.end();
+
+    console.log(`[mail] invite email handed to sendmail for ${toEmail}`);
+
+    return true;
+  } catch (error) {
+    console.warn("[mail] could not send invite email:", error.message);
+
+    return false;
+  }
 }
 
 function slugify(value) {

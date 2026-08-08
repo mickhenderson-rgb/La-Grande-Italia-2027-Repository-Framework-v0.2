@@ -183,7 +183,21 @@ const Sharing = {
       if (data.pending) {
         const link = `${window.location.origin}${window.API_BASE}/?invite=${data.token}`;
 
-        msg.innerHTML = `They don't have an account yet — send them this link to join and get access:<br><input type="text" readonly value="${this.esc(link)}" style="width: 100%; margin-top: 6px;" onclick="this.select()">`;
+        const note = data.emailed
+          ? "They don't have an account yet — we've emailed them an invite. You can also share this link any way you like:"
+          : "They don't have an account yet — share this invite link any way you like:";
+
+        msg.innerHTML = `${note}
+
+<div class="planner-buttons" style="justify-content: flex-start; gap: 8px; margin-top: 6px;">
+
+    <input type="text" id="share-link-field" readonly value="${this.esc(link)}" style="flex: 1; min-width: 200px;" onclick="this.select()">
+
+    <button type="button" onclick="Landing.copyFieldToClipboard('share-link-field', 'share-copy-note')">Copy</button>
+
+</div>
+
+<span id="share-copy-note" class="muted" style="font-size: 0.85em;"></span>`;
       }
 
       await this.refresh();
