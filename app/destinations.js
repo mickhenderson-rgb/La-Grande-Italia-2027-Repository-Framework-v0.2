@@ -162,6 +162,8 @@ const Destination = {
 
     <div class="planner-buttons">
 
+        <button type="button" onclick="TripExport.openForDestination('${locationId}')">📤 Export for AI Research</button>
+
         <button type="button" onclick="${this.backAction()}">
 
             ← Back to Day

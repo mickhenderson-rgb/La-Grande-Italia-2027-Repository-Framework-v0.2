@@ -98,6 +98,12 @@ const Dashboard = {
 
     </section>
 
+    <div class="planner-buttons">
+
+        <button type="button" onclick="TripExport.open()">📤 Export for AI Research</button>
+
+    </div>
+
     ${Planner.render()}
 
 </div>
