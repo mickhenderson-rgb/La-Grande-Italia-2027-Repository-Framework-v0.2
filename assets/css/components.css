@@ -964,3 +964,127 @@ button {
 .destination-workspace .hero h2{
   margin-top:18px;
 }
+
+/* =======================================
+   Mobile bottom navigation (Build 51)
+   Desktop keeps the sidebar; phones/tablets (<=1000px, where the
+   sidebar is display:none) get a bottom tab bar + a "More" sheet.
+======================================= */
+
+.mobile-nav { display: none; }
+.more-sheet { display: none; }
+
+@media (max-width: 1000px) {
+  /* Clear the fixed bottom bar, and drop the desktop footer on mobile. */
+  .app-content { padding-bottom: 88px; }
+  .app-footer { display: none; }
+
+  .mobile-nav {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--color-surface, #ffffff);
+    border-top: 1px solid var(--color-border, #e6ded0);
+    box-shadow: 0 -4px 16px rgba(36, 52, 71, 0.06);
+    z-index: 40;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .mnav-tab {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-height: 56px;
+    padding: 8px 0 10px;
+    color: var(--color-muted, #6b7280);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .mnav-icon { font-size: 20px; line-height: 1; }
+
+  .mnav-tab.is-active { color: var(--color-primary, #34495e); }
+
+  .mnav-tab.is-active .mnav-icon {
+    position: relative;
+  }
+
+  .more-sheet.is-open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+  }
+
+  .more-scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(20, 28, 40, 0.45);
+  }
+
+  .more-panel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--color-surface, #ffffff);
+    border-radius: 20px 20px 0 0;
+    max-height: 80%;
+    overflow: auto;
+    padding: 8px 0 88px;
+    box-shadow: 0 -8px 30px rgba(20, 28, 40, 0.25);
+  }
+
+  .more-handle {
+    width: 40px;
+    height: 4px;
+    border-radius: 4px;
+    background: #d7cdbb;
+    margin: 8px auto;
+  }
+
+  .more-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--color-primary, #34495e);
+    padding: 4px 20px 6px;
+  }
+
+  .more-grp {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-secondary, #c79c5d);
+    padding: 14px 20px 4px;
+  }
+
+  .more-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    border: none;
+    background: transparent;
+    text-align: left;
+    padding: 13px 20px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text, #243447);
+    cursor: pointer;
+  }
+
+  .more-row:hover { background: rgba(52, 73, 94, 0.06); }
+
+  .more-ic { width: 24px; text-align: center; font-size: 18px; }
+
+  .more-danger { color: #b3261e; }
+}

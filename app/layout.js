@@ -84,6 +84,10 @@ const Layout = {
 
     </main>
 
+    ${Sidebar.renderBottomBar()}
+
+    ${Sidebar.renderMoreSheet()}
+
 </div>
 
 `;

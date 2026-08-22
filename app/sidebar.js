@@ -91,6 +91,20 @@ const Sidebar = {
     },
   ],
 
+  // Mobile bottom-bar: the four primary destinations (+ a "More" button).
+  // Shown only on narrow screens; the desktop sidebar is unchanged.
+  mobilePrimary: ["dashboard", "planner", "map", "journal"],
+
+  // Shorter labels for the cramped bottom bar.
+  mobileLabels: { dashboard: "Home", map: "Map" },
+
+  // Everything not on the bottom bar, grouped for the "More" sheet.
+  moreGroups: [
+    { title: "Plan", ids: ["itinerary", "destinations", "accommodation", "flights", "transport"] },
+    { title: "Money", ids: ["budget", "currency"] },
+    { title: "App", ids: ["guide", "settings"] },
+  ],
+
   render() {
     let html = `
 
@@ -153,5 +167,112 @@ const Sidebar = {
 `;
 
     return html;
+  },
+
+  // --- Mobile bottom navigation (Build 51) ---
+
+  renderBottomBar() {
+    const current = String(Router.currentPage || "dashboard").toLowerCase();
+
+    const onPrimary = this.mobilePrimary.includes(current);
+
+    const tabs = this.mobilePrimary
+      .map((id) => this.menu.find((m) => m.id === id))
+      .filter(Boolean)
+      .map((item) => {
+        const label = this.mobileLabels[item.id] || item.title;
+
+        return `
+
+<button class="mnav-tab ${current === item.id ? "is-active" : ""}" onclick="Sidebar.closeMore(); Router.navigate('${item.id}')">
+
+    <span class="mnav-icon">${item.icon}</span>
+
+    <span class="mnav-label">${label}</span>
+
+</button>
+
+`;
+      })
+      .join("");
+
+    return `
+
+<nav class="mobile-nav">
+
+    ${tabs}
+
+    <button class="mnav-tab ${onPrimary ? "" : "is-active"}" onclick="Sidebar.toggleMore()">
+
+        <span class="mnav-icon">☰</span>
+
+        <span class="mnav-label">More</span>
+
+    </button>
+
+</nav>
+
+`;
+  },
+
+  renderMoreSheet() {
+    const row = (item) =>
+      item
+        ? `<button class="more-row" onclick="Sidebar.closeMore(); Router.navigate('${item.id}')"><span class="more-ic">${item.icon}</span><span>${item.title}</span></button>`
+        : "";
+
+    const groups = this.moreGroups
+      .map(
+        (g) => `
+
+<div class="more-grp">${g.title}</div>
+
+${g.ids.map((id) => row(this.menu.find((m) => m.id === id))).join("")}
+
+`,
+      )
+      .join("");
+
+    return `
+
+<div id="more-sheet" class="more-sheet">
+
+    <div class="more-scrim" onclick="Sidebar.closeMore()"></div>
+
+    <div class="more-panel">
+
+        <div class="more-handle"></div>
+
+        <div class="more-title">More</div>
+
+        ${groups}
+
+        <div class="more-grp">Account</div>
+
+        <button class="more-row" onclick="Sidebar.closeMore(); Landing.open();"><span class="more-ic">🧳</span><span>Switch Trip</span></button>
+
+        <button class="more-row more-danger" onclick="Auth.logout()"><span class="more-ic">⏻</span><span>Log Out</span></button>
+
+    </div>
+
+</div>
+
+`;
+  },
+
+  toggleMore() {
+    const sheet = document.getElementById("more-sheet");
+
+    if (sheet) {
+      sheet.classList.toggle("is-open");
+    }
+  },
+
+  closeMore() {
+    const sheet = document.getElementById("more-sheet");
+
+    if (sheet) {
+      sheet.classList.remove("is-open");
+    }
   },
 };
