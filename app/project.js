@@ -28,6 +28,15 @@ const Project = {
 
   currentUser: "",
 
+  // The signed-in user's role/permission on the currently loaded trip.
+  // Set by Data.loadProject() from /api/projects. Defaults to full access
+  // so a failed lookup never hides something it shouldn't - the server
+  // enforces the real restriction regardless; these two only drive which
+  // sidebar items the client shows.
+  currentRole: "owner",
+
+  currentPermission: "write",
+
   lastSaveStatus: "idle",
 
   data: {

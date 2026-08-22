@@ -105,6 +105,28 @@ const Sidebar = {
     { title: "App", ids: ["guide", "settings"] },
   ],
 
+  // A "guest" share sees the trip plan, route and activities - never
+  // money. These two pages are hidden from a guest's nav entirely (the
+  // server also blocks the underlying data, so this is a UX nicety, not
+  // the real access boundary).
+  guestHiddenIds: ["budget", "currency"],
+
+  visibleMenu() {
+    if (Project.currentPermission !== "guest") {
+      return this.menu;
+    }
+
+    return this.menu.filter((item) => !this.guestHiddenIds.includes(item.id));
+  },
+
+  visibleMoreGroups() {
+    const visibleIds = this.visibleMenu().map((item) => item.id);
+
+    return this.moreGroups
+      .map((group) => ({ title: group.title, ids: group.ids.filter((id) => visibleIds.includes(id)) }))
+      .filter((group) => group.ids.length > 0);
+  },
+
   render() {
     let html = `
 
@@ -122,7 +144,7 @@ const Sidebar = {
 
 `;
 
-    this.menu.forEach((item) => {
+    this.visibleMenu().forEach((item) => {
       html += `
 
 <button
@@ -221,7 +243,7 @@ const Sidebar = {
         ? `<button class="more-row" onclick="Sidebar.closeMore(); Router.navigate('${item.id}')"><span class="more-ic">${item.icon}</span><span>${item.title}</span></button>`
         : "";
 
-    const groups = this.moreGroups
+    const groups = this.visibleMoreGroups()
       .map(
         (g) => `
 

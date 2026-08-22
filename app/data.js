@@ -27,12 +27,41 @@ const Data = {
     }
   },
 
+  // Looks up the signed-in user's role/permission on this trip (owner,
+  // or a collaborator's write/read/guest) via the same list the Landing
+  // page uses, so the sidebar can hide money-related pages for a guest.
+  // Defaults (Project.js) stay full-access if this can't be determined -
+  // access itself is always enforced server-side regardless.
+  async loadTripPermission(projectFolder) {
+    try {
+      const response = await fetch(`${window.API_BASE}/api/projects`);
+
+      if (!response.ok) {
+        return;
+      }
+
+      const result = await response.json();
+
+      const mine = (result.projects || []).find((p) => p.id === projectFolder);
+
+      if (mine) {
+        Project.currentRole = mine.role || "owner";
+
+        Project.currentPermission = mine.permission || "write";
+      }
+    } catch (error) {
+      console.warn("Could not determine trip permission:", error);
+    }
+  },
+
   async loadProject(projectFolder) {
     this.currentProjectFolder = projectFolder;
 
     Project.projectFolder = projectFolder;
 
     console.log("Loading Project:", projectFolder);
+
+    await this.loadTripPermission(projectFolder);
 
     const base = `data/projects/${projectFolder}`;
 

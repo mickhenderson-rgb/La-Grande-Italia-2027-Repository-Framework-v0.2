@@ -601,7 +601,9 @@ const Budget = {
   formatConverted(amount, currency) {
     const value = Number(amount) || 0;
 
-    return `${String(currency).toUpperCase()} $${value.toLocaleString(undefined, {
+    const sign = value < 0 ? "-" : "";
+
+    return `${sign}${String(currency).toUpperCase()} $${Math.abs(value).toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;

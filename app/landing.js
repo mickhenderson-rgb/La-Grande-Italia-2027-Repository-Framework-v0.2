@@ -167,7 +167,7 @@ ${
 
     const roleBadge = isOwner
       ? ""
-      : `<p><span class="badge">Shared with you · ${project.permission === "write" ? "Read / Write" : "Read-only"}</span></p>`;
+      : `<p><span class="badge">Shared with you · ${this.permissionLabel(project.permission)}</span></p>`;
 
     const ownerActions = isOwner
       ? `
@@ -183,7 +183,15 @@ ${
     </div>
 
 `
-      : "";
+      : `
+
+    <div class="planner-buttons" style="justify-content: center; gap: 8px;">
+
+        <button type="button" onclick="Landing.leaveTrip('${project.id}', '${this.jsArg(project.name)}')" style="font-size: 0.8em; padding: 5px 14px;">Leave Trip</button>
+
+    </div>
+
+`;
 
     return `
 
@@ -208,6 +216,44 @@ ${
 </div>
 
 `;
+  },
+
+  permissionLabel(permission) {
+    if (permission === "write") {
+      return "Read / Write";
+    }
+
+    if (permission === "guest") {
+      return "Guest (no costs)";
+    }
+
+    return "Read-only";
+  },
+
+  async leaveTrip(id, name) {
+    if (!Auth.currentUser || !Auth.currentUser.id) {
+      return;
+    }
+
+    const confirmed = confirm(`Leave "${name}"? You'll lose access to it unless the owner shares it with you again.`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${window.API_BASE}/api/trips/${id}/share/${Auth.currentUser.id}`, { method: "DELETE" });
+
+      if (!response.ok) {
+        throw new Error(`Status ${response.status}`);
+      }
+
+      this.open();
+    } catch (error) {
+      console.error("Could not leave trip:", error);
+
+      alert("Couldn't leave that trip. Check the connection and try again.");
+    }
   },
 
   async setArchived(id, archived) {

@@ -71,6 +71,18 @@ const Sharing = {
 `;
   },
 
+  permissionLabel(permission) {
+    if (permission === "write") {
+      return "Read / Write";
+    }
+
+    if (permission === "guest") {
+      return "Guest (no costs)";
+    }
+
+    return "Read-only";
+  },
+
   render(collaborators, pending) {
     const rows = collaborators
       .map(
@@ -78,7 +90,7 @@ const Sharing = {
 
 <div class="planner-buttons" style="justify-content: space-between; align-items: center; border-top: 1px solid #efe9df; padding: 6px 0;">
 
-    <span>${this.esc(c.username)} <span class="badge">${c.permission === "write" ? "Read / Write" : "Read-only"}</span></span>
+    <span>${this.esc(c.username)} <span class="badge">${this.permissionLabel(c.permission)}</span></span>
 
     <button type="button" style="font-size: 0.8em; padding: 4px 10px;" onclick="Sharing.remove('${c.userId}')">Remove</button>
 
@@ -94,7 +106,7 @@ const Sharing = {
 
 <div style="border-top: 1px solid #efe9df; padding: 6px 0; font-size: 0.9em; color: #6b6357;">
 
-    ${this.esc(p.email)} <span class="badge">${p.permission === "write" ? "Read / Write" : "Read-only"}</span> — pending (they'll join when they sign up)
+    ${this.esc(p.email)} <span class="badge">${this.permissionLabel(p.permission)}</span> — pending (they'll join when they sign up)
 
 </div>
 
@@ -120,8 +132,9 @@ const Sharing = {
         <label class="form-field form-field-wide">
             Permission
             <select id="share-permission">
-                <option value="read">Read-only</option>
+                <option value="read">Read-only (sees everything, incl. budget)</option>
                 <option value="write">Read / Write</option>
+                <option value="guest">Guest — plan, route &amp; activities only, no costs</option>
             </select>
         </label>
 

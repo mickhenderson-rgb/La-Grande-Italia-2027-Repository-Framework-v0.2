@@ -133,6 +133,13 @@ function itemsFilePath(projectId, collection) {
 function readItemsFileSync(projectId, collection) {
   const filePath = itemsFilePath(projectId, collection);
 
+  // Trips created before a collection existed (or created through an older
+  // path) can be missing one of these files entirely, which used to 500 the
+  // very first add. Auto-create it with the standard empty shape instead.
+  if (!fs.existsSync(filePath)) {
+    fs.writeFileSync(filePath, JSON.stringify({ version: "2.0", schema: "planning-item", items: [] }, null, 2), "utf8");
+  }
+
   const raw = fs.readFileSync(filePath, "utf8");
 
   const data = JSON.parse(raw);
@@ -854,50 +861,100 @@ function destroySession(req) {
 
 // --- Trip ownership & access ---
 
-function canAccessTrip(user, tripId) {
+// The single source of truth for "what can this user do on this trip":
+//   "owner" | "write" | "read" | "guest" | null (no access at all)
+// "guest" is the trip-plan-only tier (Build 52 follow-up) - same read
+// access as "read" except budget/expenses are blocked entirely and
+// prices are stripped from the research collections (see
+// GUEST_BLOCKED_COLLECTIONS / GUEST_PRICE_STRIPPED_COLLECTIONS below).
+function getTripPermission(user, tripId) {
   if (!user) {
-    return false;
+    return null;
   }
 
   const entry = readOwnership()[tripId];
 
   if (!entry) {
-    return false;
+    return null;
   }
 
   if (entry.owner === user.id) {
-    return true;
+    return "owner";
   }
 
-  return (entry.collaborators || []).some((c) => c.userId === user.id);
+  const collaborator = (entry.collaborators || []).find((c) => c.userId === user.id);
+
+  return collaborator ? collaborator.permission : null;
+}
+
+function canAccessTrip(user, tripId) {
+  return getTripPermission(user, tripId) !== null;
 }
 
 function canEditTrip(user, tripId) {
-  if (!user) {
-    return false;
-  }
+  const permission = getTripPermission(user, tripId);
 
-  const entry = readOwnership()[tripId];
-
-  if (!entry) {
-    return false;
-  }
-
-  if (entry.owner === user.id) {
-    return true;
-  }
-
-  return (entry.collaborators || []).some((c) => c.userId === user.id && c.permission === "write");
+  return permission === "owner" || permission === "write";
 }
 
 function isTripOwner(user, tripId) {
-  if (!user) {
-    return false;
+  return getTripPermission(user, tripId) === "owner";
+}
+
+// Guest tier: shares the trip plan, route and activities - never money.
+// These two collections aren't shown to a guest at all; the rest are
+// served with cost fields stripped out rather than the raw file.
+const GUEST_BLOCKED_COLLECTIONS = new Set(["budget.json", "expenses.json"]);
+
+const GUEST_PRICE_STRIPPED_COLLECTIONS = new Set([
+  "accommodation.json",
+  "activities.json",
+  "restaurants.json",
+  "transport.json",
+  "flights.json",
+]);
+
+// Reads a trip data file, strips the cost-bearing fields for a guest
+// viewer, and sends it - used instead of the normal static-file serve
+// for the collections above when the requester's permission is "guest".
+function serveGuestRedactedTripFile(req, res, tripId, filename) {
+  const filePath = path.join(ROOT, "data", "projects", tripId, filename);
+
+  let raw;
+
+  try {
+    raw = fs.readFileSync(filePath, "utf8");
+  } catch (error) {
+    res.writeHead(404, { "Content-Type": "text/plain" });
+
+    return res.end("Not found: " + filename);
   }
 
-  const entry = readOwnership()[tripId];
+  let data;
 
-  return !!entry && entry.owner === user.id;
+  try {
+    data = JSON.parse(raw);
+  } catch (error) {
+    return sendJSON(res, 500, { error: "Could not read trip data." });
+  }
+
+  if (filename === "project.json") {
+    if (data.project) {
+      delete data.project.budgetCap;
+    }
+  } else if (Array.isArray(data.items)) {
+    data.items = data.items.map((item) => {
+      const redacted = { ...item, price: null };
+
+      if (filename === "restaurants.json") {
+        delete redacted.priceLevel;
+      }
+
+      return redacted;
+    });
+  }
+
+  return sendJSON(res, 200, data);
 }
 
 function setTripOwner(tripId, userId, name) {
@@ -1136,7 +1193,7 @@ async function handleAuthRoute(req, res) {
 
     writeInvites(invites);
 
-    const emailed = sendInviteEmail(req, email, token, { inviter: user.username });
+    const emailed = await sendInviteEmail(req, email, token, { inviter: user.username });
 
     return sendJSON(res, 200, { ok: true, token, emailed });
   }
@@ -1273,7 +1330,9 @@ async function handleShareAdd(req, res, tripId, owner) {
 
   const identifier = String(body.identifier || "").trim();
 
-  const permission = body.permission === "write" ? "write" : "read";
+  const rawPermission = String(body.permission || "").trim();
+
+  const permission = ["write", "guest"].includes(rawPermission) ? rawPermission : "read";
 
   if (!identifier) {
     return sendJSON(res, 400, { error: "Enter a username or email." });
@@ -1323,7 +1382,7 @@ async function handleShareAdd(req, res, tripId, owner) {
 
     writeInvites(invites);
 
-    const emailed = sendInviteEmail(req, identifier.toLowerCase(), token, { inviter: owner.username, tripName: entry.name });
+    const emailed = await sendInviteEmail(req, identifier.toLowerCase(), token, { inviter: owner.username, tripName: entry.name });
 
     return sendJSON(res, 200, { ok: true, pending: true, token, emailed });
   }
@@ -1420,40 +1479,72 @@ function buildInviteEmail(toEmail, link, opts) {
   return { subject, message };
 }
 
+// Returns a Promise<boolean> that only resolves true once sendmail has
+// actually exited with status 0 (accepted the message for delivery) -
+// previously this returned true the instant the child process was
+// spawned, before we knew whether sendmail even existed on the box, so
+// the "emailed" flag shown to the user was more hope than fact.
 function sendInviteEmail(req, toEmail, token, opts) {
   if (!MAIL_ENABLED || !toEmail) {
-    return false;
+    return Promise.resolve(false);
   }
 
   const link = inviteLink(req, token);
 
   const { message } = buildInviteEmail(toEmail, link, opts || {});
 
-  try {
-    const child = require("child_process").spawn(SENDMAIL_PATH, ["-t", "-oi"], {
-      stdio: ["pipe", "ignore", "ignore"],
-    });
+  return new Promise((resolve) => {
+    let settled = false;
+
+    const finish = (ok, reason) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+
+      if (ok) {
+        console.log(`[mail] sendmail accepted the invite email for ${toEmail}`);
+      } else {
+        console.warn(`[mail] invite email to ${toEmail} did not send: ${reason}`);
+      }
+
+      resolve(ok);
+    };
+
+    let child;
+
+    try {
+      child = require("child_process").spawn(SENDMAIL_PATH, ["-t", "-oi"], {
+        stdio: ["pipe", "ignore", "ignore"],
+      });
+    } catch (error) {
+      return finish(false, error.message);
+    }
+
+    const timeout = setTimeout(() => finish(false, "timed out waiting for sendmail"), 5000);
 
     child.on("error", (error) => {
-      console.warn("[mail] sendmail unavailable:", error.message);
+      clearTimeout(timeout);
+
+      finish(false, error.message);
+    });
+
+    child.on("exit", (code) => {
+      clearTimeout(timeout);
+
+      finish(code === 0, `sendmail exited with code ${code}`);
     });
 
     child.stdin.on("error", () => {
-      // Broken pipe if sendmail isn't there - the .on("error") above logs it.
+      // EPIPE if sendmail isn't actually there - the process "error"/"exit"
+      // handlers above are what settle this promise, not this one.
     });
 
     child.stdin.write(message);
 
     child.stdin.end();
-
-    console.log(`[mail] invite email handed to sendmail for ${toEmail}`);
-
-    return true;
-  } catch (error) {
-    console.warn("[mail] could not send invite email:", error.message);
-
-    return false;
-  }
+  });
 }
 
 function slugify(value) {
@@ -1857,16 +1948,33 @@ const server = http.createServer(async (req, res) => {
 
   // Trip data is loaded by the front end as static files under
   // /data/projects/<id>/... - gate those by session AND ownership so no one
-  // can read another person's trip just by knowing its folder name.
-  const staticTripMatch = req.url.match(/^\/data\/projects\/([^/]+)\//);
+  // can read another person's trip just by knowing its folder name. A
+  // "guest" viewer gets the trip plan but never money: budget/expenses
+  // are blocked outright, and the priced collections + project.json are
+  // served redacted instead of falling through to the raw static file.
+  const staticTripMatch = req.url.match(/^\/data\/projects\/([^/]+)\/([^/?]+)/);
 
   if (staticTripMatch) {
     if (!sessionUser) {
       return sendJSON(res, 401, { error: "Not signed in." });
     }
 
-    if (!canAccessTrip(sessionUser, staticTripMatch[1])) {
+    const [, tripId, filename] = staticTripMatch;
+
+    const permission = getTripPermission(sessionUser, tripId);
+
+    if (!permission) {
       return sendJSON(res, 403, { error: "You don't have access to this trip." });
+    }
+
+    if (permission === "guest") {
+      if (GUEST_BLOCKED_COLLECTIONS.has(filename)) {
+        return sendJSON(res, 403, { error: "Guest access doesn't include budget or expenses." });
+      }
+
+      if (GUEST_PRICE_STRIPPED_COLLECTIONS.has(filename) || filename === "project.json") {
+        return serveGuestRedactedTripFile(req, res, tripId, filename);
+      }
     }
   }
 
@@ -1892,7 +2000,13 @@ const server = http.createServer(async (req, res) => {
   if (shareMatch) {
     const [, tripId, target] = shareMatch;
 
-    if (!isTripOwner(sessionUser, tripId)) {
+    const owner = isTripOwner(sessionUser, tripId);
+
+    // A collaborator may always remove THEMSELVES ("Leave Trip") without
+    // being the owner; every other sharing action is owner-only.
+    const isSelfLeaving = req.method === "DELETE" && target && sessionUser && target === sessionUser.id;
+
+    if (!owner && !isSelfLeaving) {
       return sendJSON(res, 403, { error: "Only the trip owner can manage sharing." });
     }
 
