@@ -674,7 +674,7 @@ ${this.snapshotStyles()}
         icon: "🚗",
         label: "Transport",
         module: "Transport",
-        items: this.getItems(Project.get("transport")).filter((i) => i.day === day.day),
+        items: this.getItems(Project.get("transport")).filter((i) => Transport.matchesDay(i, day.day)),
         title: (it) => this.transportTitle(it),
         snippet: (it) => this.esc(this.transportTitle(it)),
         detail: (it) => this.transportDetail(it),
@@ -776,6 +776,8 @@ ${this.snapshotStyles()}
 
         <button type="button" onclick="${cfg.module}.edit('${item.id}')">Open Details</button>
 
+        <button type="button" class="btn-danger" onclick="Planner.deleteSnapItem('${cfg.module.toLowerCase()}', '${item.id}', '${this.jsArg(cfg.title(item))}')">Delete</button>
+
     </div>
 
 </div>
@@ -801,6 +803,52 @@ ${this.snapshotStyles()}
     const open = more.classList.toggle("is-open");
 
     el.textContent = open ? "Show fewer ▲" : `+${more.children.length} more ▼`;
+  },
+
+  // Deletes an item straight from the day snapshot - for the common "this
+  // was entered against the wrong day/destination" or "we've dropped this
+  // idea" case, without leaving the Planner (unlike each module's own
+  // remove(), which navigates into that module's own list view).
+  deleteSnapItem(collection, itemId, label) {
+    const confirmed = confirm(`Delete "${label}"? This can't be undone.`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    fetch(`${window.API_BASE}/api/items/${Data.currentProjectFolder}/${collection}/${itemId}`, {
+      method: "DELETE",
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Delete failed with status ${response.status}`);
+        }
+
+        const data = Project.get(collection);
+
+        if (data && Array.isArray(data.items)) {
+          data.items = data.items.filter((item) => item.id !== itemId);
+        }
+
+        Router.navigate("planner");
+      })
+      .catch((error) => {
+        console.error("Could not delete item:", error);
+
+        alert("Couldn't delete that item. Check the connection and try again.");
+      });
+  },
+
+  // Safe to drop into a single-quoted JS string inside a double-quoted HTML
+  // attribute (an onclick=). Escapes the JS string first, then the HTML.
+  jsArg(value) {
+    return String(value ?? "")
+      .replace(/\\/g, "\\\\")
+      .replace(/'/g, "\\'")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   },
 
   snapRank(status) {
@@ -999,9 +1047,15 @@ ${this.snapshotStyles()}
       route.push(`${it.route.durationMinutes} min`);
     }
 
+    const hiredFor =
+      Array.isArray(it.dayRange) && it.dayRange[1] !== it.dayRange[0]
+        ? `Day ${it.dayRange[0]}–${it.dayRange[1]} (${it.dayRange[1] - it.dayRange[0] + 1} days)`
+        : "";
+
     return [
       this.snapPriceLine(it),
       this.snapLine("Mode", it.mode),
+      this.snapLine("Hired for", hiredFor),
       this.snapLine("Depart", dep),
       this.snapLine("Arrive", arr),
       this.snapLine("Route", route.join(" · ")),

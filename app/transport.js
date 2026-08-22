@@ -137,6 +137,29 @@ const Transport = {
 `;
   },
 
+  // The single place that knows how to test "is this transport item
+  // present on day N" - covers both an ordinary single day (item.day)
+  // and a multi-day booking (item.dayRange = [first,last]).
+  matchesDay(item, dayNumber) {
+    if (Array.isArray(item.dayRange) && item.dayRange.length >= 1) {
+      const first = item.dayRange[0];
+
+      const last = item.dayRange[item.dayRange.length - 1];
+
+      return dayNumber >= first && dayNumber <= last;
+    }
+
+    return item.day === dayNumber;
+  },
+
+  dayLabel(item) {
+    if (Array.isArray(item.dayRange) && item.dayRange.length >= 1 && item.dayRange[1] !== item.dayRange[0]) {
+      return `Day ${item.dayRange[0]}–${item.dayRange[1]}`;
+    }
+
+    return `Day ${item.day}`;
+  },
+
   getTransport() {
     const data = Project.get("transport");
 
@@ -155,10 +178,10 @@ const Transport = {
         .filter((d) => String(d.location || "").toLowerCase() === this.currentDestinationFilter)
         .map((d) => d.day);
 
-      return data.items.filter((item) => dayNumbers.includes(item.day));
+      return data.items.filter((item) => dayNumbers.some((dayNumber) => this.matchesDay(item, dayNumber)));
     }
 
-    return data.items.filter((item) => item.day === this.currentDay.day);
+    return data.items.filter((item) => this.matchesDay(item, this.currentDay.day));
   },
 
   renderBooked(items) {
@@ -298,9 +321,15 @@ Research List
     <strong>
 
         ${item.mode || "Transport"}: ${this.esc(item.from)} → ${this.esc(item.to)}
-        ${this.showAll || this.currentDestinationFilter ? `<span class="badge">Day ${item.day}</span>` : ""}
+        ${this.showAll || this.currentDestinationFilter ? `<span class="badge">${this.dayLabel(item)}</span>` : ""}
 
     </strong>
+
+    ${
+      Array.isArray(item.dayRange) && item.dayRange[1] !== item.dayRange[0]
+        ? `<p><span class="badge">🗓 ${this.dayLabel(item)} (${item.dayRange[1] - item.dayRange[0] + 1} days)</span></p>`
+        : ""
+    }
 
     <p>
 
@@ -521,6 +550,11 @@ ${rows}
     return {
       id: "",
       day: day.day || 1,
+      // Multi-day bookings (a hire car held over several days, a multi-day
+      // rail/ferry pass) set dayRange to [startDay, endDay]; an ordinary
+      // single-day leg leaves this null and behaves exactly as before -
+      // matches the [first,last] convention Accommodation already uses.
+      dayRange: null,
       type: "transport",
       addedBy: Project.currentUser || "",
       mode: "Drive",
@@ -569,8 +603,14 @@ ${rows}
         <div class="form-grid">
 
             <label class="form-field">
-                Day Number
+                Start Day
                 <input type="number" id="trn-day" value="${item.day || (this.currentDay ? this.currentDay.day : 1)}" min="1">
+            </label>
+
+            <label class="form-field">
+                End Day
+                <input type="number" id="trn-end-day" value="${(Array.isArray(item.dayRange) ? item.dayRange[1] : null) || item.day || (this.currentDay ? this.currentDay.day : 1)}" min="1">
+                <span class="form-hint">Same as Start Day for a single leg; set later for a multi-day hire car, van or pass</span>
             </label>
 
             <label class="form-field">
@@ -767,8 +807,16 @@ ${rows}
     const dayNumber = parseInt(document.getElementById("trn-day").value, 10);
 
     if (!dayNumber || dayNumber < 1) {
-      alert("Please enter a valid day number before saving.");
+      alert("Please enter a valid start day before saving.");
       return;
+    }
+
+    const endDayRaw = parseInt(document.getElementById("trn-end-day").value, 10);
+
+    const endDay = endDayRaw && endDayRaw >= dayNumber ? endDayRaw : dayNumber;
+
+    if (endDayRaw && endDayRaw < dayNumber) {
+      alert("End Day can't be before Start Day - saving it as a single-day item on the Start Day instead.");
     }
 
     const isNew = !id;
@@ -777,6 +825,7 @@ ${rows}
 
     const fields = {
       day: dayNumber,
+      dayRange: endDay > dayNumber ? [dayNumber, endDay] : null,
       type: "transport",
       addedBy: isNew ? Project.currentUser || "" : undefined,
       mode: document.getElementById("trn-mode").value,

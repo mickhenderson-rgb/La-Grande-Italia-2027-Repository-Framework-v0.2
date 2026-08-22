@@ -284,7 +284,11 @@ const TripExport = {
 
     const price = this.priceOf(item);
 
-    return `  - **${item.mode || "Transport"}**${route ? `: ${route}` : ""} — ${item.status || "Research"}${price ? ` — ${price}` : ""} (Day ${item.day}, ${this.dateForDay(item.day)})`;
+    const when = Array.isArray(item.dayRange) && item.dayRange[1] !== item.dayRange[0]
+      ? `Day ${item.dayRange[0]}–${item.dayRange[1]}, ${this.dateForDay(item.dayRange[0])} to ${this.dateForDay(item.dayRange[1])} (${item.dayRange[1] - item.dayRange[0] + 1} days)`
+      : `Day ${item.day}, ${this.dateForDay(item.day)}`;
+
+    return `  - **${item.mode || "Transport"}**${route ? `: ${route}` : ""} — ${item.status || "Research"}${price ? ` — ${price}` : ""} (${when})`;
   },
 
   flightLine(item) {
