@@ -645,6 +645,7 @@ ${this.snapshotStyles()}
         title: (it) => it.name || "Accommodation",
         snippet: (it) => this.esc(it.name || "Accommodation"),
         detail: (it) => this.accommodationDetail(it),
+        directions: true,
       },
 
       {
@@ -655,6 +656,7 @@ ${this.snapshotStyles()}
         title: (it) => it.name || "Activity",
         snippet: (it) => this.esc(it.name || "Activity"),
         detail: (it) => this.activitiesDetail(it),
+        directions: true,
       },
 
       {
@@ -665,6 +667,7 @@ ${this.snapshotStyles()}
         title: (it) => it.name || "Restaurant",
         snippet: (it) => this.esc(it.name || "Restaurant"),
         detail: (it) => this.restaurantsDetail(it),
+        directions: true,
       },
 
       {
@@ -766,6 +769,8 @@ ${this.snapshotStyles()}
     ${cfg.detail(item)}
 
     <div class="snap-actions">
+
+        ${cfg.directions ? MapLinks.renderCompactLink(item) : ""}
 
         ${this.snapLink(item.website, "Booking Site")}
 

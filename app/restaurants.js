@@ -321,6 +321,8 @@ Research List
             : ""
         }
 
+        ${MapLinks.renderButtons(item)}
+
         <button
             type="button"
             onclick="Restaurants.edit('${item.id}')">

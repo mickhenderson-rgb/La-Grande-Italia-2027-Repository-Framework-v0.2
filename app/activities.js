@@ -313,6 +313,8 @@ Research List
             : ""
         }
 
+        ${MapLinks.renderButtons(item)}
+
         <button
             type="button"
             onclick="Activities.edit('${item.id}')">

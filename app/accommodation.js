@@ -331,6 +331,8 @@ Research List
             : `<button type="button" onclick="Accommodation.select('${item.id}')">${item.selected ? "Selected" : "Select"}</button>`
         }
 
+        ${MapLinks.renderButtons(item)}
+
         <button
             type="button"
             onclick="Accommodation.edit('${item.id}')">
