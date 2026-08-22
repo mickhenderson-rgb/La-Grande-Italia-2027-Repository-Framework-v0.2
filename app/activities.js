@@ -645,6 +645,8 @@ ${rows}
 
         </button>
 
+        ${!isNew ? `<button type="button" class="btn-danger" onclick="Activities.remove('${item.id}')">Delete</button>` : ""}
+
     </div>
 
 </div>

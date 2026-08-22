@@ -588,6 +588,8 @@ const Flights = {
 
         </button>
 
+        ${!isNew ? `<button type="button" class="btn-danger" onclick="Flights.remove('${item.id}')">Delete</button>` : ""}
+
     </div>
 
 </div>

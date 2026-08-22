@@ -761,6 +761,8 @@ ${rows}
 
         </button>
 
+        ${!isNew ? `<button type="button" class="btn-danger" onclick="Transport.remove('${item.id}')">Delete</button>` : ""}
+
     </div>
 
 </div>

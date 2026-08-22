@@ -647,6 +647,8 @@ ${rows}
 
         </button>
 
+        ${!isNew ? `<button type="button" class="btn-danger" onclick="Restaurants.remove('${item.id}')">Delete</button>` : ""}
+
     </div>
 
 </div>

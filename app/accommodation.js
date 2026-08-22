@@ -746,6 +746,8 @@ ${selected ? selected.planning.notes : ""}
 
         </button>
 
+        ${!isNew ? `<button type="button" class="btn-danger" onclick="Accommodation.remove('${item.id}')">Delete</button>` : ""}
+
     </div>
 
 </div>
