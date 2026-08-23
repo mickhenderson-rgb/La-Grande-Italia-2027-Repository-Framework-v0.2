@@ -25,6 +25,12 @@ const Transport = {
 
   modes: ["Drive", "Walk", "Train", "Ferry", "Transfer", "Car Rental", "Other"],
 
+  // Reference screenshot being edited in the currently-open form, kept
+  // client-side until Save (a new item has no id to attach it to yet;
+  // an existing item's other unsaved field edits shouldn't be discarded
+  // by an image upload, so this never triggers a form re-render).
+  pendingImage: null,
+
   open(day) {
     this.currentDay = day;
 
@@ -353,6 +359,12 @@ Research List
 
     </p>
 
+    ${
+      item.referenceImage && item.referenceImage.url
+        ? `<p><a href="${this.esc(item.referenceImage.url)}" target="_blank" rel="noopener" class="trn-image-thumb"><img src="${this.esc(item.referenceImage.url)}" alt="Reference screenshot"></a></p>`
+        : ""
+    }
+
     ${this.renderRouteInfo(item)}
 
     <div class="research-actions">
@@ -495,6 +507,8 @@ ${rows}
   },
 
   add() {
+    this.pendingImage = null;
+
     Render.show(Layout.render(this.renderForm(this.blankItem())));
   },
 
@@ -510,6 +524,8 @@ ${rows}
     if (!item) {
       return;
     }
+
+    this.pendingImage = item.referenceImage || null;
 
     Render.show(Layout.render(this.renderForm(item)));
   },
@@ -555,6 +571,9 @@ ${rows}
       // single-day leg leaves this null and behaves exactly as before -
       // matches the [first,last] convention Accommodation already uses.
       dayRange: null,
+      // One reference screenshot (a price quote with no bookable link, a
+      // rental terms page, whatever) - { url, filename, uploadedAt } or null.
+      referenceImage: null,
       type: "transport",
       addedBy: Project.currentUser || "",
       mode: "Drive",
@@ -601,6 +620,17 @@ ${rows}
     <div class="manager-card form-card">
 
         ${DayReference.render("Transport", "range", { start: "Start Day", end: "End Day" })}
+
+        <div class="form-field form-field-wide">
+
+            Reference Screenshot
+            <span class="form-hint">For a price quote or terms page that doesn't have a link you can come back to</span>
+
+            <div id="trn-image-area">${this.renderImageArea()}</div>
+
+            <input type="file" id="trn-image-file" accept="image/*" style="display:none" onchange="Transport.handleImageSelect(event)">
+
+        </div>
 
         <div class="form-grid">
 
@@ -772,6 +802,122 @@ ${rows}
 `;
   },
 
+  renderImageArea() {
+    if (!this.pendingImage || !this.pendingImage.url) {
+      return `<button type="button" class="btn-secondary btn-sm" onclick="document.getElementById('trn-image-file').click()">+ Add Screenshot</button>`;
+    }
+
+    return `
+
+<div class="trn-image-preview">
+
+    <a href="${this.esc(this.pendingImage.url)}" target="_blank" rel="noopener">
+        <img src="${this.esc(this.pendingImage.url)}" alt="Reference screenshot">
+    </a>
+
+    <div class="trn-image-actions">
+        <button type="button" class="btn-secondary btn-sm" onclick="document.getElementById('trn-image-file').click()">Change</button>
+        <button type="button" class="btn-danger btn-sm" onclick="Transport.removeImage()">Remove</button>
+    </div>
+
+</div>
+
+`;
+  },
+
+  async handleImageSelect(event) {
+    const file = event.target.files && event.target.files[0];
+
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    const area = document.getElementById("trn-image-area");
+
+    if (area) {
+      area.innerHTML = "Uploading...";
+    }
+
+    try {
+      const resizedDataUrl = await this.resizeImage(file, 1600, 0.8);
+
+      const response = await fetch(`${window.API_BASE}/api/upload/${Data.currentProjectFolder}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl: resizedDataUrl }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed with status ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      this.pendingImage = { url: result.url, filename: file.name, uploadedAt: new Date().toISOString() };
+    } catch (error) {
+      console.error("Could not upload reference screenshot:", error);
+
+      alert("Couldn't upload that image. Check the connection and try again.");
+    }
+
+    if (area) {
+      area.innerHTML = this.renderImageArea();
+    }
+  },
+
+  resizeImage(file, maxDimension, quality) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onerror = () => reject(new Error("Could not read file."));
+
+      reader.onload = () => {
+        const img = new Image();
+
+        img.onerror = () => reject(new Error("Could not decode image."));
+
+        img.onload = () => {
+          let { width, height } = img;
+
+          if (width > maxDimension || height > maxDimension) {
+            if (width >= height) {
+              height = Math.round((height / width) * maxDimension);
+              width = maxDimension;
+            } else {
+              width = Math.round((width / height) * maxDimension);
+              height = maxDimension;
+            }
+          }
+
+          const canvas = document.createElement("canvas");
+
+          canvas.width = width;
+          canvas.height = height;
+
+          canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        };
+
+        img.src = reader.result;
+      };
+
+      reader.readAsDataURL(file);
+    });
+  },
+
+  removeImage() {
+    this.pendingImage = null;
+
+    const area = document.getElementById("trn-image-area");
+
+    if (area) {
+      area.innerHTML = this.renderImageArea();
+    }
+  },
+
   // 'start' fills Start Day + the Departure Date; 'end' fills End Day +
   // the Arrival Date (arrival is allowed to land a different real date,
   // e.g. an overnight ferry, so it gets its own date field rather than
@@ -852,6 +998,7 @@ ${rows}
     const fields = {
       day: dayNumber,
       dayRange: endDay > dayNumber ? [dayNumber, endDay] : null,
+      referenceImage: this.pendingImage || null,
       type: "transport",
       addedBy: isNew ? Project.currentUser || "" : undefined,
       mode: document.getElementById("trn-mode").value,

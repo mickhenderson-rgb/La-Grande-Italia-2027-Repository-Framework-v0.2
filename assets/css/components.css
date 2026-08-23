@@ -945,6 +945,52 @@ button {
   border-color: var(--color-primary);
 }
 
+/* Reference screenshot preview (Transport) */
+
+.trn-image-preview {
+  display: flex;
+
+  align-items: center;
+
+  gap: 12px;
+
+  margin-top: 8px;
+}
+
+.trn-image-preview img {
+  max-width: 160px;
+
+  max-height: 120px;
+
+  border-radius: var(--radius-sm);
+
+  border: 1px solid var(--color-border);
+
+  display: block;
+}
+
+.trn-image-actions {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 6px;
+}
+
+.trn-image-thumb img {
+  max-width: 140px;
+
+  max-height: 100px;
+
+  border-radius: var(--radius-sm);
+
+  border: 1px solid var(--color-border);
+
+  display: block;
+
+  margin-top: 4px;
+}
+
 .form-grid {
   display: grid;
 

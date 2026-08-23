@@ -1084,7 +1084,16 @@ ${this.snapshotStyles()}
       this.snapLine("Provider", it.provider),
       this.snapLine("Booking Ref", it.bookingReference),
       this.snapLine("Notes", it.planning && it.planning.notes),
+      this.snapImageLine(it),
     ].join("");
+  },
+
+  snapImageLine(item) {
+    if (!item.referenceImage || !item.referenceImage.url) {
+      return "";
+    }
+
+    return `<a href="${this.esc(item.referenceImage.url)}" target="_blank" rel="noopener" class="trn-image-thumb"><img src="${this.esc(item.referenceImage.url)}" alt="Reference screenshot"></a>`;
   },
 
   snapshotStyles() {
