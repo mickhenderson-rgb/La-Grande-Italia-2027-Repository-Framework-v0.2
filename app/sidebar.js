@@ -180,7 +180,7 @@ const Sidebar = {
 
         <a href="#" class="switch-trip-link" onclick="Auth.logout(); return false;">Log Out</a>
 
-        Version 1.0
+        Version ${typeof APP_VERSION !== "undefined" ? APP_VERSION : "1.0"}
 
     </div>
 

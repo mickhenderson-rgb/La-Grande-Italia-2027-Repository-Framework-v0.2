@@ -645,7 +645,7 @@ ${this.snapshotStyles()}
         items: this.matchByDayRange(Project.get("accommodation"), day.day),
         title: (it) => it.name || "Accommodation",
         snippet: (it) => this.esc(it.name || "Accommodation"),
-        detail: (it) => this.accommodationDetail(it),
+        detail: (it) => this.accommodationDetail(it, day.day),
         directions: true,
       },
 
@@ -739,7 +739,7 @@ ${this.snapshotStyles()}
 
     </button>
 
-    <div class="day-snap-snippet">${cfg.snippet(items[0])}</div>
+    <div class="day-snap-snippet">${cfg.snippet(items[0])}${items.length > 1 ? ` <span class="snap-more-hint">+${items.length - 1} more</span>` : ""}</div>
 
     <div class="day-snap-body">
 
@@ -976,12 +976,33 @@ ${this.snapshotStyles()}
     ].join("");
   },
 
-  accommodationDetail(it) {
+  // On a day that's a genuine check-in or check-out day for a multi-night
+  // stay, say so plainly - this is exactly what makes an overlap day (one
+  // booking's checkout, another's check-in, same day) unambiguous instead
+  // of just showing two unlabelled accommodation cards.
+  accommodationTransitionBadge(it, dayNumber) {
+    if (!Array.isArray(it.dayRange) || it.dayRange[1] === it.dayRange[0] || dayNumber == null) {
+      return "";
+    }
+
+    if (dayNumber === it.dayRange[0]) {
+      return `<span class="snap-transition is-checkin">🔑 Checking in today</span><br>`;
+    }
+
+    if (dayNumber === it.dayRange[1]) {
+      return `<span class="snap-transition is-checkout">🧳 Checking out today</span><br>`;
+    }
+
+    return "";
+  },
+
+  accommodationDetail(it, dayNumber) {
     const nights = Array.isArray(it.dayRange) ? it.dayRange[1] - it.dayRange[0] + 1 : 0;
 
     const extra = nights > 0 ? `(${nights} night${nights === 1 ? "" : "s"})` : "";
 
     return [
+      this.accommodationTransitionBadge(it, dayNumber),
       this.snapPriceLine(it, extra),
       this.snapLine("Check-in", it.dates && it.dates.checkIn),
       this.snapLine("Check-out", it.dates && it.dates.checkOut),
@@ -1090,6 +1111,14 @@ ${this.snapshotStyles()}
 .day-snap-section.is-open .snap-chev::after { content: "▲"; }
 
 .day-snap-snippet { padding: 6px 12px; font-size: 0.85em; color: #555555; }
+
+.snap-more-hint { color: #C79C5D; font-weight: 600; }
+
+.snap-transition { display: inline-block; font-size: 0.72em; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-bottom: 4px; }
+
+.snap-transition.is-checkin { background: #e1f0e3; color: #2e7d4f; }
+
+.snap-transition.is-checkout { background: #fdebd0; color: #8a5a18; }
 
 .day-snap-section.is-open .day-snap-snippet { display: none; }
 
