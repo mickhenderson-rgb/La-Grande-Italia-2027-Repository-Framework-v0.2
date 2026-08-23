@@ -947,15 +947,15 @@ ${this.snapshotStyles()}
   },
 
   flightTitle(it) {
-    const name = `${it.airline || ""} ${it.flightNumber || ""}`.trim();
+    const route = Flights.routeSummary(it);
 
-    const base = name || "Flight";
-
-    return it.to ? `${base} → ${it.to}` : base;
+    return route || "Flight";
   },
 
   flightSnippet(it) {
-    const when = [it.departure && it.departure.date, it.departure && it.departure.time].filter(Boolean).join(" ");
+    const dep = Flights.overallDeparture(it);
+
+    const when = [dep.date, dep.time].filter(Boolean).join(" ");
 
     const title = this.flightTitle(it);
 
@@ -963,14 +963,19 @@ ${this.snapshotStyles()}
   },
 
   flightDetail(it) {
-    const dep = [it.departure && it.departure.date, it.departure && it.departure.time].filter(Boolean).join(" ");
+    const depFields = Flights.overallDeparture(it);
 
-    const arr = [it.arrival && it.arrival.date, it.arrival && it.arrival.time].filter(Boolean).join(" ");
+    const arrFields = Flights.overallArrival(it);
+
+    const dep = [depFields.date, depFields.time].filter(Boolean).join(" ");
+
+    const arr = [arrFields.date, arrFields.time].filter(Boolean).join(" ");
 
     return [
       this.snapPriceLine(it),
       this.snapLine("Departs", dep),
       this.snapLine("Arrives", arr),
+      this.snapLine("Via", Flights.layoverLine(it)),
       this.snapLine("Booking Ref", it.bookingReference),
       this.snapLine("Notes", it.planning && it.planning.notes),
     ].join("");

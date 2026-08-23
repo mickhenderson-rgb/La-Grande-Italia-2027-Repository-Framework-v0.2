@@ -58,11 +58,19 @@ const Dates = {
 
     const items = flights && Array.isArray(flights.items) ? flights.items : [];
 
-    const flight = items.find(
-      (item) => item.day === day.day && item.arrival && item.arrival.date,
-    );
+    // A flight with a stopover is one booking - the LAST leg's arrival is
+    // the fact that matters for keeping the rest of the journey in sync.
+    const flight = items.find((item) => {
+      if (item.day !== day.day) {
+        return false;
+      }
 
-    return flight ? flight.arrival.date : null;
+      const arrival = Flights.overallArrival(item);
+
+      return arrival && arrival.date;
+    });
+
+    return flight ? Flights.overallArrival(flight).date : null;
   },
 
   recalculateJourney() {

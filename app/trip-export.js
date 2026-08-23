@@ -292,9 +292,11 @@ const TripExport = {
   },
 
   flightLine(item) {
-    const name = `${item.airline || ""} ${item.flightNumber || ""}`.trim() || "Flight";
+    const legs = Flights.getLegs(item);
 
-    const route = [item.from, item.to].filter(Boolean).join(" → ");
+    const name = legs.map((leg) => `${leg.airline || ""} ${leg.flightNumber || ""}`.trim()).filter(Boolean).join(" / ") || "Flight";
+
+    const route = Flights.routeSummary(item);
 
     const price = this.priceOf(item);
 
