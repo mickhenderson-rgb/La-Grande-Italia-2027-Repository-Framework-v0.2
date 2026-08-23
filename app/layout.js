@@ -60,9 +60,9 @@ const Layout = {
 
             <div class="app-actions">
 
-                <button id="themeButton">
+                <button id="themeButton" onclick="Theme.toggle()">
 
-                    🌙 Theme
+                    ${Theme.buttonLabel()}
 
                 </button>
 

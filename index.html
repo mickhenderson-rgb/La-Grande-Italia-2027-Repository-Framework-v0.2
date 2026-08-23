@@ -35,6 +35,20 @@
       href="assets/css/themes/light.css"
       id="theme-style"
     />
+    <script>
+      // Apply a saved dark-mode preference before the rest of the page
+      // paints, so a returning dark-mode user doesn't see a flash of the
+      // light theme. app/theme.js (loaded later) owns the toggle itself.
+      (function () {
+        try {
+          if (localStorage.getItem("compass-theme") === "dark") {
+            document.getElementById("theme-style").setAttribute("href", "assets/css/themes/dark.css");
+          }
+        } catch (error) {
+          // Private browsing / storage disabled - just stays on the default light theme.
+        }
+      })();
+    </script>
     <link rel="stylesheet" href="assets/css/print.css" media="print" />
     <style>
       :root {
@@ -452,6 +466,8 @@
     <script src="app/planning-item.js"></script>
 
     <script src="app/version.js"></script>
+
+    <script src="app/theme.js"></script>
 
     <script src="app/sidebar.js"></script>
 

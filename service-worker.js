@@ -32,7 +32,7 @@ Caching rules, deliberately conservative:
 =========================================================
 */
 
-const CACHE_NAME = "compass-tos-v40";
+const CACHE_NAME = "compass-tos-v41";
 
 const APP_SHELL = [
   "./",
@@ -44,6 +44,7 @@ const APP_SHELL = [
   "assets/css/typography.css",
   "assets/css/utilities.css",
   "assets/css/themes/light.css",
+  "assets/css/themes/dark.css",
   "assets/icons/icon-192.png",
   "assets/icons/icon-512.png",
   "assets/vendor/leaflet/leaflet.css",
