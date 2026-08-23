@@ -629,8 +629,14 @@ ${selected ? selected.planning.notes : ""}
             </label>
 
             <label class="form-field">
-                Days (from - to)
-                <input type="text" id="acc-day-range" value="${(item.dayRange || []).join(" - ")}" placeholder="e.g. 4 - 6">
+                Check-in Day
+                <input type="number" id="acc-day-start" value="${(item.dayRange && item.dayRange[0]) || 1}" min="1">
+            </label>
+
+            <label class="form-field">
+                Check-out Day
+                <input type="number" id="acc-day-end" value="${(item.dayRange && item.dayRange[1]) || 1}" min="1">
+                <span class="form-hint">The day you leave - so 3 nights from Day 1 is Check-out Day 4</span>
             </label>
 
             <label class="form-field">
@@ -815,11 +821,25 @@ ${selected ? selected.planning.notes : ""}
       .map((line) => line.trim())
       .filter(Boolean);
 
-    const rangeParts = document
-      .getElementById("acc-day-range")
-      .value.split("-")
-      .map((n) => parseInt(n.trim(), 10))
-      .filter((n) => !isNaN(n));
+    // Two explicit number fields, not a free-text "N - N" range: that used
+    // to silently break if the separator wasn't a plain hyphen (an en-dash
+    // "–" - which autocorrect/mobile keyboards commonly substitute, and
+    // which the rest of the app uses for displaying ranges - made split("-")
+    // fail silently and saved a single-day stay with no warning at all).
+    const dayStart = parseInt(document.getElementById("acc-day-start").value, 10);
+
+    if (!dayStart || dayStart < 1) {
+      alert("Please enter a valid Check-in Day before saving.");
+      return;
+    }
+
+    const dayEndRaw = parseInt(document.getElementById("acc-day-end").value, 10);
+
+    const dayEnd = dayEndRaw && dayEndRaw >= dayStart ? dayEndRaw : dayStart;
+
+    if (dayEndRaw && dayEndRaw < dayStart) {
+      alert("Check-out Day can't be before Check-in Day - saving as a single-night stay on the Check-in Day instead.");
+    }
 
     const isNew = !id;
 
@@ -869,13 +889,7 @@ ${selected ? selected.planning.notes : ""}
       actual: isNew ? existing.actual : undefined,
     };
 
-    if (rangeParts.length === 2) {
-      fields.dayRange = rangeParts;
-    } else if (rangeParts.length === 1) {
-      fields.dayRange = [rangeParts[0], rangeParts[0]];
-    } else if (isNew) {
-      fields.dayRange = existing.dayRange;
-    }
+    fields.dayRange = [dayStart, dayEnd];
 
     // Remove undefined keys so PUT (edit) doesn't blow away fields it
     // shouldn't touch, since the server does an Object.assign merge.
