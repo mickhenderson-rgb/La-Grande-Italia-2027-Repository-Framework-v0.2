@@ -186,7 +186,7 @@ body {
 }
 
 .landing-card {
-  background: #fff;
+  background: var(--color-surface);
 
   border-radius: 12px;
 
@@ -326,7 +326,7 @@ body {
 }
 
 .summary-card {
-  background: white;
+  background: var(--color-surface);
 
   border-radius: 12px;
 
@@ -340,7 +340,7 @@ body {
 }
 
 .planning {
-  background: white;
+  background: var(--color-surface);
 
   border-radius: 12px;
 
@@ -352,7 +352,7 @@ body {
 }
 
 .route {
-  background: white;
+  background: var(--color-surface);
 
   border-radius: 12px;
 
@@ -389,7 +389,7 @@ body {
 }
 
 .timeline-card {
-  background: white;
+  background: var(--color-surface);
 
   padding: 20px;
 
@@ -440,7 +440,7 @@ body {
 }
 
 .planner-day {
-  background: white;
+  background: var(--color-surface);
 
   border-radius: 12px;
 
@@ -514,7 +514,7 @@ body {
 
   margin-bottom: 12px;
 
-  background: white;
+  background: var(--color-surface);
 
   border-radius: 10px;
 
@@ -534,7 +534,7 @@ body {
 }
 
 .destination-card {
-  background: white;
+  background: var(--color-surface);
 
   padding: 30px;
 
@@ -570,7 +570,7 @@ body {
 }
 
 .workspace-panel {
-  background: white;
+  background: var(--color-surface);
 
   border-radius: 12px;
 
@@ -792,7 +792,7 @@ button {
 }
 
 .research-item {
-  background: #f7f8fa;
+  background: var(--color-bg);
 
   border: 1px solid var(--color-border);
 
@@ -802,15 +802,15 @@ button {
 }
 
 .research-item.is-selected {
-  border-color: #34495e;
+  border-color: var(--color-primary);
 
-  background: #eef2f5;
+  background: var(--color-surface);
 }
 
 .research-item p {
   margin: 4px 0;
 
-  color: #555;
+  color: var(--color-muted);
 }
 
 .research-actions {
@@ -932,7 +932,7 @@ button {
 
   border: 1px solid #cbd2da;
 
-  background: #fff;
+  background: var(--color-surface);
 
   color: var(--color-primary);
 
@@ -1077,7 +1077,7 @@ button {
 }
 
 .destination-card{
-  background:white;
+  background:var(--color-surface);
   border-radius:12px;
   padding:24px;
   box-shadow:0 3px 12px rgba(0,0,0,.08);
