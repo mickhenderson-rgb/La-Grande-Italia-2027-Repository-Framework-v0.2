@@ -600,6 +600,8 @@ ${rows}
 
     <div class="manager-card form-card">
 
+        ${DayReference.render("Transport", "range", { start: "Start Day", end: "End Day" })}
+
         <div class="form-grid">
 
             <label class="form-field">
@@ -768,6 +770,28 @@ ${rows}
 </div>
 
 `;
+  },
+
+  // 'start' fills Start Day + the Departure Date; 'end' fills End Day +
+  // the Arrival Date (arrival is allowed to land a different real date,
+  // e.g. an overnight ferry, so it gets its own date field rather than
+  // reusing the departure one).
+  pickDay(dayNumber, field) {
+    const date = Dates.getDayDate(dayNumber);
+
+    if (field === "start") {
+      document.getElementById("trn-day").value = dayNumber;
+
+      if (date) {
+        document.getElementById("trn-date").value = date;
+      }
+    } else {
+      document.getElementById("trn-end-day").value = dayNumber;
+
+      if (date) {
+        document.getElementById("trn-arrive-date").value = date;
+      }
+    }
   },
 
   modeOptions(current) {

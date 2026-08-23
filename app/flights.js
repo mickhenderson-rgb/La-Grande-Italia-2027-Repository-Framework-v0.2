@@ -473,6 +473,8 @@ const Flights = {
 
     <div class="manager-card form-card">
 
+        ${DayReference.render("Flights", "single", { single: "Depart This Day" })}
+
         <div class="form-grid">
 
             <label class="form-field">
@@ -595,6 +597,18 @@ const Flights = {
 </div>
 
 `;
+  },
+
+  // Sets the Day Number + Departure Date; Arrival Date is left alone since
+  // it can legitimately land on a different real day (overnight flights).
+  pickDay(dayNumber) {
+    document.getElementById("flt-day").value = dayNumber;
+
+    const date = Dates.getDayDate(dayNumber);
+
+    if (date) {
+      document.getElementById("flt-dep-date").value = date;
+    }
   },
 
   statusOptions(current) {

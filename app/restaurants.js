@@ -541,7 +541,14 @@ ${rows}
 
     <div class="manager-card form-card">
 
+        ${DayReference.render("Restaurants", "single", { single: "Use This Day" })}
+
         <div class="form-grid">
+
+            <label class="form-field">
+                Day
+                <input type="number" id="rst-day" value="${(item.dayRange && item.dayRange[0]) || (this.currentDay ? this.currentDay.day : 1)}" min="1">
+            </label>
 
             <label class="form-field">
                 Name
@@ -662,6 +669,17 @@ ${rows}
       .join("");
   },
 
+  // Sets the Day field + the Reservation Date; Time/Party Size are left untouched.
+  pickDay(dayNumber) {
+    document.getElementById("rst-day").value = dayNumber;
+
+    const date = Dates.getDayDate(dayNumber);
+
+    if (date) {
+      document.getElementById("rst-res-date").value = date;
+    }
+  },
+
   statusOptions(current) {
     return this.workflow
       .map(
@@ -702,10 +720,18 @@ ${rows}
       .map((line) => line.trim())
       .filter(Boolean);
 
+    const dayNumber = parseInt(document.getElementById("rst-day").value, 10);
+
+    if (!dayNumber || dayNumber < 1) {
+      alert("Please enter a valid Day before saving.");
+      return;
+    }
+
     const isNew = !id;
 
     const fields = {
       destination: isNew ? this.currentDestination : undefined,
+      dayRange: [dayNumber, dayNumber],
       type: "restaurant",
       addedBy: isNew ? Project.currentUser || "" : undefined,
       name,

@@ -616,7 +616,7 @@ ${selected ? selected.planning.notes : ""}
 
     <div class="manager-card form-card">
 
-        ${this.renderDayReference()}
+        ${DayReference.render("Accommodation", "range", { start: "Check-in", end: "Check-out" })}
 
         <div class="form-grid">
 
@@ -761,76 +761,6 @@ ${selected ? selected.planning.notes : ""}
 </div>
 
 `;
-  },
-
-  // A collapsible strip of every Planner day (number, real date, title/place)
-  // shown right inside the edit form, so a day number can be matched against
-  // the actual calendar date and destination without leaving the page to
-  // check the Planner. Clicking "Check-in"/"Check-out" on a row fills that
-  // day number AND its real date into the form fields below.
-  renderDayReference() {
-    const journey = Project.get("journey");
-
-    const days = journey && Array.isArray(journey.days) ? journey.days : [];
-
-    if (days.length === 0) {
-      return "";
-    }
-
-    const rows = days
-      .map((day) => {
-        const dateLabel = day.date ? this.formatDateLabel(day.date) : "no date set";
-
-        const place = this.esc(day.title || this.pretty(day.overnight || day.location || ""));
-
-        return `
-
-<div class="day-ref-row">
-
-    <span class="day-ref-num">Day ${day.day}</span>
-
-    <span class="day-ref-date">${dateLabel}</span>
-
-    <span class="day-ref-place">${place}</span>
-
-    <span class="day-ref-actions">
-        <button type="button" class="btn-mini" onclick="Accommodation.pickDay(${day.day}, 'start')">→ Check-in</button>
-        <button type="button" class="btn-mini" onclick="Accommodation.pickDay(${day.day}, 'end')">→ Check-out</button>
-    </span>
-
-</div>
-
-`;
-      })
-      .join("");
-
-    return `
-
-<details class="day-ref">
-
-    <summary>📅 Planner day reference — line up your Check-in/Check-out Day with the real dates</summary>
-
-    <div class="day-ref-list">${rows}</div>
-
-</details>
-
-`;
-  },
-
-  formatDateLabel(dateString) {
-    const parts = String(dateString || "").split("-").map((n) => parseInt(n, 10));
-
-    if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) {
-      return dateString || "";
-    }
-
-    const date = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
-
-    const weekday = date.toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" });
-
-    const month = date.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
-
-    return `${weekday} ${String(parts[2]).padStart(2, "0")} ${month}`;
   },
 
   // Fills a day-reference row's day number (and, when the journey has a
