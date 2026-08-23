@@ -219,18 +219,16 @@ ${this.snapshotStyles()}
   },
 
   liveCategoryBadges(day) {
-    const location = String(day.location || "").toLowerCase();
-
     const accommodation = this.bestStatus(
-      this.matchByDestination(Project.get("accommodation"), location, day.day),
+      this.matchByDayRange(Project.get("accommodation"), day.day),
     );
 
     const activities = this.bestStatus(
-      this.matchByDestination(Project.get("activities"), location, day.day),
+      this.matchByDayRange(Project.get("activities"), day.day),
     );
 
     const restaurants = this.bestStatus(
-      this.matchByDestination(Project.get("restaurants"), location, day.day),
+      this.matchByDayRange(Project.get("restaurants"), day.day),
     );
 
     const transportItems = this.getItems(Project.get("transport")).filter(
@@ -258,14 +256,19 @@ ${this.snapshotStyles()}
     return data && Array.isArray(data.items) ? data.items : [];
   },
 
-  matchByDestination(data, location, dayNumber) {
+  // Shows an item on a day purely by its own dayRange - NOT by matching the
+  // item's destination text against the day's location. A booking's actual
+  // town can legitimately differ from the itinerary's nominal destination
+  // (a suburb of Milan when the day says "milan"; staying one town over
+  // from family in Le Noirmont because Le Noirmont itself is full) - if
+  // that string doesn't match, the old code hid the item from every day
+  // entirely, even though you'd already told it exactly which days it
+  // covers via Check-in/Check-out Day. The day range is the fact; the
+  // destination label is just that, a label - trust the fact.
+  matchByDayRange(data, dayNumber) {
     return this.getItems(data).filter((item) => {
-      if (String(item.destination || "").toLowerCase() !== location) {
+      if (!Array.isArray(item.dayRange) || item.dayRange.length < 2) {
         return false;
-      }
-
-      if (!Array.isArray(item.dayRange)) {
-        return true;
       }
 
       return dayNumber >= item.dayRange[0] && dayNumber <= item.dayRange[1];
@@ -624,8 +627,6 @@ ${this.snapshotStyles()}
   // =========================================================
 
   renderDayItemsSnapshot(day) {
-    const location = String(day.location || "").toLowerCase();
-
     const configs = [
       {
         icon: "🛫",
@@ -641,7 +642,7 @@ ${this.snapshotStyles()}
         icon: "🏨",
         label: "Accommodation",
         module: "Accommodation",
-        items: this.matchByDestination(Project.get("accommodation"), location, day.day),
+        items: this.matchByDayRange(Project.get("accommodation"), day.day),
         title: (it) => it.name || "Accommodation",
         snippet: (it) => this.esc(it.name || "Accommodation"),
         detail: (it) => this.accommodationDetail(it),
@@ -652,7 +653,7 @@ ${this.snapshotStyles()}
         icon: "🎭",
         label: "Activities",
         module: "Activities",
-        items: this.matchByDestination(Project.get("activities"), location, day.day),
+        items: this.matchByDayRange(Project.get("activities"), day.day),
         title: (it) => it.name || "Activity",
         snippet: (it) => this.esc(it.name || "Activity"),
         detail: (it) => this.activitiesDetail(it),
@@ -663,7 +664,7 @@ ${this.snapshotStyles()}
         icon: "🍽",
         label: "Restaurants",
         module: "Restaurants",
-        items: this.matchByDestination(Project.get("restaurants"), location, day.day),
+        items: this.matchByDayRange(Project.get("restaurants"), day.day),
         title: (it) => it.name || "Restaurant",
         snippet: (it) => this.esc(it.name || "Restaurant"),
         detail: (it) => this.restaurantsDetail(it),
