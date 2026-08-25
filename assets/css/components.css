@@ -1340,6 +1340,7 @@ button {
   .more-ic { width: 24px; text-align: center; font-size: 18px; }
 
   .more-danger { color: var(--color-danger); }
+}
 
 /* =======================================
    Phase chip (header)
@@ -1580,5 +1581,4 @@ button {
   .desktop-only { display: none; }
 
   .dash-pair { grid-template-columns: 1fr; }
-}
 }
