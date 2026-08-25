@@ -55,6 +55,12 @@ const Data = {
   },
 
   async loadProject(projectFolder) {
+    if (!projectFolder) {
+      console.error("Data.loadProject called with no project folder - refusing to fetch data/projects/undefined/*.");
+
+      return;
+    }
+
     this.currentProjectFolder = projectFolder;
 
     Project.projectFolder = projectFolder;

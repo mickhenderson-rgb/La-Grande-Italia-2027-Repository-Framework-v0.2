@@ -1799,6 +1799,31 @@ async function handleArchiveProject(req, res, id) {
   }
 }
 
+// Walks a directory and returns every file and every directory under it
+// (dirs including the root itself), depth-first. Used by the delete-project
+// fallback below to remove entries one at a time instead of all-or-nothing.
+function collectPaths(dir) {
+  const files = [];
+
+  const dirs = [dir];
+
+  fs.readdirSync(dir, { withFileTypes: true }).forEach((entry) => {
+    const full = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      const nested = collectPaths(full);
+
+      files.push(...nested.files);
+
+      dirs.push(...nested.dirs);
+    } else {
+      files.push(full);
+    }
+  });
+
+  return { files, dirs };
+}
+
 function handleDeleteProject(req, res, id) {
   if (!safeName(id)) {
     return sendJSON(res, 400, { error: "Invalid project id." });
@@ -1814,6 +1839,7 @@ function handleDeleteProject(req, res, id) {
     return sendJSON(res, 404, { error: "Trip not found." });
   }
 
+  // The common case: a single recursive removal succeeds outright.
   try {
     fs.rmSync(projectDir, { recursive: true, force: true });
 
@@ -1823,10 +1849,67 @@ function handleDeleteProject(req, res, id) {
 
     return sendJSON(res, 200, { ok: true });
   } catch (error) {
-    console.error("[delete project failed]", error.message);
-
-    return sendJSON(res, 500, { error: "Could not delete the trip." });
+    console.error("[delete project failed, retrying file-by-file]", error.code, error.message);
   }
+
+  // Fallback: fs.rmSync throws (and removes nothing) if ANY single file in
+  // the tree has a permission/lock problem - seen on some shared hosts.
+  // Remove everything we can file-by-file instead of leaving the whole
+  // trip stuck, and report exactly what's left so a repeat failure is
+  // diagnosable instead of a bare, silent 500.
+  let files;
+
+  let dirs;
+
+  try {
+    ({ files, dirs } = collectPaths(projectDir));
+  } catch (error) {
+    console.error("[delete project failed - could not list its files]", error.code, error.message);
+
+    return sendJSON(res, 500, { error: "Could not delete the trip.", detail: error.message, code: error.code });
+  }
+
+  const failed = [];
+
+  files.forEach((filePath) => {
+    try {
+      fs.unlinkSync(filePath);
+    } catch (error) {
+      failed.push({ path: path.relative(projectDir, filePath), code: error.code, message: error.message });
+    }
+  });
+
+  // Deepest directories first, so a parent is only removed once everything
+  // inside it is already gone.
+  dirs
+    .sort((a, b) => b.length - a.length)
+    .forEach((dirPath) => {
+      try {
+        fs.rmdirSync(dirPath);
+      } catch (error) {
+        // A directory that's already gone (removed as part of an earlier,
+        // now-empty parent) isn't a real failure - only report one that
+        // still exists and still has something in it.
+        if (fs.existsSync(dirPath) && fs.readdirSync(dirPath).length > 0) {
+          failed.push({ path: path.relative(projectDir, dirPath) || ".", code: error.code, message: error.message });
+        }
+      }
+    });
+
+  if (failed.length > 0) {
+    console.error(`[delete project partially failed] ${id}`, JSON.stringify(failed));
+
+    return sendJSON(res, 500, {
+      error: "Could not fully delete the trip - some files could not be removed.",
+      failed,
+    });
+  }
+
+  removeTripOwnership(id);
+
+  console.log(`[deleted project via file-by-file fallback] ${id}`);
+
+  return sendJSON(res, 200, { ok: true });
 }
 
 function handleProjectsList(req, res) {

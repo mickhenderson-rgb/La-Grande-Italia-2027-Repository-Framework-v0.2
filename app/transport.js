@@ -21,6 +21,8 @@ const Transport = {
 
   returnDestinationId: null,
 
+  saving: false,
+
   workflow: ["Research", "Shortlisted", "Selected", "Booked", "Travel", "Review"],
 
   modes: ["Drive", "Walk", "Train", "Ferry", "Transfer", "Car Rental", "Other"],
@@ -1040,6 +1042,12 @@ ${rows}
       }
     });
 
+    if (this.saving) {
+      return;
+    }
+
+    this.saving = true;
+
     const url = isNew
       ? `${window.API_BASE}/api/items/${Data.currentProjectFolder}/transport`
       : `${window.API_BASE}/api/items/${Data.currentProjectFolder}/transport/${id}`;
@@ -1071,9 +1079,13 @@ ${rows}
           }
         }
 
+        this.saving = false;
+
         this.refresh();
       })
       .catch((error) => {
+        this.saving = false;
+
         console.error("Could not save transport item:", error);
 
         alert("Couldn't save that item. Check the connection and try again.");

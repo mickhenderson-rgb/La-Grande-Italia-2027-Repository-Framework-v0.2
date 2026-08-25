@@ -69,7 +69,7 @@ const TripSetup = {
 
             <label class="form-field">
                 Currency
-                <select id="setup-currency">${Currency.currencyOptions("USD")}</select>
+                <select id="setup-currency">${Currency.currencyOptions("AUD")}</select>
             </label>
 
         </div>
@@ -189,7 +189,7 @@ const TripSetup = {
 
     const endDate = document.getElementById("setup-end-date").value;
 
-    const currency = document.getElementById("setup-currency").value.trim() || "USD";
+    const currency = document.getElementById("setup-currency").value.trim() || "AUD";
 
     const statusEl = document.getElementById("setup-status");
 

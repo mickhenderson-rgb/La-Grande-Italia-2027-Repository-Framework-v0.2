@@ -45,6 +45,8 @@ const Sharing = {
 
       Render.show(this.render(data.collaborators || [], data.pending || []));
     } catch (error) {
+      console.error("Could not load sharing info:", error);
+
       Render.show(this.renderError("Couldn't reach the server."));
     }
   },
@@ -215,6 +217,8 @@ const Sharing = {
 
       await this.refresh();
     } catch (error) {
+      console.error("Could not share the trip:", error);
+
       msg.textContent = "Couldn't reach the server.";
     }
   },
@@ -223,7 +227,8 @@ const Sharing = {
     try {
       await fetch(`${window.API_BASE}/api/trips/${this.tripId}/share/${userId}`, { method: "DELETE" });
     } catch (error) {
-      // Ignore - refresh will show the current state either way.
+      // Non-fatal - refresh will show the current state either way.
+      console.error("Could not remove sharing access:", error);
     }
 
     await this.refresh();

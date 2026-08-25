@@ -496,6 +496,10 @@ const Journal = {
   },
 
   removeChecklistItem(id) {
+    if (!confirm("Remove this checklist item?")) {
+      return;
+    }
+
     const dayNumber = this.currentDay.day;
 
     fetch(`${window.API_BASE}/api/journal/${Data.currentProjectFolder}/${dayNumber}/checklist/${id}`, {
@@ -713,6 +717,10 @@ const Journal = {
   },
 
   removePhoto(id) {
+    if (!confirm("Remove this photo?")) {
+      return;
+    }
+
     const dayNumber = this.currentDay.day;
 
     fetch(`${window.API_BASE}/api/journal/${Data.currentProjectFolder}/${dayNumber}/photo/${id}`, {

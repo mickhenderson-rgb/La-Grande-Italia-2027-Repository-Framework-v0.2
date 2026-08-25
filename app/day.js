@@ -48,13 +48,9 @@ const Day = {
             ${day.title || ""}
         </h2>
 
-        <p>
-            📍 ${this.pretty(day.location)}
-        </p>
+        ${day.location ? `<p>📍 ${this.pretty(day.location)}</p>` : `<p class="subtitle">No destination set yet</p>`}
 
-        <p>
-            🛏 Overnight ${this.pretty(day.overnight)}
-        </p>
+        ${day.overnight ? `<p>🛏 Overnight ${this.pretty(day.overnight)}</p>` : ""}
 
         <div class="quick-links">
 
@@ -160,7 +156,8 @@ const Day = {
 
     <button
         type="button"
-        onclick="${action}">
+        onclick="${action}"
+        aria-label="Manage ${title}">
 
         Manage
 
@@ -175,7 +172,7 @@ const Day = {
     const items = Array.isArray(day.items) ? day.items : [];
 
     return {
-      flight: this.liveCount("flights", day.day),
+      flight: this.formatCount(this.liveCount("flights", day.day)),
       transport: this.countType(items, "transport"),
       accommodation: this.countType(items, "accommodation"),
       activity: this.countType(items, "activity"),
@@ -193,6 +190,13 @@ const Day = {
     }
 
     return data.items.filter((item) => item.day === dayNumber).length;
+  },
+
+  // Matches countType()'s "N item(s)" / "No items" wording, so Flights
+  // (the one section that counts live rather than from day.items) doesn't
+  // show a bare "0" while every other section says "No items".
+  formatCount(n) {
+    return n ? `${n} item(s)` : "No items";
   },
 
   journalSummary(day) {

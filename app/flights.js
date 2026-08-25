@@ -36,6 +36,8 @@ const Flights = {
 
   showAll: false,
 
+  saving: false,
+
   workflow: ["Research", "Shortlisted", "Selected", "Booked", "Travel", "Review"],
 
   // Working copy of the legs being edited in the currently-open form.
@@ -912,6 +914,12 @@ const Flights = {
       }
     });
 
+    if (this.saving) {
+      return;
+    }
+
+    this.saving = true;
+
     const url = isNew
       ? `${window.API_BASE}/api/items/${Data.currentProjectFolder}/flights`
       : `${window.API_BASE}/api/items/${Data.currentProjectFolder}/flights/${id}`;
@@ -945,9 +953,13 @@ const Flights = {
 
         Dates.recalculateJourney();
 
+        this.saving = false;
+
         this.refresh();
       })
       .catch((error) => {
+        this.saving = false;
+
         console.error("Could not save flight:", error);
 
         alert("Couldn't save that item. Check the connection and try again.");

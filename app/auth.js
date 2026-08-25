@@ -177,6 +177,8 @@ const Auth = {
 
       window.location.reload();
     } catch (error) {
+      console.error("Login failed:", error);
+
       msg.textContent = "Couldn't reach the server. Try again.";
     }
   },
@@ -211,6 +213,8 @@ const Auth = {
 
       window.location.reload();
     } catch (error) {
+      console.error("Registration failed:", error);
+
       msg.textContent = "Couldn't reach the server. Try again.";
     }
   },
@@ -221,6 +225,7 @@ const Auth = {
     } catch (error) {
       // Even if the request fails, fall through to reload - the cookie is
       // cleared server-side on success and the session is short-lived anyway.
+      console.error("Logout request failed (reloading anyway):", error);
     }
 
     window.location.reload();

@@ -14,8 +14,6 @@ document.addEventListener(
   "DOMContentLoaded",
 
   async () => {
-    console.log("BOOTSTRAP STARTED");
-
     Repository.setStatus("Bootstrapping");
 
     Project.initialise();

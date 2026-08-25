@@ -65,7 +65,25 @@ const Router = {
         break;
 
       case "guide":
-        alert("Travel Guide will be added later.");
+        Render.show(Layout.render(`
+
+<div class="manager">
+
+    <section class="hero">
+        <h1>Travel Guide</h1>
+    </section>
+
+    <div class="manager-card">
+        <div class="empty-state">
+            <span class="empty-icon" aria-hidden="true">📖</span>
+            <p>Travel Guide isn't built yet - check back in a future update.</p>
+            <button type="button" class="btn-primary" onclick="Router.navigate('dashboard')">Back to Dashboard</button>
+        </div>
+    </div>
+
+</div>
+
+`));
 
         break;
 

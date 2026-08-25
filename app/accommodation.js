@@ -23,6 +23,8 @@ const Accommodation = {
 
   returnDestinationId: null,
 
+  saving: false,
+
   open(day) {
     this.currentDay = day;
 
@@ -522,6 +524,31 @@ ${selected ? selected.planning.notes : ""}
     }
   },
 
+  // Called after a successful save instead of refresh() directly. A
+  // day-scoped view (open(day)) filters by day.location/overnight - if
+  // that's blank (every new trip's default) or just different from what
+  // was typed as the item's Destination, a plain refresh() would re-open
+  // the same day and the item would vanish from the list it was just
+  // saved from (it's still correctly saved and still shows on the Planner,
+  // which matches by day range, not destination text - only this module's
+  // own list view is affected). Follow the item to where it'll actually
+  // show instead of leaving the user looking at a now-empty filtered view.
+  refreshAfterSave(item) {
+    if (
+      !this.showAll &&
+      this.currentDay &&
+      item &&
+      item.destination &&
+      item.destination.toLowerCase() !== this.currentDestination
+    ) {
+      this.openForDestination(item.destination);
+
+      return;
+    }
+
+    this.refresh();
+  },
+
   remove(id) {
     const answer = confirm("Remove this accommodation option?");
 
@@ -923,6 +950,16 @@ ${selected ? selected.planning.notes : ""}
       }
     });
 
+    // Guards against a rapid double-click/double-tap on Save creating two
+    // items - the button itself isn't disabled (it's usually replaced by
+    // the next render anyway), this just ignores a second call that comes
+    // in while the first one is still in flight.
+    if (this.saving) {
+      return;
+    }
+
+    this.saving = true;
+
     const url = isNew
       ? `${window.API_BASE}/api/items/${Data.currentProjectFolder}/accommodation`
       : `${window.API_BASE}/api/items/${Data.currentProjectFolder}/accommodation/${id}`;
@@ -954,9 +991,13 @@ ${selected ? selected.planning.notes : ""}
           }
         }
 
-        this.refresh();
+        this.saving = false;
+
+        this.refreshAfterSave(result.item);
       })
       .catch((error) => {
+        this.saving = false;
+
         console.error("Could not save accommodation:", error);
 
         alert("Couldn't save that item. Check the connection and try again.");

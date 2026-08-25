@@ -19,6 +19,8 @@ const Restaurants = {
 
   returnDestinationId: null,
 
+  saving: false,
+
   workflow: ["Research", "Shortlisted", "Selected", "Booked", "Travel", "Review"],
 
   cuisines: [
@@ -74,6 +76,20 @@ const Restaurants = {
     } else {
       Router.navigate("dashboard");
     }
+  },
+
+  // See Accommodation.refreshAfterSave for why this exists: a day-scoped
+  // view filters by day.location/overnight, which is blank on every new
+  // trip by default - a plain refresh() after saving a NEW destination
+  // would silently filter the just-saved item out of view.
+  refreshAfterSave(item) {
+    if (this.currentDay && item && item.destination && item.destination.toLowerCase() !== this.currentDestination) {
+      this.openForDestination(item.destination);
+
+      return;
+    }
+
+    this.refresh();
   },
 
   render() {
@@ -771,6 +787,12 @@ ${rows}
       }
     });
 
+    if (this.saving) {
+      return;
+    }
+
+    this.saving = true;
+
     const url = isNew
       ? `${window.API_BASE}/api/items/${Data.currentProjectFolder}/restaurants`
       : `${window.API_BASE}/api/items/${Data.currentProjectFolder}/restaurants/${id}`;
@@ -802,9 +824,13 @@ ${rows}
           }
         }
 
-        this.refresh();
+        this.saving = false;
+
+        this.refreshAfterSave(result.item);
       })
       .catch((error) => {
+        this.saving = false;
+
         console.error("Could not save restaurant:", error);
 
         alert("Couldn't save that item. Check the connection and try again.");

@@ -107,13 +107,9 @@ ${this.snapshotStyles()}
         ${this.esc(day.title || "")}
     </h3>
 
-    <p>
-        📍 ${this.pretty(day.location)}
-    </p>
+    ${day.location ? `<p>📍 ${this.pretty(day.location)}</p>` : `<p style="color: var(--color-muted);">No destination set yet</p>`}
 
-    <p>
-        🛏 Overnight: ${this.pretty(day.overnight)}
-    </p>
+    ${day.overnight ? `<p>🛏 Overnight: ${this.pretty(day.overnight)}</p>` : ""}
 
     ${this.renderDayItemsSnapshot(day)}
 

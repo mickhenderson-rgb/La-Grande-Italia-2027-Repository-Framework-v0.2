@@ -206,7 +206,7 @@ const JourneyEditor = {
     if (journal && Array.isArray(journal.entries)) {
       const entry = journal.entries.find((e) => e.day === dayNumber);
 
-      if (entry && (entry.notes || entry.photos.length > 0 || entry.checklist.length > 0)) {
+      if (entry && (entry.notes || (entry.photos || []).length > 0 || (entry.checklist || []).length > 0)) {
         count += 1;
       }
     }
