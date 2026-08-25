@@ -579,6 +579,15 @@ function serveStaticFile(req, res) {
     // a stale copy of either one defeats the whole update mechanism.
     if (urlPath === "/service-worker.js" || urlPath === "/index.html") {
       headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+    } else {
+      // Everything else was previously sent with NO cache headers at all,
+      // which lets the browser apply heuristic caching and serve a very
+      // old copy without asking. That stale copy could then be baked into
+      // the service worker's versioned cache and pinned there (a real
+      // incident - see the freshRequest note in service-worker.js).
+      // "no-cache" still allows storage, but forces revalidation before
+      // reuse, so the browser can never silently serve something stale.
+      headers["Cache-Control"] = "no-cache";
     }
 
     res.writeHead(200, headers);

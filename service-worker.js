@@ -47,7 +47,7 @@ Caching rules, deliberately conservative:
 =========================================================
 */
 
-const CACHE_NAME = "compass-tos-v48";
+const CACHE_NAME = "compass-tos-v49";
 
 const APP_SHELL = [
   "./",
@@ -67,12 +67,29 @@ const APP_SHELL = [
   "assets/vendor/leaflet/leaflet.js",
 ];
 
+// Every request this worker makes to FILL its own cache must bypass the
+// browser's own HTTP cache. Static assets are served without cache headers,
+// so Chrome applies heuristic caching and can hand back a months-old copy -
+// which, under cache-first, would then be pinned in the versioned cache
+// forever. This caused a real incident: a v48 cache was seeded with a
+// pre-v1.5.0 components.css and the dashboard rendered unstyled until the
+// cache was rebuilt. "reload" forces a real network trip and refreshes the
+// HTTP cache entry too.
+function freshRequest(url) {
+  return new Request(url, { cache: "reload" });
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).catch(() => {
-      // Non-fatal - some app shell files may not exist in every deployment.
-      // The service worker still activates; missing files just won't be pre-cached.
-    }),
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => cache.addAll(APP_SHELL.map(freshRequest)))
+      .catch(() => {
+        // Non-fatal - some app shell files may not exist in every deployment.
+        // The service worker still activates; missing files just won't be
+        // pre-cached (cacheFirst fetches them on demand, also bypassing the
+        // HTTP cache).
+      }),
   );
 
   self.skipWaiting();
@@ -131,8 +148,13 @@ async function cacheFirst(request) {
   // once and keep it. It will never be re-fetched until a deploy bumps
   // CACHE_NAME and a fresh worker starts a fresh cache - which is exactly
   // what keeps every page load on one coherent app version.
+  //
+  // Fetched via freshRequest() so a stale entry in the browser's own HTTP
+  // cache can never be baked into this versioned cache (see the note on
+  // freshRequest above). The response is stored against the ORIGINAL
+  // request so ordinary lookups still hit it.
   try {
-    const response = await fetch(request);
+    const response = await fetch(freshRequest(request.url));
 
     if (response.ok) {
       const cache = await caches.open(CACHE_NAME);
