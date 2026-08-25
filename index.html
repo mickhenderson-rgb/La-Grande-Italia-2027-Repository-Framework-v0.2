@@ -28,6 +28,7 @@
     <link rel="stylesheet" href="assets/css/core.css" />
     <link rel="stylesheet" href="assets/css/layout.css" />
     <link rel="stylesheet" href="assets/css/components.css" />
+    <link rel="stylesheet" href="assets/css/mobile.css" />
     <link rel="stylesheet" href="assets/css/typography.css" />
     <link rel="stylesheet" href="assets/css/utilities.css" />
     <link
@@ -354,14 +355,14 @@
         font-size: 0.82rem;
       }
       .badge-selected {
-        background: #fbe9d0;
+        background: var(--status-selected-bg);
         border-color: #efcb93;
-        color: #8a5a18;
+        color: var(--status-selected);
       }
       .badge-booked {
-        background: #e1f0e3;
+        background: var(--status-booked-bg);
         border-color: #bfe0c4;
-        color: #2e7d4f;
+        color: var(--status-booked);
       }
       @media (max-width: 980px) {
         .site-header,

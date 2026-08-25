@@ -5,7 +5,7 @@ COMPASS-TOS
 
 Components
 
-Version 2.0
+Version 2.1 — fully tokenised (no literal colours)
 
 =========================================================
 */
@@ -17,14 +17,11 @@ Version 2.0
 body {
   margin: 0;
 
-  font-family:
-    Segoe UI,
-    Arial,
-    sans-serif;
+  font-family: var(--font-body);
 
-  background: #f4f5f7;
+  background: var(--color-bg);
 
-  color: #1f2937;
+  color: var(--color-text);
 }
 
 /* =======================================
@@ -40,9 +37,9 @@ body {
 ======================================= */
 
 .sidebar {
-  background: #243447;
+  background: var(--color-primary-deep);
 
-  color: white;
+  color: var(--color-on-primary);
 
   display: flex;
 
@@ -76,7 +73,7 @@ body {
 .sidebar-logo p {
   margin-top: 6px;
 
-  color: #c7d2e0;
+  color: var(--sidebar-muted);
 }
 
 .sidebar-menu {
@@ -94,7 +91,7 @@ body {
 
   background: transparent;
 
-  color: white;
+  color: var(--color-on-primary);
 
   text-align: left;
 
@@ -110,7 +107,7 @@ body {
 }
 
 .sidebar-button:hover {
-  background: #34495e;
+  background: var(--color-primary);
 }
 
 .sidebar-icon {
@@ -120,7 +117,7 @@ body {
 }
 
 .sidebar-footer {
-  color: #c7d2e0;
+  color: var(--sidebar-muted);
 
   font-size: 13px;
 }
@@ -128,7 +125,7 @@ body {
 .save-status {
   font-size: 12px;
 
-  color: #9fb0c7;
+  color: var(--sidebar-muted-2);
 
   margin-bottom: 6px;
 }
@@ -138,7 +135,7 @@ body {
 
   font-size: 12px;
 
-  color: #c7d2e0;
+  color: var(--sidebar-muted);
 
   text-decoration: underline;
 
@@ -146,7 +143,7 @@ body {
 }
 
 .switch-trip-link:hover {
-  color: #ffffff;
+  color: var(--color-on-primary);
 }
 
 /* =======================================
@@ -174,7 +171,7 @@ body {
 }
 
 .landing-header p {
-  color: #667;
+  color: var(--color-muted);
 }
 
 .landing-grid {
@@ -192,7 +189,7 @@ body {
 
   padding: 25px;
 
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow);
 
   text-align: center;
 }
@@ -248,9 +245,9 @@ body {
 .app-actions button {
   border: none;
 
-  background: #243447;
+  background: var(--color-primary-deep);
 
-  color: white;
+  color: var(--color-on-primary);
 
   padding: 10px 18px;
 
@@ -290,9 +287,9 @@ body {
 ======================================= */
 
 .hero {
-  background: #34495e;
+  background: var(--color-primary);
 
-  color: white;
+  color: var(--color-on-primary);
 
   padding: 40px;
 
@@ -332,7 +329,7 @@ body {
 
   padding: 20px;
 
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow);
 }
 
 .summary-card h3 {
@@ -348,7 +345,7 @@ body {
 
   margin-bottom: 20px;
 
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow);
 }
 
 .route {
@@ -358,7 +355,7 @@ body {
 
   padding: 25px;
 
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow);
 }
 
 @media (max-width: 1000px) {
@@ -381,6 +378,82 @@ body {
   }
 }
 /* =======================================
+   Day Snapshot (Planner day-card, collapsible per-category strips)
+======================================= */
+
+.day-snap { margin: 10px 0; display: flex; flex-direction: column; gap: 8px; }
+
+.day-snap-empty { color: var(--color-muted); font-style: italic; margin: 8px 0; }
+
+.day-snap-section { border: 1px solid var(--color-border); border-radius: var(--radius, 8px); overflow: hidden; background: var(--color-surface); }
+
+.day-snap-head { width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--color-bg-tint); border: none; cursor: pointer; text-align: left; font: inherit; }
+
+.snap-icon { font-size: 1.1em; }
+
+.snap-label { font-weight: 700; color: var(--color-primary); }
+
+.snap-counts { margin-left: auto; font-size: 0.8em; color: var(--color-muted); }
+
+.snap-chev::after { content: "▼"; font-size: 0.7em; color: var(--color-muted); margin-left: 6px; }
+
+.day-snap-section.is-open .snap-chev::after { content: "▲"; }
+
+.day-snap-snippet { padding: 6px 12px; font-size: 0.85em; color: var(--color-text-2); }
+
+.snap-more-hint { color: var(--color-secondary); font-weight: 600; }
+
+.snap-transition { display: inline-block; font-size: 0.72em; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-bottom: 4px; }
+
+.snap-transition.is-checkin { background: var(--status-booked-bg); color: var(--status-booked); }
+
+.snap-transition.is-checkout { background: var(--status-selected-bg); color: var(--status-selected); }
+
+.day-snap-section.is-open .day-snap-snippet { display: none; }
+
+.day-snap-body { display: none; padding: 4px 12px 12px; }
+
+.day-snap-section.is-open .day-snap-body { display: block; }
+
+.snap-item { border-top: 1px solid var(--color-rule); padding: 8px 0; }
+
+.snap-item:first-child { border-top: none; }
+
+.snap-item-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.snap-item-title { font-weight: 600; color: var(--color-primary-deep); cursor: pointer; text-decoration: underline dotted; }
+
+.snap-line { font-size: 0.85em; color: var(--color-text-2); margin: 2px 0; }
+
+.snap-key { color: var(--status-selected); font-weight: 600; }
+
+.snap-actions { margin-top: 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+.snap-actions button { font-size: 0.8em; padding: 3px 10px; }
+
+.snap-link { font-size: 0.8em; color: var(--color-secondary); font-weight: 600; }
+
+.snap-more { display: none; }
+
+.snap-more.is-open { display: block; }
+
+.snap-more-toggle { margin-top: 6px; font-size: 0.8em; background: none; border: none; color: var(--color-secondary); cursor: pointer; padding: 0; }
+
+.snap-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72em; font-weight: 700; white-space: nowrap; }
+
+.snap-badge.is-research { background: var(--status-research-bg); color: var(--status-research); }
+
+.snap-badge.is-shortlisted { background: var(--status-shortlisted-bg); color: var(--status-shortlisted); }
+
+.snap-badge.is-selected { background: var(--status-selected-bg); color: var(--status-selected); }
+
+.snap-badge.is-booked { background: var(--status-booked-bg); color: var(--status-booked); }
+
+.snap-badge.is-travel { background: var(--status-travel-bg); color: var(--status-travel); }
+
+.snap-badge.is-review { background: var(--status-review-bg); color: var(--status-review); }
+
+/* =======================================
    Journey Planner
 ======================================= */
 
@@ -397,7 +470,7 @@ body {
 
   border-radius: 12px;
 
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow);
 }
 
 .timeline-header {
@@ -407,7 +480,7 @@ body {
 
   margin-bottom: 12px;
 
-  color: #666;
+  color: var(--color-muted);
 }
 
 .timeline-buttons {
@@ -421,9 +494,9 @@ body {
 .timeline-buttons button {
   border: none;
 
-  background: #34495e;
+  background: var(--color-primary);
 
-  color: white;
+  color: var(--color-on-primary);
 
   padding: 10px 18px;
 
@@ -448,7 +521,7 @@ body {
 
   margin-bottom: 20px;
 
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow);
 }
 
 .planner-day-header {
@@ -456,7 +529,7 @@ body {
 
   justify-content: space-between;
 
-  color: #777;
+  color: var(--color-muted);
 
   margin-bottom: 15px;
 }
@@ -468,7 +541,7 @@ body {
 
   padding: 12px 0;
 
-  border-bottom: 1px solid #ececec;
+  border-bottom: 1px solid var(--color-rule);
 }
 
 .planner-item:last-child {
@@ -480,7 +553,7 @@ body {
 }
 
 .planner-item-status {
-  color: #666;
+  color: var(--color-muted);
 
   text-transform: capitalize;
 }
@@ -490,9 +563,9 @@ body {
 }
 
 .planner-buttons button {
-  background: #34495e;
+  background: var(--color-primary);
 
-  color: white;
+  color: var(--color-on-primary);
 
   border: none;
 
@@ -518,7 +591,7 @@ body {
 
   border-radius: 10px;
 
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-sm);
 } /* =======================================
    Destination
 ======================================= */
@@ -540,7 +613,7 @@ body {
 
   border-radius: 12px;
 
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow);
 
   cursor: pointer;
 
@@ -576,7 +649,7 @@ body {
 
   padding: 24px;
 
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow);
 }
 
 .workspace-panel h3 {
@@ -590,9 +663,9 @@ body {
 
   border: none;
 
-  background: #34495e;
+  background: var(--color-primary);
 
-  color: white;
+  color: var(--color-on-primary);
 
   padding: 10px 18px;
 
@@ -652,7 +725,7 @@ button {
   border-radius: var(--radius-pill);
   border: 1px solid var(--color-primary);
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
   font-weight: 600;
   line-height: 1;
   cursor: pointer;
@@ -668,7 +741,7 @@ button {
 
 .btn-primary {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
   border-color: var(--color-primary);
 }
 
@@ -680,23 +753,23 @@ button {
 .btn-secondary {
   background: var(--color-surface);
   color: var(--color-primary);
-  border-color: #cbd2da;
+  border-color: var(--color-border-strong);
 }
 
 .btn-secondary:hover {
-  background: #eef1f4;
+  background: var(--color-primary-tint);
   border-color: var(--color-primary);
 }
 
 .btn-danger {
   background: var(--color-surface);
-  color: #b3261e;
-  border-color: #e6b4b0;
+  color: var(--color-danger);
+  border-color: var(--color-danger-border);
 }
 
 .btn-danger:hover {
-  background: #fbeae9;
-  border-color: #b3261e;
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger);
 }
 
 .btn-sm {
@@ -758,7 +831,7 @@ button {
 
   border-radius: 8px;
 
-  border: 1px solid #ccc;
+  border: 1px solid var(--color-border);
 
   font: inherit;
 
@@ -774,7 +847,7 @@ button {
 .manager-card td {
   padding: 8px 4px;
 
-  border-bottom: 1px solid #ececec;
+  border-bottom: 1px solid var(--color-rule);
 }
 
 /* =======================================
@@ -872,7 +945,7 @@ button {
 
   border-radius: var(--radius-sm);
 
-  background: #f7f8fa;
+  background: var(--color-bg);
 }
 
 .day-ref summary {
@@ -912,7 +985,7 @@ button {
 
   padding: 8px 4px;
 
-  border-bottom: 1px solid #ececec;
+  border-bottom: 1px solid var(--color-rule);
 
   font-size: 0.85rem;
 }
@@ -928,7 +1001,7 @@ button {
 }
 
 .day-ref-date {
-  color: #666;
+  color: var(--color-muted);
 
   min-width: 78px;
 }
@@ -938,7 +1011,7 @@ button {
 
   min-width: 100px;
 
-  color: #333;
+  color: var(--color-text);
 }
 
 .day-ref-actions {
@@ -954,7 +1027,7 @@ button {
 
   border-radius: var(--radius-pill);
 
-  border: 1px solid #cbd2da;
+  border: 1px solid var(--color-border-strong);
 
   background: var(--color-surface);
 
@@ -966,7 +1039,7 @@ button {
 }
 
 .btn-mini:hover {
-  background: #eef1f4;
+  background: var(--color-primary-tint);
 
   border-color: var(--color-primary);
 }
@@ -1040,7 +1113,7 @@ button {
 
   font-size: 0.9rem;
 
-  color: #444;
+  color: var(--color-text-2);
 }
 
 .form-field-wide {
@@ -1052,7 +1125,7 @@ button {
 .form-hint {
   font-size: 0.78rem;
 
-  color: #888;
+  color: var(--color-muted);
 
   font-weight: normal;
 }
@@ -1064,7 +1137,7 @@ button {
 
   border-radius: 8px;
 
-  border: 1px solid #ccc;
+  border: 1px solid var(--color-border);
 
   font: inherit;
 }
@@ -1082,7 +1155,7 @@ button {
 
   font-size: 0.9rem;
 
-  color: #444;
+  color: var(--color-text-2);
 }
 
 /* =======================================
@@ -1104,7 +1177,7 @@ button {
   background:var(--color-surface);
   border-radius:12px;
   padding:24px;
-  box-shadow:0 3px 12px rgba(0,0,0,.08);
+  box-shadow:var(--shadow);
   display:flex;
   flex-direction:column;
   gap:10px;
@@ -1117,8 +1190,8 @@ button {
 .destination-card button{
   margin-top:auto;
   border:none;
-  background:#34495E;
-  color:white;
+  background:var(--color-primary);
+  color: var(--color-on-primary);
   padding:10px 18px;
   border-radius:8px;
   cursor:pointer;
@@ -1129,8 +1202,8 @@ button {
 }
 
 .destination-workspace .hero{
-  background:#34495E;
-  color:white;
+  background:var(--color-primary);
+  color: var(--color-on-primary);
   padding:40px;
   border-radius:12px;
   margin-bottom:20px;
@@ -1166,8 +1239,8 @@ button {
     left: 0;
     right: 0;
     bottom: 0;
-    background: var(--color-surface, #ffffff);
-    border-top: 1px solid var(--color-border, #e6ded0);
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border);
     box-shadow: 0 -4px 16px rgba(36, 52, 71, 0.06);
     z-index: 40;
     padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -1184,14 +1257,14 @@ button {
     gap: 3px;
     min-height: 56px;
     padding: 8px 0 10px;
-    color: var(--color-muted, #6b7280);
+    color: var(--color-muted);
     font-size: 11px;
     font-weight: 600;
   }
 
   .mnav-icon { font-size: 20px; line-height: 1; }
 
-  .mnav-tab.is-active { color: var(--color-primary, #34495e); }
+  .mnav-tab.is-active { color: var(--color-primary); }
 
   .mnav-tab.is-active .mnav-icon {
     position: relative;
@@ -1215,7 +1288,7 @@ button {
     left: 0;
     right: 0;
     bottom: 0;
-    background: var(--color-surface, #ffffff);
+    background: var(--color-surface);
     border-radius: 20px 20px 0 0;
     max-height: 80%;
     overflow: auto;
@@ -1227,14 +1300,14 @@ button {
     width: 40px;
     height: 4px;
     border-radius: 4px;
-    background: #d7cdbb;
+    background: var(--color-border-strong);
     margin: 8px auto;
   }
 
   .more-title {
     font-size: 17px;
     font-weight: 700;
-    color: var(--color-primary, #34495e);
+    color: var(--color-primary);
     padding: 4px 20px 6px;
   }
 
@@ -1243,7 +1316,7 @@ button {
     font-weight: 800;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--color-secondary, #c79c5d);
+    color: var(--color-secondary);
     padding: 14px 20px 4px;
   }
 
@@ -1258,7 +1331,7 @@ button {
     padding: 13px 20px;
     font-size: 15px;
     font-weight: 600;
-    color: var(--color-text, #243447);
+    color: var(--color-text);
     cursor: pointer;
   }
 
@@ -1266,5 +1339,5 @@ button {
 
   .more-ic { width: 24px; text-align: center; font-size: 18px; }
 
-  .more-danger { color: #b3261e; }
+  .more-danger { color: var(--color-danger); }
 }

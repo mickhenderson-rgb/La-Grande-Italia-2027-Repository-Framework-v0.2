@@ -198,13 +198,10 @@ const Sidebar = {
 
     const onPrimary = this.mobilePrimary.includes(current);
 
-    const tabs = this.mobilePrimary
-      .map((id) => this.menu.find((m) => m.id === id))
-      .filter(Boolean)
-      .map((item) => {
-        const label = this.mobileLabels[item.id] || item.title;
+    const renderTab = (item) => {
+      const label = this.mobileLabels[item.id] || item.title;
 
-        return `
+      return `
 
 <button class="mnav-tab ${current === item.id ? "is-active" : ""}" onclick="Sidebar.closeMore(); Router.navigate('${item.id}')">
 
@@ -215,14 +212,29 @@ const Sidebar = {
 </button>
 
 `;
-      })
-      .join("");
+    };
+
+    const primaryItems = this.mobilePrimary
+      .map((id) => this.menu.find((m) => m.id === id))
+      .filter(Boolean);
+
+    // Two tabs either side of the capture button, matching mobile.css's
+    // 6-column grid (2 tabs, FAB, 2 tabs, More).
+    const leftTabs = primaryItems.slice(0, 2).map(renderTab).join("");
+
+    const rightTabs = primaryItems.slice(2).map(renderTab).join("");
 
     return `
 
 <nav class="mobile-nav">
 
-    ${tabs}
+    ${leftTabs}
+
+    <div class="mnav-fab">
+        <button type="button" onclick="Sidebar.captureComingSoon()" aria-label="Capture">＋</button>
+    </div>
+
+    ${rightTabs}
 
     <button class="mnav-tab ${onPrimary ? "" : "is-active"}" onclick="Sidebar.toggleMore()">
 
@@ -235,6 +247,14 @@ const Sidebar = {
 </nav>
 
 `;
+  },
+
+  // Placeholder for the quick-capture sheet (Photo/Note/Spend) described in
+  // the mobile design handoff - the real Capture module is a separate,
+  // larger piece of work not built yet. This just keeps the button honest
+  // instead of a dead click or a ReferenceError.
+  captureComingSoon() {
+    alert("Quick capture (photo / note / spend) is coming in a future update.");
   },
 
   renderMoreSheet() {

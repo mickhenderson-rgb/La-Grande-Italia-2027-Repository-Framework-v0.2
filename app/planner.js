@@ -32,8 +32,6 @@ const Planner = {
 
     let html = `
 
-${this.snapshotStyles()}
-
 <div class="planner">
 
     <section class="hero">
@@ -1097,85 +1095,4 @@ ${this.snapshotStyles()}
     return `<a href="${this.esc(item.referenceImage.url)}" target="_blank" rel="noopener" class="trn-image-thumb"><img src="${this.esc(item.referenceImage.url)}" alt="Reference screenshot"></a>`;
   },
 
-  snapshotStyles() {
-    return `
-
-<style>
-
-.day-snap { margin: 10px 0; display: flex; flex-direction: column; gap: 8px; }
-
-.day-snap-empty { color: #7a7a7a; font-style: italic; margin: 8px 0; }
-
-.day-snap-section { border: 1px solid #e4ddd0; border-radius: var(--radius, 8px); overflow: hidden; background: #ffffff; }
-
-.day-snap-head { width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #f3eee6; border: none; cursor: pointer; text-align: left; font: inherit; }
-
-.snap-icon { font-size: 1.1em; }
-
-.snap-label { font-weight: 700; color: #34495E; }
-
-.snap-counts { margin-left: auto; font-size: 0.8em; color: #6b6357; }
-
-.snap-chev::after { content: "▼"; font-size: 0.7em; color: #6b6357; margin-left: 6px; }
-
-.day-snap-section.is-open .snap-chev::after { content: "▲"; }
-
-.day-snap-snippet { padding: 6px 12px; font-size: 0.85em; color: #555555; }
-
-.snap-more-hint { color: #C79C5D; font-weight: 600; }
-
-.snap-transition { display: inline-block; font-size: 0.72em; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-bottom: 4px; }
-
-.snap-transition.is-checkin { background: #e1f0e3; color: #2e7d4f; }
-
-.snap-transition.is-checkout { background: #fdebd0; color: #8a5a18; }
-
-.day-snap-section.is-open .day-snap-snippet { display: none; }
-
-.day-snap-body { display: none; padding: 4px 12px 12px; }
-
-.day-snap-section.is-open .day-snap-body { display: block; }
-
-.snap-item { border-top: 1px solid #efe9df; padding: 8px 0; }
-
-.snap-item:first-child { border-top: none; }
-
-.snap-item-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-
-.snap-item-title { font-weight: 600; color: #243447; cursor: pointer; text-decoration: underline dotted; }
-
-.snap-line { font-size: 0.85em; color: #444444; margin: 2px 0; }
-
-.snap-key { color: #8a5a18; font-weight: 600; }
-
-.snap-actions { margin-top: 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-
-.snap-actions button { font-size: 0.8em; padding: 3px 10px; }
-
-.snap-link { font-size: 0.8em; color: #C79C5D; font-weight: 600; }
-
-.snap-more { display: none; }
-
-.snap-more.is-open { display: block; }
-
-.snap-more-toggle { margin-top: 6px; font-size: 0.8em; background: none; border: none; color: #C79C5D; cursor: pointer; padding: 0; }
-
-.snap-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72em; font-weight: 700; white-space: nowrap; }
-
-.snap-badge.is-research { background: var(--status-research-bg); color: var(--status-research); }
-
-.snap-badge.is-shortlisted { background: var(--status-shortlisted-bg); color: var(--status-shortlisted); }
-
-.snap-badge.is-selected { background: var(--status-selected-bg); color: var(--status-selected); }
-
-.snap-badge.is-booked { background: var(--status-booked-bg); color: var(--status-booked); }
-
-.snap-badge.is-travel { background: var(--status-travel-bg); color: var(--status-travel); }
-
-.snap-badge.is-review { background: var(--status-review-bg); color: var(--status-review); }
-
-</style>
-
-`;
-  },
 };

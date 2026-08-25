@@ -1,1 +1,56 @@
-:root{--color-bg:#1b1f24;--color-primary:#4a6fa1;--color-primary-dark:#3d5c86;--color-secondary:#d9ae72;--color-text:#e8eaed;--color-muted:#9aa3ad;--color-surface:#262b31;--color-border:#3a4048;--shadow:0 3px 12px rgba(0,0,0,0.45);--shadow-sm:0 1px 4px rgba(0,0,0,0.4);--status-research:#c7ccd1;--status-research-bg:#3a3f45;--status-selected:#e3b273;--status-selected-bg:#4a3a1f;--status-booked:#7fd9a0;--status-booked-bg:#1f3a29;--status-shortlisted:#e0c98a;--status-shortlisted-bg:#453b1f;--status-travel:#8fe0ab;--status-travel-bg:#1c3524;--status-review:#9dc0ea;--status-review-bg:#1f2f45}body{background:#1b1f24;color:#e8eaed}.form-field input,.form-field select,.form-field textarea{background:var(--color-surface);color:var(--color-text);border-color:var(--color-border)}
+/*
+COMPASS-TOS - dark theme. Mirrors every token in core.css.
+Swapped in by app/theme.js via the #theme-style link.
+*/
+
+:root {
+  --color-bg: #1b1f24;
+  --color-bg-tint: #22272e;
+  --color-primary: #4a6fa1;
+  --color-primary-dark: #3d5c86;
+  --color-primary-deep: #161a1f;
+  --color-primary-tint: #2c333b;
+  --color-secondary: #d9ae72;
+  --color-text: #e8eaed;
+  --color-text-2: #c7ccd1;
+  --color-muted: #9aa3ad;
+  --color-surface: #262b31;
+  --color-border: #3a4048;
+  --color-border-strong: #4a515a;
+  --color-rule: #343a41;
+  --line: var(--color-rule);
+  --color-on-primary: #ffffff;
+
+  --sidebar-muted: #c7d2e0;
+  --sidebar-muted-2: #9aa3ad;
+
+  --color-danger: #f2837c;
+  --color-danger-bg: #3a2321;
+  --color-danger-border: #6b3a36;
+
+  --shadow: 0 3px 12px rgba(0, 0, 0, 0.45);
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.4);
+
+  --status-research: #c7ccd1;
+  --status-research-bg: #3a3f45;
+  --status-selected: #e3b273;
+  --status-selected-bg: #4a3a1f;
+  --status-booked: #7fd9a0;
+  --status-booked-bg: #1f3a29;
+  --status-shortlisted: #e0c98a;
+  --status-shortlisted-bg: #453b1f;
+  --status-travel: #8fe0ab;
+  --status-travel-bg: #1c3524;
+  --status-review: #9dc0ea;
+  --status-review-bg: #1f2f45;
+}
+
+body { background: var(--color-bg); color: var(--color-text); }
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}

@@ -1,13 +1,51 @@
+/*
+=========================================================
+
+COMPASS-TOS
+
+Core tokens
+
+Version 2.0
+
+Every colour, radius, shadow and font in the app resolves
+through one of these variables. components.css no longer
+contains a single literal colour - if you need a new one,
+add it here and to themes/dark.css together, or the dark
+theme silently keeps the light value.
+
+=========================================================
+*/
+
 :root {
+  /* Type */
+  --font-body: "Segoe UI", Arial, sans-serif;
+
   /* Brand palette */
   --color-bg: #F8F5F0;
+  --color-bg-tint: #f3eee6;          /* section headers, snapshot strips */
   --color-primary: #34495E;
   --color-primary-dark: #2b3d4f;
+  --color-primary-deep: #243447;     /* sidebar, header buttons, PWA theme-color */
+  --color-primary-tint: #eef1f4;     /* secondary-button hover */
   --color-secondary: #C79C5D;
   --color-text: #2C3E50;
+  --color-text-2: #444444;           /* form labels, snapshot detail lines */
   --color-muted: #6b7280;
   --color-surface: #ffffff;
   --color-border: #e2e5ea;
+  --color-border-strong: #cbd2da;    /* mini buttons, sheet handle */
+  --color-rule: #ececec;             /* table and list-row hairlines */
+  --line: var(--color-rule);         /* index.html tables reference this */
+  --color-on-primary: #ffffff;       /* text and icons on a primary fill */
+
+  /* Sidebar chrome (dark surface in both themes) */
+  --sidebar-muted: #c7d2e0;
+  --sidebar-muted-2: #9fb0c7;
+
+  /* Danger */
+  --color-danger: #b3261e;
+  --color-danger-bg: #fbeae9;
+  --color-danger-border: #e6b4b0;
 
   /* Shape */
   --radius: 14px;
@@ -23,7 +61,7 @@
   --space-4: 24px;
   --space-5: 32px;
 
-  /* Status colours (Research / Selected / Booked) */
+  /* Status colours (Research / Shortlisted / Selected / Booked / Travel / Review) */
   --status-research: #55606b;
   --status-research-bg: #eceef1;
   --status-selected: #8a5a18;

@@ -1,0 +1,342 @@
+/*
+=========================================================
+
+COMPASS-TOS
+
+Mobile layout layer
+
+Version 1.0
+
+Loaded AFTER components.css. Everything here is scoped to
+(max-width: 1000px) - the same breakpoint at which the
+sidebar already hides and Sidebar.renderBottomBar() takes
+over, so desktop is untouched by design, not by luck.
+
+This file is pure CSS on the existing class names: drop it
+in and the current markup gets most of the mobile design
+with no JS changes. The three places that need markup are
+listed in the handoff README under "Markup changes".
+
+=========================================================
+*/
+
+@media (max-width: 1000px) {
+
+  /* ── Shell ─────────────────────────────────────────── */
+
+  .app-content {
+    padding: 0 0 92px;
+  }
+
+  .app-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding: 14px 18px;
+    padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  }
+
+  .app-title {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .app-actions button {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  /* ── Hero: full-bleed, half the height ─────────────── */
+
+  .hero,
+  .destination-workspace .hero {
+    padding: 24px 20px 26px;
+    margin: 0 0 18px;
+    border-radius: 0 0 26px 26px;
+  }
+
+  .hero h1,
+  .destination-workspace .hero h1 {
+    font-size: 30px;
+    line-height: 1.1;
+  }
+
+  .hero h2,
+  .destination-workspace .hero h2 {
+    font-size: 19px;
+    margin-top: 12px;
+  }
+
+  .hero p {
+    font-size: 13px;
+    margin: 8px 0 0;
+  }
+
+  /* Quick-links inside a hero become a scrolling row, not a wrap-heap */
+  .hero .quick-links {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    gap: 8px;
+    margin: 16px -20px 0;
+    padding: 0 20px;
+  }
+
+  .hero .quick-links::-webkit-scrollbar { display: none; }
+
+  .hero .quick-links button {
+    flex: none;
+    min-height: 44px;
+    white-space: nowrap;
+  }
+
+  /* ── Cards: flatter, edge-to-edge gutters ──────────── */
+
+  .summary-grid,
+  .status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0 18px 18px;
+  }
+
+  .summary-card,
+  .status-box {
+    padding: 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: none;
+  }
+
+  .summary-card h3 {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--status-selected);
+    margin: 0 0 8px;
+  }
+
+  .summary-card p {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.15;
+  }
+
+  .planner,
+  .manager,
+  .dashboard > .planner-buttons {
+    margin: 0 18px;
+  }
+
+  .planner-day,
+  .timeline-card,
+  .workspace-panel,
+  .manager-card,
+  .destination-card,
+  .day-item {
+    padding: 16px;
+    margin-bottom: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: none;
+  }
+
+  .workspace-grid,
+  .manager-grid,
+  .destination-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin: 0 18px;
+  }
+
+  .planner-day-header {
+    margin-bottom: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--status-selected);
+  }
+
+  .planner-day h3,
+  .workspace-panel h3 {
+    font-size: 18px;
+    margin: 0 0 6px;
+  }
+
+  .planner-day p {
+    margin: 4px 0;
+    font-size: 13px;
+    color: var(--color-muted);
+  }
+
+  /* ── Buttons: one primary per card, 44px targets ───── */
+
+  .btn,
+  .manager-card button,
+  .research-actions button,
+  .planner-buttons button,
+  .timeline-buttons button,
+  .workspace-panel button,
+  .destination-card button {
+    min-height: 44px;
+    padding: 12px 18px;
+    border-radius: var(--radius-pill);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .planner-buttons,
+  .timeline-buttons,
+  .research-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  /* A day card offers ONE action on a phone. The rest move into the
+     day itself - see "Markup changes" note 2 in the README. Until
+     that lands, this collapses the five-button pile-up to the first. */
+  .planner-day > .planner-buttons > button:not(:first-child) {
+    display: none;
+  }
+
+  .planner-day > .planner-buttons > button:first-child {
+    width: 100%;
+  }
+
+  /* ── Forms: no zoom-on-focus, full width ───────────── */
+
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin: 0 18px;
+  }
+
+  .form-field input,
+  .form-field select,
+  .form-field textarea {
+    font-size: 16px; /* < 16px makes iOS Safari zoom the viewport */
+    min-height: 44px;
+    padding: 12px 14px;
+  }
+
+  /* ── Day snapshot strips ───────────────────────────── */
+
+  .day-snap-head {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+
+  .snap-actions button {
+    min-height: 36px;
+    font-size: 12px;
+  }
+
+  /* ── Bottom bar + capture button ────────────────────
+     The FAB needs one markup change (README note 1); this styles it.
+     6 columns, not the handoff's 5 - "More" is kept (it's the only route
+     to Budget/Settings/etc. on mobile until Part 3 gives it a new home). */
+
+  .mobile-nav {
+    grid-template-columns: 1fr 1fr 66px 1fr 1fr 1fr;
+    align-items: end;
+  }
+
+  .mnav-tab {
+    position: relative;
+    gap: 5px;
+    font-size: 9.5px;
+    letter-spacing: 0.05em;
+  }
+
+  .mnav-tab.is-active {
+    font-weight: 700;
+  }
+
+  /* Active marker sits on the top edge, in the brand's gold */
+  .mnav-tab.is-active::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 26px;
+    height: 2.5px;
+    border-radius: 0 0 3px 3px;
+    background: var(--color-secondary);
+  }
+
+  .mnav-fab {
+    display: flex;
+    justify-content: center;
+    padding-bottom: 6px;
+  }
+
+  .mnav-fab button {
+    width: 54px;
+    height: 54px;
+    margin-top: -18px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--color-secondary);
+    color: var(--color-on-primary);
+    font-size: 24px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 16px rgba(199, 156, 93, 0.45);
+    cursor: pointer;
+  }
+
+  .mnav-fab button:active {
+    filter: brightness(1.08);
+  }
+
+  /* ── Landing / trip switcher ───────────────────────── */
+
+  .landing {
+    margin: 0 auto;
+    padding: calc(40px + env(safe-area-inset-top, 0px)) 20px 40px;
+  }
+
+  .landing-header h1 {
+    font-size: 1.6rem;
+  }
+
+  .landing-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .landing-card {
+    padding: 20px;
+    text-align: left;
+    box-shadow: none;
+    border: 1px solid var(--color-border);
+  }
+
+  .landing-card button {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+/* Phones, as opposed to tablets: single-column stats too */
+@media (max-width: 430px) {
+  .summary-grid,
+  .status-grid {
+    grid-template-columns: 1fr;
+  }
+}

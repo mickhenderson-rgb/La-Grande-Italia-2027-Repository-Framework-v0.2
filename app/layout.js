@@ -35,6 +35,14 @@ const Layout = {
       .replace(/"/g, "&quot;");
   },
 
+  // Placeholder for the Planning/Travel/Journal phase sheet from the
+  // mobile design handoff - the real Phase module (auto-derives the phase
+  // from trip dates, persists a manual override) isn't built yet. Keeps
+  // the chip honest instead of a dead click or a ReferenceError.
+  phaseSheetComingSoon() {
+    alert("Trip phase (Planning / Travel / Journal) is coming in a future update.");
+  },
+
   render(content) {
     const name = this.tripName();
 
@@ -59,6 +67,10 @@ const Layout = {
             </div>
 
             <div class="app-actions">
+
+                <button id="phaseChip" class="phase-chip" onclick="Layout.phaseSheetComingSoon()">
+                    <span id="phaseLabel">Planning</span>
+                </button>
 
                 <button id="themeButton" onclick="Theme.toggle()">
 
