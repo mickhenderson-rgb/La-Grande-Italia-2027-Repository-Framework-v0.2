@@ -231,7 +231,7 @@ const Sidebar = {
     ${leftTabs}
 
     <div class="mnav-fab">
-        <button type="button" onclick="Sidebar.captureComingSoon()" aria-label="Capture">＋</button>
+        <button type="button" onclick="Capture.open()" aria-label="Capture">${Phase.current() === "Travel" ? "📷" : "＋"}</button>
     </div>
 
     ${rightTabs}
@@ -247,14 +247,6 @@ const Sidebar = {
 </nav>
 
 `;
-  },
-
-  // Placeholder for the quick-capture sheet (Photo/Note/Spend) described in
-  // the mobile design handoff - the real Capture module is a separate,
-  // larger piece of work not built yet. This just keeps the button honest
-  // instead of a dead click or a ReferenceError.
-  captureComingSoon() {
-    alert("Quick capture (photo / note / spend) is coming in a future update.");
   },
 
   renderMoreSheet() {

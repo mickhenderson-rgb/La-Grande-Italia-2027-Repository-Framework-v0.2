@@ -3,102 +3,48 @@
 
 COMPASS-TOS
 
-Dashboard
+Dashboard ("Today")
 
-Sprint 1
+Version 2.0.0
+
+Phase-aware landing screen: a countdown/progress hero,
+weather + currency at a glance, the next Booked thing
+("Locked in"), up to three still-undecided bookings
+("Waiting on you"), and a route strip of overnight stops.
+
+The countdown number/label adapts per phase - the design
+brief only specified the Planning-phase wording ("days
+until <first city>"); Travel and Journal are this session's
+own reasonable extension of the same idea, not a literal
+part of the handoff.
 
 =========================================================
 */
 
 const Dashboard = {
   render() {
-    const projectData = Project.get("project");
+    const trip = this.trip();
 
-    const trip = (projectData && projectData.project) || {};
-
-    const budget = Project.get("budget");
+    const phase = Phase.current();
 
     return `
 
 <div class="dashboard">
 
-    <section class="hero">
+    ${this.renderHero(trip, phase)}
 
-        <h1>
+    <div class="dash-pair">
+        <div class="manager-card" id="dash-weather-card">${this.renderWeatherCard()}</div>
+        <div class="manager-card" id="dash-currency-card">${this.renderCurrencyCard()}</div>
+    </div>
 
-            COMPASS
+    ${this.renderLockedIn()}
 
-        </h1>
+    ${this.renderWaitingOnYou()}
 
-        <p class="subtitle">
+    ${this.renderRoute()}
 
-            Travel Operating System
-
-        </p>
-
-        <h2>
-
-            ${this.esc(trip.name || "Untitled Trip")}
-
-        </h2>
-
-        ${trip.subtitle ? `<p class="subtitle">${this.esc(trip.subtitle)}</p>` : ""}
-
-    </section>
-
-    <section class="summary-grid">
-
-        <div class="summary-card">
-
-            <h3>Departure</h3>
-
-            <p id="departureDate">
-
-                ${this.formatDate(trip.departureDate)}
-
-            </p>
-
-        </div>
-
-        <div class="summary-card">
-
-            <h3>Countdown</h3>
-
-            <p id="countdown">
-
-                Calculating...
-
-            </p>
-
-        </div>
-
-        <div class="summary-card">
-
-            <h3>Budget Estimate</h3>
-
-            <p>
-
-                ${this.renderBudgetSummary(budget)}
-
-            </p>
-
-        </div>
-
-        <div class="summary-card">
-
-            <h3>Progress</h3>
-
-            <p>
-
-                ${this.renderProgress(trip.progress)}
-
-            </p>
-
-        </div>
-
-    </section>
-
-    <div class="planner-buttons">
+    <div class="planner-buttons desktop-only">
 
         <button type="button" onclick="TripExport.open()">📤 Export for AI Research</button>
 
@@ -111,29 +57,489 @@ const Dashboard = {
 `;
   },
 
-  renderBudgetSummary(budget) {
-    if (!budget || typeof budget.estimate_low !== "number") {
-      return "Not set";
-    }
+  initialise() {
+    this.loadLiveWeather();
 
-    const currency = budget.currency || "";
-
-    return `${currency} ${budget.estimate_low.toLocaleString()} - ${budget.estimate_high.toLocaleString()}`;
+    this.loadLiveCurrency();
   },
 
-  renderProgress(progress) {
-    if (!progress || !progress.flights) {
-      return "Not started";
-    }
+  trip() {
+    const projectData = Project.get("project");
 
-    return `Flights: ${progress.flights}`;
+    return (projectData && projectData.project) || {};
   },
 
-  formatDate(dateString) {
-    if (!dateString) {
-      return "Not set";
+  journeyDays() {
+    const journey = Project.get("journey");
+
+    return journey && Array.isArray(journey.days) ? journey.days : [];
+  },
+
+  // --- Hero: countdown + progress rail ---
+
+  renderHero(trip, phase) {
+    const days = this.journeyDays();
+
+    const firstCity = days.length > 0 ? this.pretty(days[0].location || days[0].overnight) : "";
+
+    const countdown = this.countdown(trip, phase, days);
+
+    return `
+
+<section class="hero dash-hero">
+
+    <div class="dash-hero-top">
+        <h2>${this.esc(trip.name || "Untitled Trip")}</h2>
+    </div>
+
+    <div class="dash-countdown-number">${countdown.number}</div>
+
+    <div class="dash-countdown-label"><em>${this.esc(countdown.label)}</em></div>
+
+    <p class="dash-departure-line">${this.esc(this.departureLine(trip, days))}</p>
+
+    ${this.renderProgressRail()}
+
+</section>
+
+`;
+  },
+
+  countdown(trip, phase, days) {
+    if (!trip.departureDate) {
+      return { number: "–", label: "no departure date set" };
     }
 
+    if (phase === "Planning") {
+      const diffDays = this.daysBetween(this.todayISO(), trip.departureDate);
+
+      const firstCity = days.length > 0 ? this.pretty(days[0].location || days[0].overnight) : "your trip";
+
+      return { number: String(Math.max(diffDays, 0)), label: `days until ${firstCity}` };
+    }
+
+    if (phase === "Travel") {
+      const today = this.todayISO();
+
+      const current = days.find((d) => d.date === today);
+
+      const dayNumber = current ? current.day : Math.max(1, this.daysBetween(trip.departureDate, today) + 1);
+
+      return { number: String(dayNumber), label: `of ${days.length || "?"} days` };
+    }
+
+    // Journal phase - trip is over.
+    const sinceReturn = trip.returnDate ? this.daysBetween(trip.returnDate, this.todayISO()) : null;
+
+    return {
+      number: sinceReturn !== null && sinceReturn > 0 ? String(sinceReturn) : "✓",
+      label: sinceReturn !== null && sinceReturn > 0 ? "days since you got back" : "trip complete",
+    };
+  },
+
+  departureLine(trip, days) {
+    if (!trip.departureDate) {
+      return "";
+    }
+
+    const dateLabel = this.formatDateLong(trip.departureDate);
+
+    const firstFlight = this.liveItems("flights", days.length > 0 ? days[0].day : 1)[0];
+
+    if (firstFlight) {
+      const arrival = Flights.overallArrival(firstFlight);
+
+      if (arrival.time) {
+        const where = arrival.location ? ` ${arrival.location}` : "";
+
+        return `${dateLabel} · lands${where} ${arrival.time}`;
+      }
+    }
+
+    return dateLabel;
+  },
+
+  renderProgressRail() {
+    const segments = [
+      { key: "flights", label: "Flights" },
+      { key: "accommodation", label: "Stay" },
+      { key: "transport", label: "Rail" },
+      { key: "activities", label: "Days" },
+      { key: "restaurants", label: "Table" },
+    ];
+
+    const bars = segments
+      .map((seg) => {
+        const items = this.allItems(seg.key);
+
+        const hasBooked = items.some((item) => item.status === "Booked" || item.status === "Travel" || item.status === "Review");
+
+        return `<div class="dash-rail-segment ${hasBooked ? "is-booked" : ""}" title="${seg.label}"></div>`;
+      })
+      .join("");
+
+    return `<div class="dash-rail">${bars}</div>`;
+  },
+
+  // --- Weather + Currency pair ---
+
+  renderWeatherCard() {
+    const days = this.journeyDays();
+
+    const locationId = this.currentOrNextDestination(days);
+
+    if (!locationId) {
+      return `<h3>Weather</h3><p class="dash-card-meta">No destination set yet.</p>`;
+    }
+
+    const seasonal = typeof Weather !== "undefined" ? Weather.getSeasonal(locationId) : null;
+
+    const seasonalLine = seasonal
+      ? `${seasonal.average_low ?? "?"}–${seasonal.average_high ?? "?"}°C typical`
+      : "No seasonal data saved.";
+
+    return `
+
+<h3>Weather · ${this.pretty(locationId)}</h3>
+
+<p class="dash-card-value" id="dash-weather-value">${seasonalLine}</p>
+
+<p class="dash-card-meta" id="dash-weather-meta">Checking live forecast…</p>
+
+`;
+  },
+
+  async loadLiveWeather() {
+    const days = this.journeyDays();
+
+    const locationId = this.currentOrNextDestination(days);
+
+    const metaEl = document.getElementById("dash-weather-meta");
+
+    if (!locationId || !metaEl || typeof Data === "undefined") {
+      return;
+    }
+
+    try {
+      const detail = await Data.loadJSON(`data/projects/${Data.currentProjectFolder}/destinations/${locationId}.json`);
+
+      const coords = detail && detail.coordinates;
+
+      if (!coords || coords.latitude === null || coords.longitude === null) {
+        metaEl.textContent = "No live forecast available.";
+
+        return;
+      }
+
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${coords.latitude}&longitude=${coords.longitude}&current_weather=true&timezone=auto`;
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`Open-Meteo responded ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      const temp = data && data.current_weather ? data.current_weather.temperature : null;
+
+      metaEl.textContent = temp !== null ? `${temp}° right now` : "No live forecast available.";
+    } catch (error) {
+      console.error("Dashboard weather fetch failed:", error);
+
+      metaEl.textContent = "No live forecast available.";
+    }
+  },
+
+  renderCurrencyCard() {
+    const trip = this.trip();
+
+    const home = String(trip.currency || "USD").toUpperCase();
+
+    const display = typeof Currency !== "undefined" ? Currency.displayCurrency() : home;
+
+    if (home === display) {
+      return `<h3>Currency</h3><p class="dash-card-value">${home}</p><p class="dash-card-meta">All amounts shown in your home currency.</p>`;
+    }
+
+    return `
+
+<h3>Currency</h3>
+
+<p class="dash-card-value" id="dash-currency-value">1 ${home} = …</p>
+
+<p class="dash-card-meta">Live rate to ${display}</p>
+
+`;
+  },
+
+  async loadLiveCurrency() {
+    const trip = this.trip();
+
+    const home = String(trip.currency || "USD").toUpperCase();
+
+    const display = typeof Currency !== "undefined" ? Currency.displayCurrency() : home;
+
+    const valueEl = document.getElementById("dash-currency-value");
+
+    if (!valueEl || home === display || typeof Currency === "undefined") {
+      return;
+    }
+
+    try {
+      const rates = await Currency.fetchRates(home, [display]);
+
+      const rate = rates[display];
+
+      valueEl.textContent = rate ? `1 ${home} = ${rate.toFixed(2)} ${display}` : "Rate unavailable";
+    } catch (error) {
+      console.error("Dashboard currency fetch failed:", error);
+
+      valueEl.textContent = "Rate unavailable";
+    }
+  },
+
+  currentOrNextDestination(days) {
+    if (days.length === 0) {
+      return "";
+    }
+
+    const today = this.todayISO();
+
+    const current = days.find((d) => d.date === today);
+
+    if (current) {
+      return current.location || current.overnight || "";
+    }
+
+    return days[0].location || days[0].overnight || "";
+  },
+
+  // --- Locked in: the next Booked flight/transport item ---
+
+  renderLockedIn() {
+    const candidates = [
+      ...this.allItems("flights").filter((i) => i.status === "Booked").map((i) => ({ item: i, date: Flights.overallDeparture(i).date, kind: "flight" })),
+      ...this.allItems("transport").filter((i) => i.status === "Booked").map((i) => ({ item: i, date: i.schedule && i.schedule.date, kind: "transport" })),
+    ].filter((c) => c.date);
+
+    const today = this.todayISO();
+
+    candidates.sort((a, b) => a.date.localeCompare(b.date));
+
+    const next = candidates.find((c) => c.date >= today) || candidates[candidates.length - 1];
+
+    if (!next) {
+      return "";
+    }
+
+    const label = next.kind === "flight"
+      ? Flights.routeSummary(next.item)
+      : `${next.item.mode || "Transport"}: ${[next.item.from, next.item.to].filter(Boolean).join(" → ")}`;
+
+    const dep = next.kind === "flight" ? Flights.overallDeparture(next.item) : (next.item.schedule || {});
+
+    const arr = next.kind === "flight" ? Flights.overallArrival(next.item) : {};
+
+    return `
+
+<div class="manager-card dash-locked-in">
+
+    <h3>Locked in</h3>
+
+    <div class="dash-locked-row">
+        <div>
+            <div class="dash-locked-time">${this.esc(dep.time || "")}</div>
+            <div class="dash-locked-place">${this.esc(dep.location || dep.date || "")}</div>
+        </div>
+        <div class="dash-locked-arrow">→</div>
+        <div>
+            <div class="dash-locked-time">${this.esc(arr.time || "")}</div>
+            <div class="dash-locked-place">${this.esc(arr.location || "")}</div>
+        </div>
+    </div>
+
+    <p class="dash-card-meta">${this.esc(label)}</p>
+
+</div>
+
+`;
+  },
+
+  // --- Waiting on you: up to 3 unbooked decisions, soonest first ---
+
+  waitingCopy(collectionKey, item) {
+    if (collectionKey === "accommodation") {
+      return `Where you sleep in ${this.pretty(item.destination)}`;
+    }
+
+    if (collectionKey === "activities") {
+      return `${item.name || "Something to do"} in ${this.pretty(item.destination)}`;
+    }
+
+    if (collectionKey === "restaurants") {
+      return `Where you'll eat in ${this.pretty(item.destination)}`;
+    }
+
+    if (collectionKey === "transport") {
+      return [item.from, item.to].filter(Boolean).join(" → ") || "Getting between destinations";
+    }
+
+    if (collectionKey === "flights") {
+      return `Flight to ${Flights.overallTo(item) || "your next stop"}`;
+    }
+
+    return item.name || "A decision";
+  },
+
+  renderWaitingOnYou() {
+    const unbookedStatuses = ["Research", "Shortlisted", "Selected"];
+
+    const icons = { accommodation: "🛏", activities: "🎯", restaurants: "🍝", transport: "🚗", flights: "✈" };
+
+    const decisions = [];
+
+    ["accommodation", "activities", "restaurants", "transport", "flights"].forEach((key) => {
+      this.allItems(key)
+        .filter((item) => unbookedStatuses.includes(item.status))
+        .forEach((item) => {
+          const day = Array.isArray(item.dayRange) ? item.dayRange[0] : item.day;
+
+          decisions.push({ key, item, day: day || 999, icon: icons[key] });
+        });
+    });
+
+    decisions.sort((a, b) => a.day - b.day);
+
+    const top = decisions.slice(0, 3);
+
+    if (top.length === 0) {
+      return "";
+    }
+
+    const rows = top
+      .map((d) => `
+
+<div class="dash-waiting-row" onclick="${this.editAction(d.key, d.item.id)}">
+    <span class="dash-waiting-icon">${d.icon}</span>
+    <span class="dash-waiting-text">
+        <span class="dash-waiting-title">${this.esc(this.waitingCopy(d.key, d.item))}</span>
+        <span class="dash-waiting-meta">Day ${d.day === 999 ? "?" : d.day}</span>
+    </span>
+    <span class="dash-waiting-chev">›</span>
+</div>
+
+`)
+      .join("");
+
+    return `
+
+<div class="manager-card">
+
+    <h3>Waiting on you</h3>
+
+    ${rows}
+
+</div>
+
+`;
+  },
+
+  editAction(collectionKey, id) {
+    const modules = { accommodation: "Accommodation", activities: "Activities", restaurants: "Restaurants", transport: "Transport", flights: "Flights" };
+
+    return `${modules[collectionKey]}.edit('${id}')`;
+  },
+
+  // --- Route: overnight stops with night counts ---
+
+  renderRoute() {
+    const stops = this.computeStops();
+
+    if (stops.length === 0) {
+      return "";
+    }
+
+    const chips = stops
+      .map((stop) => {
+        const nights = stop.dayRange[1] - stop.dayRange[0] + 1;
+
+        return `<div class="dash-route-chip"><div class="dash-route-place">${this.pretty(stop.location)}</div><div class="dash-route-nights">${nights} night${nights === 1 ? "" : "s"}</div></div>`;
+      })
+      .join("");
+
+    return `<div class="dash-route-strip">${chips}</div>`;
+  },
+
+  // Same grouping rule as TripMap.computeStops() (consecutive days at the
+  // same overnight location = one stop) - a smaller standalone copy since
+  // TripMap's version needs its own module state (coords, status) set up
+  // first and this only needs the location + night count.
+  computeStops() {
+    const stops = [];
+
+    let current = null;
+
+    this.journeyDays().forEach((day) => {
+      const overnight = String(day.overnight || "").toLowerCase();
+
+      if (!overnight || overnight === "flight") {
+        if (current) {
+          stops.push(current);
+
+          current = null;
+        }
+
+        return;
+      }
+
+      if (current && current.location === overnight) {
+        current.dayRange[1] = day.day;
+      } else {
+        if (current) {
+          stops.push(current);
+        }
+
+        current = { location: overnight, dayRange: [day.day, day.day] };
+      }
+    });
+
+    if (current) {
+      stops.push(current);
+    }
+
+    return stops;
+  },
+
+  // --- Small data helpers ---
+
+  allItems(collectionKey) {
+    const data = Project.get(collectionKey);
+
+    return data && Array.isArray(data.items) ? data.items : [];
+  },
+
+  liveItems(collectionKey, dayNumber) {
+    if (collectionKey === "flights") {
+      return this.allItems("flights").filter((item) => item.day === dayNumber);
+    }
+
+    return Planner.matchByDayRange(Project.get(collectionKey), dayNumber);
+  },
+
+  todayISO() {
+    return Phase.todayISO();
+  },
+
+  daysBetween(fromISO, toISO) {
+    const from = new Date(fromISO + "T00:00:00Z");
+
+    const to = new Date(toISO + "T00:00:00Z");
+
+    return Math.round((to - from) / 86400000);
+  },
+
+  formatDateLong(dateString) {
     const date = new Date(dateString + "T00:00:00Z");
 
     if (isNaN(date.getTime())) {
@@ -141,46 +547,25 @@ const Dashboard = {
     }
 
     return date.toLocaleDateString(undefined, {
+      weekday: "short",
       day: "numeric",
-      month: "long",
+      month: "short",
       year: "numeric",
       timeZone: "UTC",
     });
   },
 
+  pretty(value) {
+    return String(value || "")
+      .replaceAll("-", " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  },
+
   esc(value) {
-    return String(value ?? "").replace(/"/g, "&quot;");
-  },
-
-  initialise() {
-    this.updateCountdown();
-  },
-
-  updateCountdown() {
-    const projectData = Project.get("project");
-
-    const trip = (projectData && projectData.project) || {};
-
-    const target = document.getElementById("countdown");
-
-    if (!target) {
-      return;
-    }
-
-    if (!trip.departureDate) {
-      target.textContent = "No date set";
-
-      return;
-    }
-
-    const departure = new Date(trip.departureDate + "T00:00:00Z");
-
-    const today = new Date();
-
-    const diff = departure - today;
-
-    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-
-    target.textContent = days >= 0 ? `${days} Days` : `${Math.abs(days)} Days Ago`;
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   },
 };

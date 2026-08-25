@@ -1340,4 +1340,245 @@ button {
   .more-ic { width: 24px; text-align: center; font-size: 18px; }
 
   .more-danger { color: var(--color-danger); }
+
+/* =======================================
+   Phase chip (header)
+======================================= */
+
+.phase-chip {
+  font-size: 13px;
+}
+
+/* =======================================
+   Dashboard "Today"
+======================================= */
+
+.desktop-only { display: block; }
+
+.dash-hero { text-align: left; }
+
+.dash-hero-top h2 { margin: 0; font-size: 20px; font-weight: 700; }
+
+.dash-countdown-number {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 64px;
+  line-height: 0.9;
+  margin-top: 12px;
+}
+
+.dash-countdown-label {
+  color: var(--color-on-primary);
+  opacity: 0.85;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.dash-departure-line {
+  opacity: 0.85;
+  font-size: 13px;
+  margin-top: 10px;
+}
+
+.dash-rail {
+  display: flex;
+  gap: 4px;
+  margin-top: 18px;
+}
+
+.dash-rail-segment {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.dash-rail-segment.is-booked { background: var(--color-secondary); }
+
+.dash-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 18px 0;
+}
+
+.dash-pair .manager-card h3 { margin: 0 0 6px; font-size: 13px; }
+
+.dash-card-value { font-size: 20px; font-weight: 700; margin: 0; }
+
+.dash-card-meta { font-size: 12px; color: var(--color-muted); margin: 4px 0 0; }
+
+.dash-locked-in h3 { margin: 0 0 10px; }
+
+.dash-locked-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.dash-locked-time { font-family: Georgia, "Times New Roman", serif; font-size: 20px; font-weight: 700; }
+
+.dash-locked-place { font-size: 12px; color: var(--color-muted); }
+
+.dash-locked-arrow { color: var(--color-muted); }
+
+.dash-waiting-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-rule);
+  cursor: pointer;
+}
+
+.dash-waiting-row:first-of-type { border-top: none; }
+
+.dash-waiting-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.dash-waiting-text { flex: 1; display: flex; flex-direction: column; }
+
+.dash-waiting-title { font-size: 13.5px; font-weight: 600; }
+
+.dash-waiting-meta { font-size: 11px; color: var(--color-muted); }
+
+.dash-waiting-chev { color: var(--color-muted); }
+
+.dash-route-strip {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 0 12px;
+  margin-bottom: 8px;
+}
+
+.dash-route-chip {
+  flex: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  min-width: 96px;
+}
+
+.dash-route-place { font-size: 12.5px; font-weight: 700; }
+
+.dash-route-nights { font-size: 11px; color: var(--color-muted); margin-top: 2px; }
+
+/* =======================================
+   Day workspace - "Today" shape
+======================================= */
+
+.day-transitions { margin: 10px 0; display: flex; flex-direction: column; gap: 6px; }
+
+.day-transition-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--color-bg-tint);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.day-now-card {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin: 14px 0;
+}
+
+.day-now-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.day-now-time {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 32px;
+  margin-top: 8px;
+}
+
+.day-now-title { font-size: 15px; margin-top: 4px; }
+
+.day-now-card .planner-buttons button {
+  background: var(--color-on-primary);
+  color: var(--color-primary);
+}
+
+.day-later { margin: 14px 0; }
+
+.day-later h3 { font-size: 13px; margin: 0 0 8px; }
+
+.day-later-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-rule);
+  cursor: pointer;
+}
+
+.day-later-row:first-of-type { border-top: none; }
+
+.day-later-time { font-family: Georgia, "Times New Roman", serif; font-size: 14px; min-width: 48px; }
+
+.day-later-title { font-size: 13.5px; }
+
+.day-capture-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.day-capture-tile {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 14px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.day-capture-icon { font-size: 22px; }
+
+.day-dashed-prompt {
+  width: 100%;
+  background: none;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius);
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-muted);
+  font-size: 13.5px;
+  cursor: pointer;
+  font: inherit;
+}
+
+@media (max-width: 1000px) {
+  .desktop-only { display: none; }
+
+  .dash-pair { grid-template-columns: 1fr; }
+}
 }
