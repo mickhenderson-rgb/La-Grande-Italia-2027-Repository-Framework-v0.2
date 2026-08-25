@@ -11,13 +11,28 @@ Build 23
 
 Caching rules, deliberately conservative:
 
-- App shell (HTML/CSS/JS/icons): stale-while-revalidate -
-  serves the cached copy immediately (fast, works offline),
-  but always fetches a fresh copy in the background and
-  updates the cache for next time. A pure cache-first
-  strategy was tried first but meant updates were NEVER
-  seen by a returning visitor until the cache name changed -
-  this fixes that while keeping offline support.
+- App shell (HTML/CSS/JS/icons): CACHE-FIRST against a
+  versioned cache. Within one CACHE_NAME, every file is
+  fetched from the network exactly once and then served
+  from cache forever - so a page is always built from ONE
+  coherent version of the app, never a mix.
+
+  History: stale-while-revalidate was used here before, and
+  it caused a real production incident (v1.6.0 deploy) -
+  SWR refreshes cached files one at a time in the
+  background, so after a deploy a returning visitor got a
+  MIX of old and new files (new components.css with old
+  core.css = unreadable text; old JS with new markup =
+  broken pages). Cache-first can't mix versions by
+  construction. The reason cache-first "didn't work" the
+  first time it was tried (updates never reached visitors)
+  wasn't the strategy - it was two missing pieces that now
+  exist: server.js sends no-cache headers on
+  service-worker.js + index.html (so a new SW is detected
+  promptly), and index.html reloads once on controllerchange
+  (so the update actually lands without a manual refresh).
+  Every deploy MUST bump CACHE_NAME - that's what makes the
+  new version reach users at all.
 
 - Trip data (data/projects/.../*.json): network-first,
   falling back to the last cached copy only if the network
@@ -32,7 +47,7 @@ Caching rules, deliberately conservative:
 =========================================================
 */
 
-const CACHE_NAME = "compass-tos-v46";
+const CACHE_NAME = "compass-tos-v47";
 
 const APP_SHELL = [
   "./",
@@ -102,35 +117,33 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  event.respondWith(staleWhileRevalidate(event.request));
+  event.respondWith(cacheFirst(event.request));
 });
 
-async function staleWhileRevalidate(request) {
+async function cacheFirst(request) {
   const cached = await caches.match(request);
 
-  const networkFetch = fetch(request)
-    .then(async (response) => {
-      if (response.ok) {
-        const cache = await caches.open(CACHE_NAME);
-
-        cache.put(request, response.clone());
-      }
-
-      return response;
-    })
-    .catch(() => null);
-
   if (cached) {
-    // Don't block on the network response, but let it update the cache
-    // in the background for next time.
-    networkFetch;
-
     return cached;
   }
 
-  const fresh = await networkFetch;
+  // First time this file is requested under this CACHE_NAME: fetch it
+  // once and keep it. It will never be re-fetched until a deploy bumps
+  // CACHE_NAME and a fresh worker starts a fresh cache - which is exactly
+  // what keeps every page load on one coherent app version.
+  try {
+    const response = await fetch(request);
 
-  return fresh || Response.error();
+    if (response.ok) {
+      const cache = await caches.open(CACHE_NAME);
+
+      cache.put(request, response.clone());
+    }
+
+    return response;
+  } catch (error) {
+    return Response.error();
+  }
 }
 
 async function networkFirst(request) {

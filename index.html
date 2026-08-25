@@ -499,6 +499,29 @@
             console.warn("Service worker registration failed:", error);
           });
         });
+
+        // When a NEW service worker takes over this page (a deploy just
+        // activated: skipWaiting + clients.claim in service-worker.js),
+        // the page is still built from the OLD version's files - reload
+        // once so the user actually gets the update instead of a stale
+        // (or worse, mixed-version) page until they think to refresh.
+        // hadController distinguishes a real update from the very first
+        // visit (clients.claim also fires controllerchange when there was
+        // no worker at all - reloading there would be pointless); the
+        // one-shot flag guards against any reload loop.
+        const hadController = !!navigator.serviceWorker.controller;
+
+        let reloadedForNewWorker = false;
+
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (!hadController || reloadedForNewWorker) {
+            return;
+          }
+
+          reloadedForNewWorker = true;
+
+          window.location.reload();
+        });
       }
     </script>
   </body>
