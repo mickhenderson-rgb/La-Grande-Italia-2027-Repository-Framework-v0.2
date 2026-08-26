@@ -507,9 +507,14 @@ const Planner = {
 
             <div class="form-grid">
 
-                <label class="form-field">
+                <label class="form-field geo-field">
                     Location
-                    <input type="text" id="pln-edit-location" value="${this.esc(day.location)}" placeholder="e.g. destination-b">
+                    <input type="text" id="pln-edit-location" value="${this.esc(day.location)}" placeholder="Start typing a town or city…"
+                        autocomplete="off"
+                        oninput="Planner.onLocationTyped(this.value)"
+                        onblur="Planner.hideLocationSuggestions()">
+                    <div id="pln-geo-suggestions" class="geo-suggestions"></div>
+                    <span class="form-hint" id="pln-geo-hint">Pick a suggestion to set the map coordinates automatically.</span>
                 </label>
 
                 <label class="form-field">
@@ -523,6 +528,30 @@ const Planner = {
                 </label>
 
             </div>
+
+            <h3>Map coordinates</h3>
+
+            <p class="form-hint">
+                These place the day on the Trip Map. Choosing a location suggestion
+                fills them in for you - or enter them by hand for somewhere too small
+                to be found (right-click a spot in Google Maps to copy its coordinates).
+            </p>
+
+            <div class="form-grid">
+
+                <label class="form-field">
+                    Latitude
+                    <input type="number" id="pln-edit-lat" step="0.000001" value="${typeof day.lat === "number" ? day.lat : ""}" placeholder="e.g. -33.8688">
+                </label>
+
+                <label class="form-field">
+                    Longitude
+                    <input type="number" id="pln-edit-lng" step="0.000001" value="${typeof day.lng === "number" ? day.lng : ""}" placeholder="e.g. 151.2093">
+                </label>
+
+            </div>
+
+            <p class="form-hint" id="pln-geo-status"></p>
 
         </div>
 
@@ -547,6 +576,99 @@ const Planner = {
 </div>
 
 `;
+  },
+
+  // --- Location autocomplete (Edit Day) ---
+
+  _geoResults: [],
+
+  onLocationTyped(value) {
+    const box = document.getElementById("pln-geo-suggestions");
+
+    const status = document.getElementById("pln-geo-status");
+
+    if (!box) {
+      return;
+    }
+
+    Geo.onType(
+      value,
+      (results) => {
+        this._geoResults = results;
+
+        if (results.length === 0) {
+          box.innerHTML = "";
+
+          box.classList.remove("is-open");
+
+          return;
+        }
+
+        box.innerHTML = results
+          .map(
+            (r, i) =>
+              `<button type="button" class="geo-suggestion" onmousedown="event.preventDefault()" onclick="Planner.chooseLocation(${i})">
+                 <span class="geo-suggestion-main">${Geo.esc(Geo.shortLabel(r))}</span>
+                 <span class="geo-suggestion-sub">${Geo.esc(r.formatted)}</span>
+               </button>`,
+          )
+          .join("");
+
+        box.classList.add("is-open");
+      },
+      (error) => {
+        box.innerHTML = "";
+
+        box.classList.remove("is-open");
+
+        if (status) {
+          status.textContent =
+            error.code === "GEOAPIFY_NOT_CONFIGURED"
+              ? "Location lookup isn't set up on this server - enter the coordinates by hand below."
+              : "Couldn't reach the location service - enter the coordinates by hand below.";
+        }
+      },
+    );
+  },
+
+  chooseLocation(index) {
+    const result = this._geoResults[index];
+
+    if (!result) {
+      return;
+    }
+
+    Geo.cancel();
+
+    document.getElementById("pln-edit-location").value = Geo.toSlug(Geo.shortLabel(result));
+
+    document.getElementById("pln-edit-lat").value = result.lat;
+
+    document.getElementById("pln-edit-lng").value = result.lon;
+
+    const overnight = document.getElementById("pln-edit-overnight");
+
+    // Most days you sleep where you spent the day - prefill only when the
+    // field is still empty so an explicitly different overnight is kept.
+    if (overnight && !overnight.value.trim()) {
+      overnight.value = Geo.toSlug(Geo.shortLabel(result));
+    }
+
+    const status = document.getElementById("pln-geo-status");
+
+    if (status) {
+      status.textContent = `Coordinates set from: ${result.formatted}`;
+    }
+
+    this.hideLocationSuggestions();
+  },
+
+  hideLocationSuggestions() {
+    const box = document.getElementById("pln-geo-suggestions");
+
+    if (box) {
+      box.classList.remove("is-open");
+    }
   },
 
   saveEditedDay(event, dayNumber) {
@@ -584,6 +706,44 @@ const Planner = {
     day.location = location;
 
     day.overnight = overnight || location;
+
+    // Coordinates are optional - a blank pair clears them rather than
+    // storing NaN, so TripMap falls back to its own resolution tiers.
+    const latRaw = document.getElementById("pln-edit-lat").value.trim();
+
+    const lngRaw = document.getElementById("pln-edit-lng").value.trim();
+
+    const lat = parseFloat(latRaw);
+
+    const lng = parseFloat(lngRaw);
+
+    const bothPresent = latRaw !== "" && lngRaw !== "";
+
+    if (bothPresent && (Number.isNaN(lat) || Number.isNaN(lng))) {
+      alert("Latitude and longitude must both be numbers, or both left blank.");
+
+      return;
+    }
+
+    if (bothPresent && (lat < -90 || lat > 90 || lng < -180 || lng > 180)) {
+      alert("Latitude must be between -90 and 90, and longitude between -180 and 180.");
+
+      return;
+    }
+
+    if (bothPresent) {
+      day.lat = lat;
+
+      day.lng = lng;
+    } else if (latRaw === "" && lngRaw === "") {
+      delete day.lat;
+
+      delete day.lng;
+    } else {
+      alert("Enter both latitude and longitude, or leave both blank.");
+
+      return;
+    }
 
     Project.update("journey", journey);
 

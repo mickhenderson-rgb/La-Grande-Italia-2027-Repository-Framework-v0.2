@@ -29,6 +29,7 @@ Then open: http://localhost:8080
 */
 
 const http = require("http");
+const https = require("https");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
@@ -917,6 +918,175 @@ function writeOwnership(trips) {
 
 function newAuthId(prefix) {
   return prefix + "-" + crypto.randomBytes(12).toString("hex");
+}
+
+// =========================================================
+// Geoapify proxy
+//
+// The API key NEVER reaches the browser or the repo - it lives only in
+// the GEOAPIFY_KEY env var on the server. This repo is public, and a key
+// embedded in client JS would be committed straight into it. Everything
+// geo-related goes through here so there's exactly one place holding the
+// secret, one place to cache, and one place to throttle.
+//
+// Requires a signed-in user: credits are a finite shared resource, so an
+// anonymous caller must not be able to spend them.
+// =========================================================
+
+const GEOAPIFY_KEY = process.env.GEOAPIFY_KEY || "";
+
+const GEOAPIFY_HOST = "api.geoapify.com";
+
+// Whitelisted upstream paths. An open-ended proxy would let a signed-in
+// user hit any Geoapify endpoint (including the expensive ones) on our
+// key, so each supported call is named explicitly.
+const GEOAPIFY_ROUTES = {
+  autocomplete: "/v1/geocode/autocomplete",
+  geocode: "/v1/geocode/search",
+  reverse: "/v1/geocode/reverse",
+};
+
+// Params we're willing to forward. Anything else is dropped, so a caller
+// can't smuggle in something that changes the cost profile.
+const GEOAPIFY_ALLOWED_PARAMS = new Set(["text", "limit", "lang", "filter", "bias", "type", "lat", "lon"]);
+
+// Identical lookups are common (retyping, re-opening a form), and every
+// one costs a credit. Short TTL keeps results fresh enough for addresses.
+const geoCache = new Map();
+
+const GEO_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+const GEO_CACHE_MAX_ENTRIES = 500;
+
+function geoCacheGet(key) {
+  const hit = geoCache.get(key);
+
+  if (!hit) {
+    return null;
+  }
+
+  if (Date.now() - hit.ts > GEO_CACHE_TTL_MS) {
+    geoCache.delete(key);
+
+    return null;
+  }
+
+  return hit.body;
+}
+
+function geoCacheSet(key, body) {
+  // Simple bound: drop the oldest insertion once full. Map preserves
+  // insertion order, so the first key is the oldest.
+  if (geoCache.size >= GEO_CACHE_MAX_ENTRIES) {
+    geoCache.delete(geoCache.keys().next().value);
+  }
+
+  geoCache.set(key, { body, ts: Date.now() });
+}
+
+function fetchUpstream(url) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { timeout: 8000 }, (upstream) => {
+      let data = "";
+
+      upstream.on("data", (chunk) => { data += chunk; });
+
+      upstream.on("end", () => resolve({ status: upstream.statusCode, body: data }));
+    });
+
+    req.on("error", reject);
+
+    req.on("timeout", () => {
+      req.destroy();
+
+      reject(new Error("Upstream timed out."));
+    });
+  });
+}
+
+async function handleGeoRoute(req, res, action) {
+  const upstreamPath = GEOAPIFY_ROUTES[action];
+
+  if (!upstreamPath) {
+    return sendJSON(res, 404, { error: "Unknown geo route." });
+  }
+
+  if (!GEOAPIFY_KEY) {
+    // Explicit and honest rather than a confusing upstream error - the
+    // client shows this so it's obvious the server just isn't configured.
+    return sendJSON(res, 503, {
+      error: "Location lookup isn't configured on this server.",
+      code: "GEOAPIFY_NOT_CONFIGURED",
+    });
+  }
+
+  const incoming = new URL(req.url, "http://localhost");
+
+  const params = new URLSearchParams();
+
+  incoming.searchParams.forEach((value, name) => {
+    if (GEOAPIFY_ALLOWED_PARAMS.has(name) && String(value).trim()) {
+      params.set(name, value);
+    }
+  });
+
+  if (!params.get("text") && action !== "reverse") {
+    return sendJSON(res, 400, { error: "A search term is required." });
+  }
+
+  params.set("format", "json");
+
+  if (!params.get("limit")) {
+    params.set("limit", "5");
+  }
+
+  const cacheKey = action + "?" + params.toString();
+
+  const cached = geoCacheGet(cacheKey);
+
+  if (cached) {
+    return sendJSON(res, 200, { ...cached, cached: true });
+  }
+
+  params.set("apiKey", GEOAPIFY_KEY);
+
+  try {
+    const upstream = await fetchUpstream(`https://${GEOAPIFY_HOST}${upstreamPath}?${params.toString()}`);
+
+    if (upstream.status !== 200) {
+      console.error(`[geoapify] ${action} responded ${upstream.status}`);
+
+      return sendJSON(res, 502, { error: "Location service unavailable." });
+    }
+
+    const parsed = JSON.parse(upstream.body);
+
+    // Trim to just what the client needs. Sending the full payload back
+    // would be wasteful and leaks more of the provider's shape than the
+    // UI should depend on.
+    const results = (parsed.results || []).map((r) => ({
+      formatted: r.formatted || r.address_line1 || r.name || "",
+      name: r.name || r.city || r.formatted || "",
+      lat: r.lat,
+      lon: r.lon,
+      country: r.country || "",
+      countryCode: (r.country_code || "").toUpperCase(),
+      state: r.state || "",
+      city: r.city || "",
+      resultType: r.result_type || "",
+      confidence: r.rank && typeof r.rank.confidence === "number" ? r.rank.confidence : null,
+    }));
+
+    const payload = { results };
+
+    geoCacheSet(cacheKey, payload);
+
+    return sendJSON(res, 200, payload);
+  } catch (error) {
+    console.error(`[geoapify] ${action} failed:`, error.message);
+
+    return sendJSON(res, 502, { error: "Couldn't reach the location service." });
+  }
 }
 
 // --- Auth rate limiting (in-memory, zero deps) ---
@@ -2477,6 +2647,18 @@ const server = http.createServer(async (req, res) => {
 
   if (req.url.match(/^\/api\/whoami\/?(?:\?.*)?$/) && req.method === "GET") {
     return sendJSON(res, 200, { user: req.authUser });
+  }
+
+  // Geoapify proxy - reached only by a signed-in user (gated above), so
+  // credits can't be spent anonymously.
+  const geoMatch = req.url.match(/^\/api\/geo\/([a-z]+)/);
+
+  if (geoMatch) {
+    if (req.method !== "GET") {
+      return sendJSON(res, 405, { error: "Only GET is supported on this route." });
+    }
+
+    return handleGeoRoute(req, res, geoMatch[1]);
   }
 
   // Trip sharing (owner only): list / add / remove collaborators.
