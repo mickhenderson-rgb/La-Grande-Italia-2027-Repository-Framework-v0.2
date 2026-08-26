@@ -69,11 +69,32 @@ function sendJSON(res, statusCode, payload) {
   res.end(body);
 }
 
+// Largest legitimate payload is a base64 photo upload (the client resizes
+// to ~1600px/80% JPEG first, and handleUpload enforces its own 8MB cap on
+// the decoded image) - 10MB leaves headroom for the base64 inflation and
+// the JSON envelope. Anything beyond that is cut off at the socket rather
+// than buffered, so a huge request can't drive the process out of memory.
+const MAX_BODY_BYTES = 10 * 1024 * 1024;
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let chunks = [];
 
-    req.on("data", (chunk) => chunks.push(chunk));
+    let total = 0;
+
+    req.on("data", (chunk) => {
+      total += chunk.length;
+
+      if (total > MAX_BODY_BYTES) {
+        req.destroy();
+
+        reject(Object.assign(new Error("Request body too large."), { code: "BODY_TOO_LARGE" }));
+
+        return;
+      }
+
+      chunks.push(chunk);
+    });
 
     req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
 
@@ -547,6 +568,33 @@ async function handleJournalChecklistRemove(req, res, projectId, day, itemId) {
   }
 }
 
+// SEC-002: the static server is an ALLOWLIST, not "serve anything that
+// isn't explicitly blocked". Previously any file under ROOT was reachable
+// - Archived code/, planning .md docs, package.json, .gitignore, the
+// .code-workspace file. Denylisting means every new file added to the repo
+// is public by default and someone has to remember to block it; an
+// allowlist inverts that, which is the safer default.
+//
+// /data/projects/ IS listed, but it is NOT unauthenticated: every request
+// under it is gated earlier in the router by session + trip permission
+// (401/403 for anyone without access, and guests get a redacted copy).
+// That gate CHECKS access and then falls through to here to actually read
+// the file off disk, so this entry is required for a permitted user to
+// load their own trip - omitting it 404s legitimate reads. Note the
+// sibling /data/auth/ is refused outright above and is not reachable
+// through this entry.
+const PUBLIC_FILES = new Set(["/index.html", "/manifest.webmanifest", "/service-worker.js"]);
+
+const PUBLIC_DIRS = ["/app/", "/core/", "/assets/", "/components/", "/data/projects/"];
+
+function isPubliclyServable(urlPath) {
+  if (PUBLIC_FILES.has(urlPath)) {
+    return true;
+  }
+
+  return PUBLIC_DIRS.some((dir) => urlPath.startsWith(dir));
+}
+
 function serveStaticFile(req, res) {
   let urlPath = decodeURIComponent(req.url.split("?")[0]);
 
@@ -582,6 +630,18 @@ function serveStaticFile(req, res) {
     res.writeHead(403);
 
     return res.end("Forbidden");
+  }
+
+  // SEC-002 allowlist gate. Checked AFTER normalisation so that a path
+  // like /app/../package.json is judged on where it actually lands, not
+  // on how it was spelled. 404 rather than 403 so this doesn't confirm
+  // whether a given file exists.
+  const normalisedUrlPath = "/" + path.relative(ROOT, filePath).split(path.sep).join("/");
+
+  if (!isPubliclyServable(normalisedUrlPath)) {
+    res.writeHead(404, { "Content-Type": "text/plain" });
+
+    return res.end("Not found: " + urlPath);
   }
 
   // Second belt: resolve the real path and refuse anything that lands
@@ -859,22 +919,117 @@ function newAuthId(prefix) {
   return prefix + "-" + crypto.randomBytes(12).toString("hex");
 }
 
-// --- Passwords (scrypt) ---
+// --- Auth rate limiting (in-memory, zero deps) ---
+//
+// Throttles brute-force password guessing and mass account creation.
+// In-memory is deliberate: this app runs as a single Node process, so a
+// Map is sufficient and adds no dependency. It resets on restart, which
+// is an accepted trade-off at this scale.
 
-function hashPassword(password) {
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+
+const RATE_LIMIT_MAX_ATTEMPTS = 8;
+
+const authAttempts = new Map();
+
+function clientKey(req) {
+  // Behind the LiteSpeed proxy the socket address is the proxy's, so the
+  // real client IP is the first entry in x-forwarded-for.
+  const forwarded = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+
+  return forwarded || req.socket.remoteAddress || "unknown";
+}
+
+function isRateLimited(key) {
+  const now = Date.now();
+
+  const attempts = (authAttempts.get(key) || []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+
+  authAttempts.set(key, attempts);
+
+  return attempts.length >= RATE_LIMIT_MAX_ATTEMPTS;
+}
+
+function recordAttempt(key) {
+  const attempts = authAttempts.get(key) || [];
+
+  attempts.push(Date.now());
+
+  authAttempts.set(key, attempts);
+}
+
+// Stop the Map growing without bound on a long-running process.
+// .unref() so this timer never keeps the process alive by itself.
+setInterval(() => {
+  const now = Date.now();
+
+  for (const [key, attempts] of authAttempts) {
+    const fresh = attempts.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+
+    if (fresh.length === 0) {
+      authAttempts.delete(key);
+    } else {
+      authAttempts.set(key, fresh);
+    }
+  }
+}, 10 * 60 * 1000).unref();
+
+// --- Passwords (scrypt) ---
+//
+// ASYNC on purpose. scryptSync blocks Node's single event-loop thread for
+// the whole derivation, and /auth/login + /auth/register are public and
+// unauthenticated - so a handful of concurrent requests could freeze the
+// entire app for every other user. The callback form runs on the libuv
+// threadpool instead, so other requests keep being served.
+
+const PASSWORD_MIN_LENGTH = 10;
+
+// Upper bound so nobody can push a megabyte-long string through scrypt
+// purely to burn CPU. Well above any realistic passphrase.
+const PASSWORD_MAX_LENGTH = 200;
+
+// Single source of truth for the policy, so registration and password
+// changes can never drift apart. Returns an error string, or null if OK.
+function passwordPolicyError(password) {
+  const value = String(password || "");
+
+  if (value.length < PASSWORD_MIN_LENGTH) {
+    return `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`;
+  }
+
+  if (value.length > PASSWORD_MAX_LENGTH) {
+    return `Password must be ${PASSWORD_MAX_LENGTH} characters or fewer.`;
+  }
+
+  return null;
+}
+
+function scryptAsync(password, salt) {
+  return new Promise((resolve, reject) => {
+    crypto.scrypt(String(password), salt, 64, (error, derivedKey) => {
+      if (error) {
+        return reject(error);
+      }
+
+      resolve(derivedKey);
+    });
+  });
+}
+
+async function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("hex");
 
-  const hash = crypto.scryptSync(String(password), salt, 64).toString("hex");
+  const hash = (await scryptAsync(password, salt)).toString("hex");
 
   return { salt, hash };
 }
 
-function verifyPassword(password, salt, hash) {
+async function verifyPassword(password, salt, hash) {
   if (!salt || !hash) {
     return false;
   }
 
-  const test = crypto.scryptSync(String(password), salt, 64).toString("hex");
+  const test = (await scryptAsync(password, salt)).toString("hex");
 
   const a = Buffer.from(test, "hex");
 
@@ -990,6 +1145,13 @@ function destroySession(req) {
   }
 
   writeSessions(readSessions().filter((s) => s.id !== token));
+}
+
+// Drops EVERY session belonging to a user. Used when a password changes:
+// rotating a credential has to log out anywhere else it was already
+// signed in, or the rotation doesn't actually revoke anything.
+function destroySessionsForUser(userId) {
+  writeSessions(readSessions().filter((s) => s.userId !== userId));
 }
 
 // --- Trip ownership & access ---
@@ -1247,17 +1409,27 @@ async function handleAuthRoute(req, res) {
   }
 
   if (url === "/auth/login" && req.method === "POST") {
+    const loginKey = "login:" + clientKey(req);
+
+    if (isRateLimited(loginKey)) {
+      return sendJSON(res, 429, {
+        error: "Too many sign-in attempts. Wait a few minutes and try again.",
+      });
+    }
+
     let body;
 
     try {
       body = JSON.parse(await readBody(req));
     } catch (error) {
-      return sendJSON(res, 400, { error: "Bad request." });
+      return sendJSON(res, error.code === "BODY_TOO_LARGE" ? 413 : 400, { error: "Bad request." });
     }
 
     const user = findUserByUsername(body.username);
 
-    if (!user || !verifyPassword(body.password, user.salt, user.hash)) {
+    if (!user || !(await verifyPassword(body.password, user.salt, user.hash))) {
+      recordAttempt(loginKey);
+
       return sendJSON(res, 401, { error: "Username or password incorrect." });
     }
 
@@ -1277,15 +1449,110 @@ async function handleAuthRoute(req, res) {
   }
 
   if (url === "/auth/register" && req.method === "POST") {
+    const registerKey = "register:" + clientKey(req);
+
+    if (isRateLimited(registerKey)) {
+      return sendJSON(res, 429, {
+        error: "Too many sign-up attempts. Wait a few minutes and try again.",
+      });
+    }
+
+    // Every attempt counts here, successful or not - this throttles mass
+    // account creation as well as invite-token guessing.
+    recordAttempt(registerKey);
+
     let body;
 
     try {
       body = JSON.parse(await readBody(req));
     } catch (error) {
-      return sendJSON(res, 400, { error: "Bad request." });
+      return sendJSON(res, error.code === "BODY_TOO_LARGE" ? 413 : 400, { error: "Bad request." });
     }
 
     return handleRegister(req, res, body);
+  }
+
+  // Change your own password. Requires the CURRENT password even though
+  // there's already a session, so a borrowed/stolen session can't be used
+  // to lock the real owner out of their account.
+  if (url === "/auth/password" && req.method === "POST") {
+    const user = getSessionUser(req);
+
+    if (!user) {
+      return sendJSON(res, 401, { error: "Not signed in." });
+    }
+
+    // Rate limited on the same budget as login - this route verifies a
+    // password, so it's another place someone could guess against.
+    const passwordKey = "password:" + clientKey(req);
+
+    if (isRateLimited(passwordKey)) {
+      return sendJSON(res, 429, {
+        error: "Too many attempts. Wait a few minutes and try again.",
+      });
+    }
+
+    let body;
+
+    try {
+      body = JSON.parse(await readBody(req));
+    } catch (error) {
+      return sendJSON(res, error.code === "BODY_TOO_LARGE" ? 413 : 400, { error: "Bad request." });
+    }
+
+    const currentPassword = String(body.currentPassword || "");
+
+    const newPassword = String(body.newPassword || "");
+
+    const confirmPassword = String(body.confirmPassword || "");
+
+    const users = readUsers();
+
+    const stored = users.find((u) => u.id === user.id);
+
+    if (!stored) {
+      return sendJSON(res, 401, { error: "Not signed in." });
+    }
+
+    if (!(await verifyPassword(currentPassword, stored.salt, stored.hash))) {
+      recordAttempt(passwordKey);
+
+      return sendJSON(res, 403, { error: "Your current password isn't right." });
+    }
+
+    const policyError = passwordPolicyError(newPassword);
+
+    if (policyError) {
+      return sendJSON(res, 400, { error: policyError });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return sendJSON(res, 400, { error: "New passwords don't match." });
+    }
+
+    if (newPassword === currentPassword) {
+      return sendJSON(res, 400, { error: "That's the same as your current password." });
+    }
+
+    const { salt, hash } = await hashPassword(newPassword);
+
+    stored.salt = salt;
+
+    stored.hash = hash;
+
+    stored.passwordChangedAt = new Date().toISOString();
+
+    writeUsers(users);
+
+    // Changing a password must invalidate every OTHER session for this
+    // user - that's the whole point of rotating a compromised credential.
+    // The current session is re-issued so the person doing it isn't
+    // logged out of the tab they're standing in.
+    destroySessionsForUser(user.id);
+
+    res.setHeader("Set-Cookie", sessionSetCookie(req, createSession(user.id)));
+
+    return sendJSON(res, 200, { ok: true });
   }
 
   if (url === "/auth/invite" && req.method === "POST") {
@@ -1356,7 +1623,7 @@ async function handleAuthRoute(req, res) {
   return sendJSON(res, 404, { error: "Unknown auth route." });
 }
 
-function handleRegister(req, res, body) {
+async function handleRegister(req, res, body) {
   const username = String(body.username || "").trim();
 
   const password = String(body.password || "");
@@ -1375,8 +1642,10 @@ function handleRegister(req, res, body) {
     return sendJSON(res, 400, { error: "Please enter a valid email address." });
   }
 
-  if (password.length < 6) {
-    return sendJSON(res, 400, { error: "Password must be at least 6 characters." });
+  const policyError = passwordPolicyError(password);
+
+  if (policyError) {
+    return sendJSON(res, 400, { error: policyError });
   }
 
   if (password !== confirm) {
@@ -1410,7 +1679,7 @@ function handleRegister(req, res, body) {
     }
   }
 
-  const { salt, hash } = hashPassword(password);
+  const { salt, hash } = await hashPassword(password);
 
   const user = {
     id: newAuthId("usr"),

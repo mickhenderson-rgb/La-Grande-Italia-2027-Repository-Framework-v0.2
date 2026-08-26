@@ -1,3 +1,12 @@
+/* SECURITY NOTE (COMPASS-TOS)
+ * Leaflet 1.9.4 has CVE-2025-69993 - XSS via bindPopup/bindTooltip when
+ * untrusted content is passed to them. NOT currently exploitable here:
+ * this app calls neither bindPopup nor bindTooltip anywhere (verified by
+ * grep across app/ and core/).
+ * Before ever introducing bindPopup/bindTooltip: check for a patched
+ * Leaflet release first, and route any user-supplied content through the
+ * existing esc() escaping pattern used throughout the app.
+ */
 /* @preserve
  * Leaflet 1.9.4, a JS library for interactive maps. https://leafletjs.com
  * (c) 2010-2023 Vladimir Agafonkin, (c) 2010-2011 CloudMade

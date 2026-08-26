@@ -72,6 +72,45 @@ const Settings = {
 
         </div>
 
+        <div class="manager-card form-card">
+
+            <h2>Change Password</h2>
+
+            <p class="form-hint">
+                Changing your password signs you out everywhere else you're
+                logged in. You'll stay signed in here.
+            </p>
+
+            <div class="form-grid">
+
+                <label class="form-field">
+                    Current Password
+                    <input type="password" id="set-pw-current" autocomplete="current-password">
+                </label>
+
+                <label class="form-field">
+                    New Password
+                    <input type="password" id="set-pw-new" autocomplete="new-password">
+                    <span class="form-hint">At least 10 characters.</span>
+                </label>
+
+                <label class="form-field">
+                    Confirm New Password
+                    <input type="password" id="set-pw-confirm" autocomplete="new-password">
+                </label>
+
+            </div>
+
+            <button type="button" onclick="Settings.changePassword()">
+
+                Update Password
+
+            </button>
+
+            <p id="set-pw-msg" class="form-hint"></p>
+
+        </div>
+
     </div>
 
     <div class="planner-buttons">
@@ -87,6 +126,70 @@ const Settings = {
 </div>
 
 `;
+  },
+
+  // Uses an inline status line rather than alert() - this is the same
+  // pattern Auth/Sharing use for credential work, and it keeps the typed
+  // fields on screen if something's wrong.
+  async changePassword() {
+    const msg = document.getElementById("set-pw-msg");
+
+    const currentPassword = document.getElementById("set-pw-current").value;
+
+    const newPassword = document.getElementById("set-pw-new").value;
+
+    const confirmPassword = document.getElementById("set-pw-confirm").value;
+
+    if (!currentPassword || !newPassword) {
+      msg.textContent = "Fill in your current and new password.";
+
+      return;
+    }
+
+    // Mirrors the server's policy so an obvious problem is caught without
+    // a round trip. The server re-checks regardless - this is convenience,
+    // not the actual control.
+    if (newPassword.length < 10) {
+      msg.textContent = "New password must be at least 10 characters.";
+
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      msg.textContent = "New passwords don't match.";
+
+      return;
+    }
+
+    msg.textContent = "Updating…";
+
+    try {
+      const response = await fetch(`${window.API_BASE}/auth/password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        msg.textContent = data.error || "Could not update the password.";
+
+        return;
+      }
+
+      document.getElementById("set-pw-current").value = "";
+
+      document.getElementById("set-pw-new").value = "";
+
+      document.getElementById("set-pw-confirm").value = "";
+
+      msg.textContent = "Password updated. Other devices have been signed out.";
+    } catch (error) {
+      console.error("Password change failed:", error);
+
+      msg.textContent = "Couldn't reach the server. Try again.";
+    }
   },
 
   save() {
