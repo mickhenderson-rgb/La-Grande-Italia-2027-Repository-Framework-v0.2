@@ -554,10 +554,40 @@ function serveStaticFile(req, res) {
     urlPath = "/index.html";
   }
 
+  // SECURITY: never serve the credential store over HTTP, whatever the
+  // path looks like. This used to be reachable unauthenticated - password
+  // hashes, live session tokens and unused invite tokens were all public.
+  // AUTH_DIR now lives outside ROOT so this can't be hit at all, but the
+  // check stays as defence in depth: if AUTH_DIR is ever moved back under
+  // the served root, or a new secrets directory appears, this still blocks
+  // it. Checked BEFORE the traversal check so encoded variants can't slip
+  // past. Note both the leading-slash form and any nested occurrence are
+  // rejected, and the comparison is case-insensitive because Windows and
+  // macOS filesystems are.
+  const lowerPath = urlPath.toLowerCase();
+
+  if (
+    lowerPath.startsWith("/data/auth/") ||
+    lowerPath === "/data/auth" ||
+    lowerPath.includes("/data/auth/")
+  ) {
+    res.writeHead(403, { "Content-Type": "text/plain" });
+
+    return res.end("Forbidden");
+  }
+
   const filePath = path.normalize(path.join(ROOT, urlPath));
 
   if (!filePath.startsWith(ROOT)) {
     res.writeHead(403);
+
+    return res.end("Forbidden");
+  }
+
+  // Second belt: resolve the real path and refuse anything that lands
+  // inside the auth directory, regardless of how the URL was spelled.
+  if (path.resolve(filePath).toLowerCase().startsWith(path.resolve(AUTH_DIR).toLowerCase())) {
+    res.writeHead(403, { "Content-Type": "text/plain" });
 
     return res.end("Forbidden");
   }
@@ -670,12 +700,106 @@ function requireAuth(res) {
 // used to tie invites to a specific person.
 // =========================================================
 
-const AUTH_DIR = path.join(ROOT, "data", "auth");
+// SECURITY: the credential store lives OUTSIDE the directory the static
+// file server serves from. It used to be ROOT/data/auth, which meant
+// serveStaticFile() happily handed out users.json (password hashes),
+// sessions.json (live session tokens - full account takeover),
+// invites.json and trips.json to anyone who asked, unauthenticated.
+// Keeping it above ROOT means that whole class of bug cannot recur even
+// if the static-file logic is rewritten later. Override with AUTH_DIR
+// if the host needs it somewhere specific.
+const AUTH_DIR = process.env.AUTH_DIR
+  ? path.resolve(process.env.AUTH_DIR)
+  : path.resolve(ROOT, "..", "compass-tos-auth");
+
+// Where the credential store used to live, for the one-time migration
+// below. Nothing else may read from here.
+const LEGACY_AUTH_DIR = path.join(ROOT, "data", "auth");
 
 const USERS_FILE = path.join(AUTH_DIR, "users.json");
 const SESSIONS_FILE = path.join(AUTH_DIR, "sessions.json");
 const INVITES_FILE = path.join(AUTH_DIR, "invites.json");
 const OWNERSHIP_FILE = path.join(AUTH_DIR, "trips.json");
+
+// Moves an existing data/auth/ store up out of the served root on first
+// boot after this fix. Without this, the server would come up with no
+// users at all - which not only locks everyone out, it flips the app into
+// "needsBootstrap" mode, letting the first stranger to load the page
+// register and claim every trip. So this migration is itself a security
+// control, not just a convenience.
+function migrateLegacyAuthDir() {
+  if (fs.existsSync(AUTH_DIR) || !fs.existsSync(LEGACY_AUTH_DIR)) {
+    return;
+  }
+
+  try {
+    fs.mkdirSync(AUTH_DIR, { recursive: true });
+
+    // Everything in the legacy directory was publicly readable, so the
+    // live session tokens and unused invite tokens in it must be treated
+    // as compromised. They are NOT carried across: sessions.json and
+    // invites.json are recreated empty, which signs everyone out (they
+    // simply log in again) and voids any leaked invite token. users.json
+    // and trips.json are migrated intact - losing those would lock the
+    // owner out and orphan every trip's ownership record.
+    const SANITISE = { "sessions.json": { sessions: [] }, "invites.json": { invites: [] } };
+
+    fs.readdirSync(LEGACY_AUTH_DIR).forEach((name) => {
+      const from = path.join(LEGACY_AUTH_DIR, name);
+
+      const to = path.join(AUTH_DIR, name);
+
+      if (!fs.statSync(from).isFile()) {
+        return;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(SANITISE, name)) {
+        fs.writeFileSync(to, JSON.stringify(SANITISE[name], null, 2), "utf8");
+
+        console.log(`[auth migration] ${name} was publicly exposed - recreated EMPTY, not migrated`);
+      } else {
+        fs.copyFileSync(from, to);
+      }
+
+      fs.unlinkSync(from);
+    });
+
+    // Remove the now-empty legacy directory so nothing is left behind
+    // inside the served root. Non-fatal if it can't be removed (e.g. a
+    // stray file remains) - the static server refuses that path anyway.
+    try {
+      fs.rmdirSync(LEGACY_AUTH_DIR);
+    } catch (error) {
+      console.warn("[auth migration] legacy dir not empty, left in place:", error.code);
+    }
+
+    console.log(`[auth migration] moved credential store out of the served root -> ${AUTH_DIR}`);
+  } catch (error) {
+    console.error("[auth migration] FAILED - credential store may still be inside the served root:", error.message);
+  }
+}
+
+migrateLegacyAuthDir();
+
+// If the migration could not complete, the credential store is still
+// sitting inside the served root AND the app would boot with no users -
+// which flips it into "needsBootstrap", letting the first stranger to
+// load the page register and claim every trip. Refusing to start is the
+// safe failure here: a server that's down is recoverable, a server that's
+// been taken over is not.
+if (fs.existsSync(path.join(LEGACY_AUTH_DIR, "users.json"))) {
+  console.error("=".repeat(64));
+  console.error("REFUSING TO START: the credential store is still inside the");
+  console.error("served root and could not be moved to:");
+  console.error(`  ${AUTH_DIR}`);
+  console.error("Fix the permissions on that path (or set the AUTH_DIR env var");
+  console.error("to a writable location OUTSIDE the app directory), then start");
+  console.error("again. Starting anyway would expose password hashes and let a");
+  console.error("stranger claim every trip.");
+  console.error("=".repeat(64));
+
+  process.exit(1);
+}
 
 const SESSION_COOKIE = "compass_session";
 
