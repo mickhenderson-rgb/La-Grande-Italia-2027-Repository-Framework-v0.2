@@ -937,18 +937,78 @@ const GEOAPIFY_KEY = process.env.GEOAPIFY_KEY || "";
 
 const GEOAPIFY_HOST = "api.geoapify.com";
 
-// Whitelisted upstream paths. An open-ended proxy would let a signed-in
-// user hit any Geoapify endpoint (including the expensive ones) on our
-// key, so each supported call is named explicitly.
+// Whitelisted upstream calls. An open-ended proxy would let a signed-in
+// user hit any Geoapify endpoint (including the expensive ones like Route
+// Planner, which costs locations²) on our key, so each supported call is
+// named explicitly along with how to read its very different response.
+//
+//   jsonFormat: geocoding endpoints take format=json; routing returns
+//               GeoJSON and must NOT have format forced onto it.
+//   shape:      each endpoint's response is trimmed to what the UI needs.
 const GEOAPIFY_ROUTES = {
-  autocomplete: "/v1/geocode/autocomplete",
-  geocode: "/v1/geocode/search",
-  reverse: "/v1/geocode/reverse",
+  autocomplete: { path: "/v1/geocode/autocomplete", jsonFormat: true, shape: shapeGeocodeResponse },
+  geocode: { path: "/v1/geocode/search", jsonFormat: true, shape: shapeGeocodeResponse },
+  reverse: { path: "/v1/geocode/reverse", jsonFormat: true, shape: shapeGeocodeResponse },
+  routing: { path: "/v1/routing", jsonFormat: false, shape: shapeRoutingResponse },
 };
 
 // Params we're willing to forward. Anything else is dropped, so a caller
 // can't smuggle in something that changes the cost profile.
-const GEOAPIFY_ALLOWED_PARAMS = new Set(["text", "limit", "lang", "filter", "bias", "type", "lat", "lon"]);
+const GEOAPIFY_ALLOWED_PARAMS = new Set([
+  "text", "limit", "lang", "filter", "bias", "type", "lat", "lon",
+  "waypoints", "mode", "units", "avoid",
+]);
+
+function shapeGeocodeResponse(parsed) {
+  // Trim to just what the client needs. Sending the full payload back
+  // would be wasteful and leaks more of the provider's shape than the
+  // UI should depend on.
+  const results = (parsed.results || []).map((r) => ({
+    formatted: r.formatted || r.address_line1 || r.name || "",
+    name: r.name || r.city || r.formatted || "",
+    lat: r.lat,
+    lon: r.lon,
+    country: r.country || "",
+    countryCode: (r.country_code || "").toUpperCase(),
+    state: r.state || "",
+    city: r.city || "",
+    resultType: r.result_type || "",
+    confidence: r.rank && typeof r.rank.confidence === "number" ? r.rank.confidence : null,
+  }));
+
+  return { results };
+}
+
+function shapeRoutingResponse(parsed) {
+  const feature = (parsed.features || [])[0];
+
+  if (!feature) {
+    return { route: null };
+  }
+
+  const props = feature.properties || {};
+
+  const geometry = feature.geometry || {};
+
+  // GeoJSON is [lon, lat]; Leaflet wants [lat, lng]. Flip here so the
+  // client never has to remember which way round the provider is.
+  // MultiLineString nests one level deeper than LineString.
+  const lines = geometry.type === "MultiLineString"
+    ? geometry.coordinates || []
+    : [geometry.coordinates || []];
+
+  const path = lines.flatMap((line) => line.map((pair) => [pair[1], pair[0]]));
+
+  return {
+    route: {
+      // distance is metres and time is seconds per Geoapify's docs; convert
+      // once here so no caller has to know the raw units.
+      distanceKm: typeof props.distance === "number" ? Math.round((props.distance / 1000) * 10) / 10 : null,
+      durationMinutes: typeof props.time === "number" ? Math.round(props.time / 60) : null,
+      path,
+    },
+  };
+}
 
 // Identical lookups are common (retyping, re-opening a form), and every
 // one costs a credit. Short TTL keeps results fresh enough for addresses.
@@ -1005,9 +1065,9 @@ function fetchUpstream(url) {
 }
 
 async function handleGeoRoute(req, res, action) {
-  const upstreamPath = GEOAPIFY_ROUTES[action];
+  const route = GEOAPIFY_ROUTES[action];
 
-  if (!upstreamPath) {
+  if (!route) {
     return sendJSON(res, 404, { error: "Unknown geo route." });
   }
 
@@ -1030,14 +1090,24 @@ async function handleGeoRoute(req, res, action) {
     }
   });
 
-  if (!params.get("text") && action !== "reverse") {
+  if (action === "routing") {
+    if (!params.get("waypoints")) {
+      return sendJSON(res, 400, { error: "Waypoints are required." });
+    }
+
+    if (!params.get("mode")) {
+      params.set("mode", "drive");
+    }
+  } else if (!params.get("text") && action !== "reverse") {
     return sendJSON(res, 400, { error: "A search term is required." });
   }
 
-  params.set("format", "json");
+  if (route.jsonFormat) {
+    params.set("format", "json");
 
-  if (!params.get("limit")) {
-    params.set("limit", "5");
+    if (!params.get("limit")) {
+      params.set("limit", "5");
+    }
   }
 
   const cacheKey = action + "?" + params.toString();
@@ -1051,7 +1121,7 @@ async function handleGeoRoute(req, res, action) {
   params.set("apiKey", GEOAPIFY_KEY);
 
   try {
-    const upstream = await fetchUpstream(`https://${GEOAPIFY_HOST}${upstreamPath}?${params.toString()}`);
+    const upstream = await fetchUpstream(`https://${GEOAPIFY_HOST}${route.path}?${params.toString()}`);
 
     if (upstream.status !== 200) {
       console.error(`[geoapify] ${action} responded ${upstream.status}`);
@@ -1059,25 +1129,7 @@ async function handleGeoRoute(req, res, action) {
       return sendJSON(res, 502, { error: "Location service unavailable." });
     }
 
-    const parsed = JSON.parse(upstream.body);
-
-    // Trim to just what the client needs. Sending the full payload back
-    // would be wasteful and leaks more of the provider's shape than the
-    // UI should depend on.
-    const results = (parsed.results || []).map((r) => ({
-      formatted: r.formatted || r.address_line1 || r.name || "",
-      name: r.name || r.city || r.formatted || "",
-      lat: r.lat,
-      lon: r.lon,
-      country: r.country || "",
-      countryCode: (r.country_code || "").toUpperCase(),
-      state: r.state || "",
-      city: r.city || "",
-      resultType: r.result_type || "",
-      confidence: r.rank && typeof r.rank.confidence === "number" ? r.rank.confidence : null,
-    }));
-
-    const payload = { results };
+    const payload = route.shape(JSON.parse(upstream.body));
 
     geoCacheSet(cacheKey, payload);
 

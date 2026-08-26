@@ -38,6 +38,13 @@ const TripMap = {
 
   _route: null,
 
+  // The fetched driving route ({distanceKm, durationMinutes, path}), kept
+  // in memory only - not persisted into trip JSON, both because it's a
+  // derived value and because Geoapify's terms don't explicitly cover
+  // storing results. The server caches it for 24h, so revisiting the map
+  // costs nothing.
+  _drivingRoute: null,
+
   mode: "overview",
 
   selectedDay: null,
@@ -613,7 +620,13 @@ ${this.styles()}
 
         </div>
 
-        <div id="trip-map-surface" class="tripmap-surface" role="region" aria-label="Trip route map"></div>
+        <div class="tripmap-surface-wrap">
+
+            <div id="trip-map-surface" class="tripmap-surface" role="region" aria-label="Trip route map"></div>
+
+            <p class="tripmap-route-summary" id="tm-route-summary" aria-live="polite"></p>
+
+        </div>
 
     </div>
 
@@ -992,6 +1005,8 @@ ${unplotted}
     return this.stops.filter((s) => s.coords);
   },
 
+  // Straight lines between stops, drawn immediately so the map is never
+  // empty while the real roads are still being fetched.
   renderRoute() {
     if (!this.map || !window.L) {
       return;
@@ -1003,8 +1018,74 @@ ${unplotted}
       this._route = window.L.polyline(pts, {
         color: "#34495E",
         weight: 3,
-        opacity: 0.6,
+        opacity: 0.35,
+        dashArray: "6 6",
       }).addTo(this.map);
+    }
+
+    this.loadDrivingRoute();
+  },
+
+  // Replaces the straight line with the actual driving route.
+  //
+  // One request covers the whole trip (all stops as waypoints) rather than
+  // one per leg - routing bills per waypoint pair either way, but a single
+  // call is one round trip and gives a continuous road path. On failure the
+  // dashed straight line simply stays, so the map degrades rather than
+  // breaking.
+  async loadDrivingRoute() {
+    const pts = this.plottedStops().map((s) => s.coords);
+
+    if (pts.length < 2 || typeof Geo === "undefined") {
+      return;
+    }
+
+    const summary = document.getElementById("tm-route-summary");
+
+    if (summary) {
+      summary.textContent = "Working out the driving route…";
+    }
+
+    try {
+      const route = await Geo.route(pts);
+
+      if (!route || !route.path || route.path.length < 2) {
+        if (summary) {
+          summary.textContent = "No driving route found between these stops.";
+        }
+
+        return;
+      }
+
+      // The map may have been torn down while this was in flight.
+      if (!this.map || !window.L) {
+        return;
+      }
+
+      if (this._route) {
+        this.map.removeLayer(this._route);
+      }
+
+      this._route = window.L.polyline(route.path, {
+        color: "#34495E",
+        weight: 4,
+        opacity: 0.75,
+      }).addTo(this.map);
+
+      this._drivingRoute = route;
+
+      if (summary) {
+        summary.textContent = `Driving the whole route: ${route.distanceKm} km · about ${Geo.formatDuration(route.durationMinutes)}`;
+      }
+    } catch (error) {
+      console.error("Could not load the driving route:", error);
+
+      if (summary) {
+        summary.textContent =
+          error.code === "GEOAPIFY_NOT_CONFIGURED"
+            ? "Driving routes need location lookup configured on the server - showing direct lines."
+            : "Couldn't load the driving route - showing direct lines instead.";
+      }
     }
   },
 
@@ -1893,6 +1974,10 @@ ${hint}
 .tripmap-detail-actions button { padding: 8px 16px; border-radius: 999px; border: 1px solid var(--color-primary, #34495E); background: var(--color-primary, #34495E); color: #fff; cursor: pointer; font: inherit; }
 
 .tripmap-surface { height: 72vh; min-height: 500px; border-radius: var(--radius, 8px); border: 1px solid #e4ddd0; overflow: hidden; background: #e8eaee; z-index: 0; }
+
+.tripmap-surface-wrap { display: flex; flex-direction: column; gap: 8px; }
+
+.tripmap-route-summary { margin: 0; font-size: 12.5px; color: var(--color-muted, #6b6357); min-height: 1.2em; }
 
 .tripmap-map-msg { display: flex; height: 100%; align-items: center; justify-content: center; padding: 16px; color: #6b6357; font-style: italic; text-align: center; }
 

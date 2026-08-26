@@ -736,6 +736,14 @@ ${rows}
                 <span class="form-hint">Drive/Walk only</span>
             </label>
 
+            <label class="form-field form-field-wide">
+                Route lookup
+                <button type="button" class="btn-secondary btn-sm" onclick="Transport.lookupRoute()">
+                    Look up distance &amp; duration
+                </button>
+                <span class="form-hint" id="trn-route-status">Fills in the real driving distance and time from the From and To above.</span>
+            </label>
+
             <label class="form-field">
                 Tolls Estimate
                 <input type="number" id="trn-tolls" value="${item.route?.tollsEstimate ?? 0}" min="0" step="0.01">
@@ -940,6 +948,94 @@ ${rows}
         document.getElementById("trn-arrive-date").value = date;
       }
     }
+  },
+
+  // Fills the Distance and Duration fields from a real driving route.
+  //
+  // Uses the exact coordinates if they've been entered (most accurate),
+  // otherwise geocodes the From/To text first. Walk mode routes as a
+  // pedestrian; everything else routes as driving, since a train or ferry
+  // leg's road distance is still a better estimate than nothing.
+  async lookupRoute() {
+    const status = document.getElementById("trn-route-status");
+
+    const setStatus = (text) => {
+      if (status) {
+        status.textContent = text;
+      }
+    };
+
+    if (typeof Geo === "undefined") {
+      setStatus("Route lookup isn't available.");
+
+      return;
+    }
+
+    const from = document.getElementById("trn-from").value.trim();
+
+    const to = document.getElementById("trn-to").value.trim();
+
+    if (!from || !to) {
+      setStatus("Enter both a From and To location first.");
+
+      return;
+    }
+
+    setStatus("Looking up the route…");
+
+    try {
+      const fromCoords = await this.resolvePoint("trn-from-lat", "trn-from-lng", from);
+
+      const toCoords = await this.resolvePoint("trn-to-lat", "trn-to-lng", to);
+
+      if (!fromCoords || !toCoords) {
+        setStatus(
+          `Couldn't find ${!fromCoords ? "the From" : "the To"} location. Try a more specific name, or enter coordinates under Advanced.`,
+        );
+
+        return;
+      }
+
+      const mode = document.getElementById("trn-mode").value === "Walk" ? "walk" : "drive";
+
+      const route = await Geo.route([fromCoords, toCoords], { mode });
+
+      if (!route || route.distanceKm === null) {
+        setStatus("No route found between those two places.");
+
+        return;
+      }
+
+      document.getElementById("trn-distance").value = route.distanceKm;
+
+      document.getElementById("trn-duration").value = route.durationMinutes;
+
+      setStatus(`Found: ${route.distanceKm} km, about ${Geo.formatDuration(route.durationMinutes)} by ${mode}.`);
+    } catch (error) {
+      console.error("Route lookup failed:", error);
+
+      setStatus(
+        error.code === "GEOAPIFY_NOT_CONFIGURED"
+          ? "Route lookup isn't set up on this server."
+          : "Couldn't reach the route service. Try again.",
+      );
+    }
+  },
+
+  // Prefers already-entered coordinates over geocoding the name - they're
+  // exact, and it avoids spending a credit.
+  async resolvePoint(latId, lngId, text) {
+    const lat = parseFloat(document.getElementById(latId).value);
+
+    const lng = parseFloat(document.getElementById(lngId).value);
+
+    if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+      return [lat, lng];
+    }
+
+    const results = await Geo.search(text, { limit: 1 });
+
+    return results.length > 0 ? [results[0].lat, results[0].lon] : null;
   },
 
   modeOptions(current) {

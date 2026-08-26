@@ -152,6 +152,58 @@ const Geo = {
     this._seq += 1;
   },
 
+  // Driving route between two or more [lat, lng] points. Returns
+  // { distanceKm, durationMinutes, path } where path is [lat,lng] pairs
+  // ready to hand straight to Leaflet, or null if no route exists.
+  //
+  // Routing costs 1 credit per waypoint pair (+1 per 500km beyond the
+  // first 500), so callers should route whole legs rather than polling.
+  // Results are cached here and again on the server for 24h, so revisiting
+  // the map doesn't re-spend.
+  async route(points, options = {}) {
+    if (!Array.isArray(points) || points.length < 2) {
+      return null;
+    }
+
+    const waypoints = points.map((p) => `${p[0]},${p[1]}`).join("|");
+
+    const params = { waypoints, mode: options.mode || "drive" };
+
+    const key = this.cacheKey("routing", params);
+
+    if (this._cache.has(key)) {
+      return this._cache.get(key);
+    }
+
+    const response = await fetch(`${window.API_BASE}/api/geo/routing?${new URLSearchParams(params).toString()}`);
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (data.code === "GEOAPIFY_NOT_CONFIGURED") {
+        this.configured = false;
+      }
+
+      throw Object.assign(new Error(data.error || "Routing failed."), { code: data.code });
+    }
+
+    this._cache.set(key, data.route);
+
+    return data.route;
+  },
+
+  formatDuration(minutes) {
+    if (typeof minutes !== "number") {
+      return "";
+    }
+
+    const h = Math.floor(minutes / 60);
+
+    const m = minutes % 60;
+
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  },
+
   // A short label for a result - the full formatted address is often too
   // long for a day's location field, which wants "Katoomba" not
   // "Katoomba, Blue Mountains City Council, NSW 2780, Australia".
