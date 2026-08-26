@@ -75,8 +75,33 @@ const Geo = {
     return this.lookup("autocomplete", {
       text,
       limit: String(options.limit || 5),
+      ...(options.type ? { type: options.type } : {}),
       ...(options.countryCode ? { filter: `countrycode:${String(options.countryCode).toLowerCase()}` } : {}),
     });
+  },
+
+  // Narrowed search with an automatic widening fallback.
+  //
+  // A day's location is a place you sleep, so `type=city` is the right
+  // filter - Geoapify documents it as "cities, towns and villages", and it
+  // strips out the council/boundary results that otherwise clutter the
+  // list ("Council of the City of Sydney" and friends).
+  //
+  // The risk is a settlement it classifies as something else being lost
+  // entirely, so if the narrowed search finds nothing we retry unfiltered
+  // rather than dead-ending. That costs one extra credit only in the rare
+  // empty case, and the caller is told which mode produced the results so
+  // it can say so in the UI.
+  async searchSettlements(text, options = {}) {
+    const narrowed = await this.search(text, { ...options, type: "city" });
+
+    if (narrowed.length > 0) {
+      return { results: narrowed, widened: false };
+    }
+
+    const widened = await this.search(text, options);
+
+    return { results: widened, widened: true };
   },
 
   // Debounced type-ahead. onResults/onError are called with the outcome;
@@ -96,13 +121,17 @@ const Geo = {
 
     this._timer = setTimeout(async () => {
       try {
-        const results = await this.search(trimmed, options);
+        // settlements:true asks for towns/cities/villages only, widening
+        // automatically if that finds nothing.
+        const outcome = options.settlements
+          ? await this.searchSettlements(trimmed, options)
+          : { results: await this.search(trimmed, options), widened: false };
 
         if (mySeq !== this._seq) {
           return;
         }
 
-        onResults(results, trimmed);
+        onResults(outcome.results, trimmed, { widened: outcome.widened });
       } catch (error) {
         if (mySeq !== this._seq) {
           return;

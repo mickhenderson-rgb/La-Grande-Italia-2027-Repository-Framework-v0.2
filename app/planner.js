@@ -507,14 +507,17 @@ const Planner = {
 
             <div class="form-grid">
 
-                <label class="form-field geo-field">
+                <label class="form-field">
                     Location
-                    <input type="text" id="pln-edit-location" value="${this.esc(day.location)}" placeholder="Start typing a town or city…"
-                        autocomplete="off"
-                        oninput="Planner.onLocationTyped(this.value)"
-                        onblur="Planner.hideLocationSuggestions()">
-                    <div id="pln-geo-suggestions" class="geo-suggestions"></div>
-                    <span class="form-hint" id="pln-geo-hint">Pick a suggestion to set the map coordinates automatically.</span>
+                    <span class="geo-input-wrap">
+                        <input type="text" id="pln-edit-location" value="${this.esc(day.location)}" placeholder="Start typing a town or city…"
+                            autocomplete="off"
+                            oninput="Planner.onLocationTyped(this.value)"
+                            onkeydown="Planner.onLocationKey(event)"
+                            onblur="Planner.hideLocationSuggestions()">
+                        <span id="pln-geo-suggestions" class="geo-suggestions"></span>
+                    </span>
+                    <span class="form-hint" id="pln-geo-hint">Start typing to search, then pick a place to set its coordinates.</span>
                 </label>
 
                 <label class="form-field">
@@ -541,12 +544,12 @@ const Planner = {
 
                 <label class="form-field">
                     Latitude
-                    <input type="number" id="pln-edit-lat" step="0.000001" value="${typeof day.lat === "number" ? day.lat : ""}" placeholder="e.g. -33.8688">
+                    <input type="number" id="pln-edit-lat" step="any" min="-90" max="90" value="${typeof day.lat === "number" ? day.lat : ""}" placeholder="e.g. -33.8688">
                 </label>
 
                 <label class="form-field">
                     Longitude
-                    <input type="number" id="pln-edit-lng" step="0.000001" value="${typeof day.lng === "number" ? day.lng : ""}" placeholder="e.g. 151.2093">
+                    <input type="number" id="pln-edit-lng" step="any" min="-180" max="180" value="${typeof day.lng === "number" ? day.lng : ""}" placeholder="e.g. 151.2093">
                 </label>
 
             </div>
@@ -582,6 +585,54 @@ const Planner = {
 
   _geoResults: [],
 
+  _geoActive: -1,
+
+  // Arrow keys / Enter / Escape through the suggestion list, so the field
+  // is usable without reaching for the mouse.
+  onLocationKey(event) {
+    const box = document.getElementById("pln-geo-suggestions");
+
+    if (!box || !box.classList.contains("is-open") || this._geoResults.length === 0) {
+      return;
+    }
+
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+
+      const delta = event.key === "ArrowDown" ? 1 : -1;
+
+      this._geoActive = (this._geoActive + delta + this._geoResults.length) % this._geoResults.length;
+
+      this.highlightSuggestion();
+
+      return;
+    }
+
+    if (event.key === "Enter" && this._geoActive >= 0) {
+      event.preventDefault();
+
+      this.chooseLocation(this._geoActive);
+
+      return;
+    }
+
+    if (event.key === "Escape") {
+      this.hideLocationSuggestions();
+    }
+  },
+
+  highlightSuggestion() {
+    const box = document.getElementById("pln-geo-suggestions");
+
+    if (!box) {
+      return;
+    }
+
+    Array.from(box.children).forEach((el, i) => {
+      el.classList.toggle("is-active", i === this._geoActive);
+    });
+  },
+
   onLocationTyped(value) {
     const box = document.getElementById("pln-geo-suggestions");
 
@@ -593,8 +644,19 @@ const Planner = {
 
     Geo.onType(
       value,
-      (results) => {
+      (results, _text, meta) => {
         this._geoResults = results;
+
+        this._geoActive = -1;
+
+        if (status) {
+          // Be explicit when the town-only search found nothing and we fell
+          // back to searching everything - otherwise a street or landmark
+          // appearing in a "pick a town" list looks like a glitch.
+          status.textContent = meta && meta.widened
+            ? "No towns matched, so this is a wider search - check the result before picking."
+            : "";
+        }
 
         if (results.length === 0) {
           box.innerHTML = "";
@@ -604,13 +666,18 @@ const Planner = {
           return;
         }
 
+        // Rows, not buttons - onmousedown preventDefault stops the input's
+        // blur firing before the click lands.
         box.innerHTML = results
           .map(
             (r, i) =>
-              `<button type="button" class="geo-suggestion" onmousedown="event.preventDefault()" onclick="Planner.chooseLocation(${i})">
-                 <span class="geo-suggestion-main">${Geo.esc(Geo.shortLabel(r))}</span>
-                 <span class="geo-suggestion-sub">${Geo.esc(r.formatted)}</span>
-               </button>`,
+              `<span class="geo-row" role="option" onmousedown="event.preventDefault()" onclick="Planner.chooseLocation(${i})">
+                 <span class="geo-row-text">
+                   <span class="geo-row-main">${Geo.esc(Geo.shortLabel(r))}</span>
+                   <span class="geo-row-sub">${Geo.esc(r.formatted)}</span>
+                 </span>
+                 ${r.countryCode ? `<span class="geo-row-cc">${Geo.esc(r.countryCode)}</span>` : ""}
+               </span>`,
           )
           .join("");
 
@@ -628,6 +695,9 @@ const Planner = {
               : "Couldn't reach the location service - enter the coordinates by hand below.";
         }
       },
+      // A day's location is somewhere you sleep, so search towns and
+      // cities rather than every street and landmark.
+      { settlements: true },
     );
   },
 
@@ -642,9 +712,11 @@ const Planner = {
 
     document.getElementById("pln-edit-location").value = Geo.toSlug(Geo.shortLabel(result));
 
-    document.getElementById("pln-edit-lat").value = result.lat;
+    // 6dp is ~0.1m - far finer than a town pin needs, and it keeps the
+    // stored JSON tidy rather than carrying the provider's full precision.
+    document.getElementById("pln-edit-lat").value = Number(result.lat).toFixed(6);
 
-    document.getElementById("pln-edit-lng").value = result.lon;
+    document.getElementById("pln-edit-lng").value = Number(result.lon).toFixed(6);
 
     const overnight = document.getElementById("pln-edit-overnight");
 
