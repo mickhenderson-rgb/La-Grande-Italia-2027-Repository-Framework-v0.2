@@ -192,6 +192,21 @@ const Geo = {
     return data.route;
   },
 
+  // Turns a proxy error code into something a person can act on. The
+  // distinction matters: "not configured" is a settings problem, a server
+  // bug is not something retrying will fix, and only a genuine network
+  // failure is worth trying again.
+  errorMessage(error, fallback) {
+    const codes = {
+      GEOAPIFY_NOT_CONFIGURED: "Location lookup isn't set up on this server.",
+      GEO_SHAPE_FAILED: "The location service replied, but the app couldn't read it. This is a bug - please report it.",
+      GEO_BAD_RESPONSE: "The location service returned something unexpected.",
+      GEO_UPSTREAM_UNREACHABLE: "Couldn't reach the location service. Try again in a moment.",
+    };
+
+    return codes[error && error.code] || fallback || "Something went wrong.";
+  },
+
   formatDuration(minutes) {
     if (typeof minutes !== "number") {
       return "";

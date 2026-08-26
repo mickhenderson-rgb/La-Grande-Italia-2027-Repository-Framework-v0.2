@@ -1014,11 +1014,7 @@ ${rows}
     } catch (error) {
       console.error("Route lookup failed:", error);
 
-      setStatus(
-        error.code === "GEOAPIFY_NOT_CONFIGURED"
-          ? "Route lookup isn't set up on this server."
-          : "Couldn't reach the route service. Try again.",
-      );
+      setStatus(Geo.errorMessage(error, "Couldn't look up the route."));
     }
   },
 

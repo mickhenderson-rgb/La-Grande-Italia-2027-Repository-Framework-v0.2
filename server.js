@@ -997,7 +997,16 @@ function shapeRoutingResponse(parsed) {
     ? geometry.coordinates || []
     : [geometry.coordinates || []];
 
-  const path = lines.flatMap((line) => line.map((pair) => [pair[1], pair[0]]));
+  // NOTE: deliberately not Array.prototype.flatMap - the production host
+  // runs Node 10.24.1, where flatMap doesn't exist (it landed in Node 11).
+  // Using it here threw at runtime and surfaced as a generic 502.
+  const path = [];
+
+  lines.forEach((line) => {
+    (line || []).forEach((pair) => {
+      path.push([pair[1], pair[0]]);
+    });
+  });
 
   return {
     route: {
@@ -1129,15 +1138,36 @@ async function handleGeoRoute(req, res, action) {
       return sendJSON(res, 502, { error: "Location service unavailable." });
     }
 
-    const payload = route.shape(JSON.parse(upstream.body));
+    let parsed;
+
+    try {
+      parsed = JSON.parse(upstream.body);
+    } catch (error) {
+      console.error(`[geoapify] ${action} returned unparseable JSON:`, upstream.body.slice(0, 200));
+
+      return sendJSON(res, 502, { error: "Location service returned something unexpected.", code: "GEO_BAD_RESPONSE" });
+    }
+
+    // Shaping is OUR code, so a failure here is a bug, not a network
+    // problem - report it distinctly. Conflating the two is what made a
+    // flatMap-on-Node-10 crash look like "couldn't reach the service".
+    let payload;
+
+    try {
+      payload = route.shape(parsed);
+    } catch (error) {
+      console.error(`[geoapify] ${action} response shaping FAILED (this is a server bug, not the upstream):`, error.stack || error.message);
+
+      return sendJSON(res, 500, { error: "Couldn't read the location service's response.", code: "GEO_SHAPE_FAILED" });
+    }
 
     geoCacheSet(cacheKey, payload);
 
     return sendJSON(res, 200, payload);
   } catch (error) {
-    console.error(`[geoapify] ${action} failed:`, error.message);
+    console.error(`[geoapify] ${action} request failed:`, error.stack || error.message);
 
-    return sendJSON(res, 502, { error: "Couldn't reach the location service." });
+    return sendJSON(res, 502, { error: "Couldn't reach the location service.", code: "GEO_UPSTREAM_UNREACHABLE" });
   }
 }
 

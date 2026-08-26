@@ -1082,9 +1082,8 @@ ${unplotted}
 
       if (summary) {
         summary.textContent =
-          error.code === "GEOAPIFY_NOT_CONFIGURED"
-            ? "Driving routes need location lookup configured on the server - showing direct lines."
-            : "Couldn't load the driving route - showing direct lines instead.";
+          (typeof Geo !== "undefined" ? Geo.errorMessage(error, "Couldn't load the driving route.") : "Couldn't load the driving route.") +
+          " Showing direct lines instead.";
       }
     }
   },
