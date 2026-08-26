@@ -752,22 +752,22 @@ ${rows}
 
                 <label class="form-field">
                     From Latitude
-                    <input type="number" id="trn-from-lat" value="${item.fromCoordinates?.latitude ?? ""}" step="0.000001">
+                    <input type="number" id="trn-from-lat" value="${item.fromCoordinates?.latitude ?? ""}" step="any" min="-90" max="90">
                 </label>
 
                 <label class="form-field">
                     From Longitude
-                    <input type="number" id="trn-from-lng" value="${item.fromCoordinates?.longitude ?? ""}" step="0.000001">
+                    <input type="number" id="trn-from-lng" value="${item.fromCoordinates?.longitude ?? ""}" step="any" min="-180" max="180">
                 </label>
 
                 <label class="form-field">
                     To Latitude
-                    <input type="number" id="trn-to-lat" value="${item.toCoordinates?.latitude ?? ""}" step="0.000001">
+                    <input type="number" id="trn-to-lat" value="${item.toCoordinates?.latitude ?? ""}" step="any" min="-90" max="90">
                 </label>
 
                 <label class="form-field">
                     To Longitude
-                    <input type="number" id="trn-to-lng" value="${item.toCoordinates?.longitude ?? ""}" step="0.000001">
+                    <input type="number" id="trn-to-lng" value="${item.toCoordinates?.longitude ?? ""}" step="any" min="-180" max="180">
                 </label>
 
             </div>
