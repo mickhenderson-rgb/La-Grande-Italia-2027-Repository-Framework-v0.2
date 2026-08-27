@@ -217,12 +217,15 @@ const Readiness = {
 
   // The budget can only count what has a number on it.
   checkMissingPrices(findings) {
+    // Both forms spelled out. A single plural label produced "1 activities
+    // with no price", and accommodation/transport don't pluralise the way
+    // the others do, so a rule wouldn't have worked anyway.
     const collections = [
-      { key: "flights", label: "flights", nav: "flights" },
-      { key: "accommodation", label: "accommodation", nav: "accommodation" },
-      { key: "transport", label: "transport", nav: "transport" },
-      { key: "activities", label: "activities", nav: "dashboard" },
-      { key: "restaurants", label: "restaurants", nav: "dashboard" },
+      { key: "flights", one: "flight", many: "flights", nav: "flights" },
+      { key: "accommodation", one: "place to stay", many: "places to stay", nav: "accommodation" },
+      { key: "transport", one: "transport booking", many: "transport bookings", nav: "transport" },
+      { key: "activities", one: "activity", many: "activities", nav: "dashboard" },
+      { key: "restaurants", one: "restaurant", many: "restaurants", nav: "dashboard" },
     ];
 
     collections.forEach((c) => {
@@ -238,7 +241,7 @@ const Readiness = {
 
       findings.push({
         level: "money",
-        title: `${unpriced.length} ${c.label} with no price`,
+        title: `${unpriced.length} ${unpriced.length === 1 ? c.one : c.many} with no price`,
         detail: "Chosen, but the budget can't include them until they have an amount.",
         action: `Router.navigate('${c.nav}')`,
         actionLabel: "Open",

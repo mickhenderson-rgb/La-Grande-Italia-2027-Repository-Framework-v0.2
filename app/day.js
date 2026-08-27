@@ -356,6 +356,13 @@ const Day = {
 
     <div class="quick-links">
 
+        <!-- Edit Day lives here as well as on the planner card, because the
+             planner card's copy is the ONLY other one and mobile.css hides
+             it - which left no way at all to fix a day's location or
+             overnight from a phone. That matters: a day the map can't place
+             is flagged NO LOCATION and the only fix is this form. -->
+        <button type="button" onclick="Planner.showEditDayForm(${day.day})">Edit Day</button>
+
         <button type="button" onclick="Destination.open('${this.jsArg(day.location)}', Day.current)">Destination</button>
 
         <button type="button" onclick="Flights.open(Day.current)">Flights</button>

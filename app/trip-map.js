@@ -2203,7 +2203,11 @@ ${hint}
 
 .tripmap-stop { margin: 0; }
 
-.tripmap-stop-btn { width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid #e4ddd0; border-radius: var(--radius, 8px); background: #ffffff; cursor: pointer; text-align: left; font: inherit; transition: border-color 0.15s, box-shadow 0.15s; }
+/* Tokens, not literals. These were hard-coded #ffffff on a #e4ddd0 border
+   with #243447 text, so in dark mode the whole stop list stayed a stack of
+   white cards on a dark page - the one surface in the app that never got
+   the theme. */
+.tripmap-stop-btn { width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--color-border, #e2e5ea); border-radius: var(--radius, 8px); background: var(--color-surface, #ffffff); cursor: pointer; text-align: left; font: inherit; transition: border-color 0.15s, box-shadow 0.15s; }
 
 .tripmap-stop.is-active .tripmap-stop-btn { border-color: var(--color-primary, #34495E); box-shadow: 0 0 0 2px rgba(52, 73, 94, 0.15); }
 
@@ -2211,9 +2215,9 @@ ${hint}
 
 .tripmap-stop-text { display: flex; flex-direction: column; gap: 2px; }
 
-.tripmap-stop-name { font-weight: 700; color: #243447; }
+.tripmap-stop-name { font-weight: 700; color: var(--color-text, #2C3E50); }
 
-.tripmap-stop-dates { font-size: 0.82em; color: #6b6357; }
+.tripmap-stop-dates { font-size: 0.82em; color: var(--color-muted, #6b7280); }
 
 .tripmap-flag { font-size: 0.72em; color: #8a5a18; font-weight: 700; letter-spacing: 0.03em; }
 
@@ -2225,7 +2229,7 @@ ${hint}
 
 .tripmap-glyph.is-research { color: #9aa0a6; }
 
-.tripmap-detail { background: #ffffff; border: 1px solid #e4ddd0; border-radius: var(--radius, 8px); padding: 14px 16px; flex: 0 0 auto; max-height: 44%; overflow-y: auto; }
+.tripmap-detail { background: var(--color-surface, #ffffff); border: 1px solid var(--color-border, #e2e5ea); border-radius: var(--radius, 8px); padding: 14px 16px; flex: 0 0 auto; max-height: 44%; overflow-y: auto; }
 
 .tripmap-detail:focus-visible { outline: 2px solid var(--color-primary, #34495E); outline-offset: 2px; }
 
@@ -2233,17 +2237,17 @@ ${hint}
 
 .tripmap-detail-head h2 { margin: 0; font-size: 1.2em; }
 
-.tripmap-detail-sub { margin: 2px 0 0; font-size: 0.85em; color: #6b6357; }
+.tripmap-detail-sub { margin: 2px 0 0; font-size: 0.85em; color: var(--color-muted, #6b7280); }
 
 .tripmap-detail-flag { background: #fdf3e3; border: 1px solid #f0dcc0; border-radius: 6px; padding: 8px 10px; font-size: 0.82em; color: #8a5a18; }
 
-.tripmap-detail-group { border-top: 1px solid #efe9df; padding: 10px 0; }
+.tripmap-detail-group { border-top: 1px solid var(--color-rule, #ececec); padding: 10px 0; }
 
 .tripmap-detail-group:first-child { border-top: none; }
 
-.tripmap-detail-group-head { display: flex; align-items: center; gap: 8px; font-weight: 700; color: #34495E; margin-bottom: 6px; }
+.tripmap-detail-group-head { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--color-primary, #34495E); margin-bottom: 6px; }
 
-.tripmap-detail-count { margin-left: auto; font-size: 0.8em; color: #6b6357; font-weight: 600; }
+.tripmap-detail-count { margin-left: auto; font-size: 0.8em; color: var(--color-muted, #6b7280); font-weight: 600; }
 
 .tripmap-item { display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 4px 0; }
 
@@ -2257,13 +2261,13 @@ ${hint}
 
 .tripmap-badge.is-research { background: #ececec; color: #555; }
 
-.tripmap-detail-empty { color: #7a7a7a; font-style: italic; }
+.tripmap-detail-empty { color: var(--color-muted, #6b7280); font-style: italic; }
 
 .tripmap-detail-actions { margin-top: 12px; }
 
 .tripmap-detail-actions button { padding: 8px 16px; border-radius: 999px; border: 1px solid var(--color-primary, #34495E); background: var(--color-primary, #34495E); color: #fff; cursor: pointer; font: inherit; }
 
-.tripmap-surface { height: 72vh; min-height: 500px; border-radius: var(--radius, 8px); border: 1px solid #e4ddd0; overflow: hidden; background: #e8eaee; z-index: 0; }
+.tripmap-surface { height: 72vh; min-height: 500px; border-radius: var(--radius, 8px); border: 1px solid var(--color-border, #e2e5ea); overflow: hidden; background: #e8eaee; z-index: 0; }
 
 .tripmap-surface-wrap { display: flex; flex-direction: column; gap: 8px; }
 
@@ -2277,13 +2281,13 @@ ${hint}
 
 .tripmap-legend-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 
-.tripmap-map-msg { display: flex; height: 100%; align-items: center; justify-content: center; padding: 16px; color: #6b6357; font-style: italic; text-align: center; }
+.tripmap-map-msg { display: flex; height: 100%; align-items: center; justify-content: center; padding: 16px; color: var(--color-muted, #6b7280); font-style: italic; text-align: center; }
 
 .leaflet-container { font: inherit; background: #e8eaee; }
 
 .tripmap-pin-wrap { background: transparent; border: none; }
 
-.tm-pin { width: 100%; height: 100%; border-radius: 50%; background: #ffffff; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 15px; line-height: 1; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); cursor: pointer; transition: transform 0.12s; }
+.tm-pin { width: 100%; height: 100%; border-radius: 50%; background: var(--color-surface, #ffffff); box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 15px; line-height: 1; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); cursor: pointer; transition: transform 0.12s; }
 
 .tm-pin.is-booked { border: 2px solid var(--color-primary, #34495E); color: var(--color-primary, #34495E); }
 
@@ -2293,7 +2297,7 @@ ${hint}
 
 .tm-pin.is-active { transform: scale(1.3); box-shadow: 0 0 0 6px rgba(52, 73, 94, 0.22), 0 1px 3px rgba(0, 0, 0, 0.4); }
 
-.tm-plabel { display: none; position: absolute; left: 32px; top: 2px; white-space: nowrap; background: rgba(255, 255, 255, 0.94); border: 1px solid #e4ddd0; border-radius: 6px; padding: 1px 7px; font-size: 11px; font-weight: 600; color: #243447; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18); pointer-events: none; }
+.tm-plabel { display: none; position: absolute; left: 32px; top: 2px; white-space: nowrap; background: rgba(255, 255, 255, 0.94); border: 1px solid var(--color-border, #e2e5ea); border-radius: 6px; padding: 1px 7px; font-size: 11px; font-weight: 600; color: var(--color-text, #2C3E50); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18); pointer-events: none; }
 
 .tripmap-pin-wrap:hover .tm-plabel, .tm-pin.is-active + .tm-plabel { display: block; }
 
@@ -2315,27 +2319,27 @@ ${hint}
 
 .tripmap-daytabs { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
 
-.tm-daytabs-label { font-size: 0.7em; text-transform: uppercase; letter-spacing: 0.06em; color: #6b6357; margin-right: 2px; }
+.tm-daytabs-label { font-size: 0.7em; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-muted, #6b7280); margin-right: 2px; }
 
-.tm-daytab { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; border: 1px solid #cbd2da; background: #fff; color: #243447; font: inherit; font-size: 0.82em; cursor: pointer; }
+.tm-daytab { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; border: 1px solid #cbd2da; background: var(--color-surface, #ffffff); color: var(--color-text, #2C3E50); font: inherit; font-size: 0.82em; cursor: pointer; }
 
 .tm-daytab:hover { border-color: var(--color-primary, #34495E); background: #eef1f4; }
 
 .tm-daytab-count { background: var(--color-primary, #34495E); color: #fff; border-radius: 999px; font-size: 0.85em; padding: 0 6px; min-width: 16px; text-align: center; }
 
-.tm-back { padding: 4px 10px; border-radius: 999px; border: 1px solid #cbd2da; background: #fff; color: #243447; font: inherit; font-weight: 600; cursor: pointer; }
+.tm-back { padding: 4px 10px; border-radius: 999px; border: 1px solid #cbd2da; background: var(--color-surface, #ffffff); color: var(--color-text, #2C3E50); font: inherit; font-weight: 600; cursor: pointer; }
 
 .tm-back:hover { border-color: var(--color-primary, #34495E); background: #eef1f4; }
 
 .tripmap-day-title { margin: 8px 0 0; font-size: 1.15em; }
 
-.tripmap-place-tip { font-size: 0.82em; color: #6b6357; margin: 6px 0; }
+.tripmap-place-tip { font-size: 0.82em; color: var(--color-muted, #6b7280); margin: 6px 0; }
 
 .tripmap-place-hint { font-size: 0.85em; color: #2e7d4f; background: #e1f0e3; border: 1px solid #bfe0c4; border-radius: 6px; padding: 6px 10px; margin: 6px 0; }
 
 .tm-linkbtn { background: none; border: none; color: #8a5a18; text-decoration: underline; cursor: pointer; font: inherit; padding: 0; }
 
-.tripmap-day-item { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-top: 1px solid #efe9df; }
+.tripmap-day-item { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-top: 1px solid var(--color-rule, #ececec); }
 
 .tripmap-day-item:first-child { border-top: none; }
 
@@ -2345,19 +2349,19 @@ ${hint}
 
 .tm-item-body { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
 
-.tm-item-meta { font-size: 0.78em; color: #6b6357; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tm-item-meta { font-size: 0.78em; color: var(--color-muted, #6b7280); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
 .tm-item-coords { color: #2e7d4f; }
 
 .tm-item-nocoords { color: #8a5a18; font-weight: 600; }
 
-.tm-place-btn { flex: none; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--color-primary, #34495E); background: #fff; color: var(--color-primary, #34495E); font: inherit; font-size: 0.82em; font-weight: 600; cursor: pointer; }
+.tm-place-btn { flex: none; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--color-primary, #34495E); background: var(--color-surface, #ffffff); color: var(--color-primary, #34495E); font: inherit; font-size: 0.82em; font-weight: 600; cursor: pointer; }
 
 .tm-place-btn:hover { background: var(--color-primary, #34495E); color: #fff; }
 
 .tm-place-btn.is-armed { background: #2e7d4f; border-color: #2e7d4f; color: #fff; }
 
-.tm-daypin { width: 100%; height: 100%; border-radius: 50%; background: #ffffff; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 15px; line-height: 1; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); border: 2px solid #9aa0a6; }
+.tm-daypin { width: 100%; height: 100%; border-radius: 50%; background: var(--color-surface, #ffffff); box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 15px; line-height: 1; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); border: 2px solid #9aa0a6; }
 
 .tm-daypin.is-booked { border-color: var(--color-primary, #34495E); }
 
