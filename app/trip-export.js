@@ -227,10 +227,10 @@ const TripExport = {
       .replace(/"/g, "&quot;");
   },
 
+  // Delegates to the shared formatter - see app/format.js. Kept as a
+  // local method so every existing this.pretty(...) call still works.
   pretty(value) {
-    return String(value || "")
-      .replaceAll("-", " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase());
+    return Format.place(value);
   },
 
   slugify(value) {
@@ -241,12 +241,9 @@ const TripExport = {
       .replace(/(^-|-$)/g, "") || "trip";
   },
 
+  // Delegates to the shared formatter - see app/format.js.
   money(amount, currency) {
-    if (!(Number(amount) > 0)) {
-      return "";
-    }
-
-    return `${String(currency || "").toUpperCase()} ${amount}`;
+    return Format.money(amount, currency);
   },
 
   priceOf(item) {

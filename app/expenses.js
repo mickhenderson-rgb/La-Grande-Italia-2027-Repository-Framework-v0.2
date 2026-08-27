@@ -201,7 +201,7 @@ Logged Expenses
 
     <p>
 
-        ${this.esc(item.date)}
+        ${this.esc(Format.date(item.date))}
         ${item.addedBy ? `· <span class="badge">Logged by ${this.esc(item.addedBy)}</span>` : ""}
 
     </p>
@@ -550,10 +550,9 @@ ${rows}
       });
   },
 
+  // Delegates to the shared formatter - see app/format.js.
   money(amount, currency) {
-    const value = Number(amount) || 0;
-
-    return `${currency || "EUR"} ${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+    return Format.money(amount, currency);
   },
 
   // Full escaping, not just quotes.

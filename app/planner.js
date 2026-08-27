@@ -96,7 +96,7 @@ const Planner = {
         </div>
 
         <div>
-            ${day.date || ""}
+            ${Format.date(day.date)}
         </div>
 
     </div>
@@ -355,10 +355,10 @@ const Planner = {
     }
   },
 
+  // Delegates to the shared formatter - see app/format.js. Kept as a
+  // local method so every existing this.pretty(...) call still works.
   pretty(value) {
-    return String(value || "")
-      .replaceAll("-", " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase());
+    return Format.place(value);
   },
 
   showAddDayForm(afterDayNumber) {
@@ -831,7 +831,7 @@ const Planner = {
 
     const message =
       linked > 0
-        ? `Day ${dayNumber} has ${linked} linked item(s) (transport, expenses or journal entries). Deleting this day will delete those too, and every later day will be renumbered. Continue?`
+        ? `Day ${dayNumber} has ${linked} linked ${linked === 1 ? "item" : "items"} (transport, expenses or journal entries). Deleting this day will delete those too, and every later day will be renumbered. Continue?`
         : `Delete Day ${dayNumber}? Every later day will be renumbered.`;
 
     const answer = confirm(message);

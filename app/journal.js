@@ -102,7 +102,7 @@ const Journal = {
 
     <p>
 
-        ${this.esc(day.date)}
+        ${this.esc(Format.date(day.date))}
 
     </p>
 
@@ -250,7 +250,7 @@ const Journal = {
 
         <p>
 
-            ${this.esc(day.date)}
+            ${this.esc(Format.date(day.date))}
 
         </p>
 

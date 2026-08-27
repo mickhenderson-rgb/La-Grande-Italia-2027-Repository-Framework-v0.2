@@ -623,16 +623,15 @@ const Budget = {
     })}`;
   },
 
+  // Delegates to the shared formatter - see app/format.js.
   money(amount, currency) {
-    const value = Number(amount) || 0;
-
-    return `${currency || "EUR"} ${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+    return Format.money(amount, currency);
   },
 
+  // Delegates to the shared formatter - see app/format.js. Kept as a
+  // local method so every existing this.pretty(...) call still works.
   pretty(value) {
-    return String(value || "")
-      .replaceAll("_", " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase());
+    return Format.place(value);
   },
 
   esc(value) {

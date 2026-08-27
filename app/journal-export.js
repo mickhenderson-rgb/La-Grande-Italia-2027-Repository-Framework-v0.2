@@ -262,7 +262,7 @@ const JournalExport = {
 
     <h2>Day ${day.day} - ${this.esc(day.title)}</h2>
 
-    <p class="export-meta">${this.esc(day.date)} ${day.location ? "- " + this.esc(this.pretty(day.location)) : ""}</p>
+    <p class="export-meta">${this.esc(Format.date(day.date))} ${day.location ? "- " + this.esc(this.pretty(day.location)) : ""}</p>
 
     ${
       options.includeNotes && entry.notes && entry.notes.trim()
@@ -358,10 +358,10 @@ ${sections.join("\n")}
     return `${slug || "trip"}-journal.html`;
   },
 
+  // Delegates to the shared formatter - see app/format.js. Kept as a
+  // local method so every existing this.pretty(...) call still works.
   pretty(value) {
-    return String(value || "")
-      .replaceAll("-", " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase());
+    return Format.place(value);
   },
 
   esc(value) {

@@ -242,6 +242,34 @@ body {
   font-weight: 700;
 }
 
+/* The actions block never had a rule of its own - only its buttons did -
+   so with no flex:none the header squeezed it until the buttons wrapped
+   onto two lines and overlapped the hero. Reproduced with a long trip
+   name; a short one fitted and hid the fault. min-width:0 on the title is
+   what lets its ellipsis actually engage: a flex item defaults to
+   min-width:auto and refuses to shrink below its content. */
+.app-actions {
+  flex: none;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  white-space: nowrap;
+}
+
+.app-title {
+  min-width: 0;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
 .app-actions button {
   border: none;
 

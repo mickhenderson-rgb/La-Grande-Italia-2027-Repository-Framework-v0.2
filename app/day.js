@@ -86,8 +86,13 @@ const Day = {
     };
   },
 
+  // "1 item" / "3 items" - never "1 item(s)".
   formatCount(n) {
-    return n ? `${n} item(s)` : "No items";
+    if (!n) {
+      return "No items";
+    }
+
+    return `${n} ${n === 1 ? "item" : "items"}`;
   },
 
   journalSummary(day) {
@@ -107,7 +112,7 @@ const Day = {
       return "No entry yet";
     }
 
-    return `${photoCount} photo(s), ${checklistCount} checklist item(s)`;
+    return `${photoCount} ${photoCount === 1 ? "photo" : "photos"}, ${checklistCount} checklist ${checklistCount === 1 ? "item" : "items"}`;
   },
 
   // Every item on this day that has an actual clock time, across the
@@ -421,10 +426,10 @@ const Day = {
 `;
   },
 
+  // Delegates to the shared formatter - see app/format.js. Kept as a
+  // local method so every existing this.pretty(...) call still works.
   pretty(value) {
-    return String(value || "")
-      .replaceAll("-", " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase());
+    return Format.place(value);
   },
 
   // For a value going inside a quoted JS string in an onclick attribute -

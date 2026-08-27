@@ -469,11 +469,10 @@ const Readiness = {
 `;
   },
 
+  // Delegates to the shared formatter - see app/format.js. Kept as a
+  // local method so every existing this.pretty(...) call still works.
   pretty(value) {
-    return String(value || "")
-      .split(" ")
-      .map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1) : word))
-      .join(" ");
+    return Format.place(value);
   },
 
   esc(value) {
