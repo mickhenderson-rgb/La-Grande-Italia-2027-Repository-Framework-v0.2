@@ -99,7 +99,35 @@ const Sidebar = {
 
   // Mobile bottom-bar: the four primary destinations (+ a "More" button).
   // Shown only on narrow screens; the desktop sidebar is unchanged.
-  mobilePrimary: ["dashboard", "planner", "map", "journal"],
+  // THREE destinations on the bottom bar, not four.
+  //
+  // Four plus More made five tabs around a centre capture button, which
+  // put two on its left and three on its right - so the button that's
+  // meant to be the middle of the bar visibly wasn't. Three plus More is
+  // two either side, and the capture button lands where the eye and the
+  // thumb both expect it.
+  //
+  // Which three depends on where the trip is up to. Planner matters while
+  // you're building the trip; once you're on it, the map and the journal
+  // do. Whatever isn't on the bar is always in the More sheet - see
+  // visibleMoreGroups - so nothing becomes unreachable.
+  mobilePrimaryByPhase: {
+    Planning: ["dashboard", "planner", "map"],
+
+    Travel: ["dashboard", "map", "journal"],
+
+    Journal: ["dashboard", "journal", "map"],
+  },
+
+  // Every destination that can appear on the bar, in the order the More
+  // sheet should list the ones that currently don't.
+  mobileSwappable: ["dashboard", "planner", "map", "journal"],
+
+  mobilePrimary() {
+    const phase = typeof Phase !== "undefined" ? Phase.current() : "Planning";
+
+    return this.mobilePrimaryByPhase[phase] || this.mobilePrimaryByPhase.Planning;
+  },
 
   // Shorter labels for the cramped bottom bar.
   mobileLabels: { dashboard: "Home", map: "Map" },
@@ -128,9 +156,22 @@ const Sidebar = {
   visibleMoreGroups() {
     const visibleIds = this.visibleMenu().map((item) => item.id);
 
-    return this.moreGroups
-      .map((group) => ({ title: group.title, ids: group.ids.filter((id) => visibleIds.includes(id)) }))
-      .filter((group) => group.ids.length > 0);
+    // Which of the four main destinations the current phase left OFF the
+    // bottom bar. Without this they'd be unreachable on a phone the moment
+    // the phase changed - the bar swaps Planner out for Journal once
+    // you're travelling, and the trip isn't over, so Planner still has to
+    // be somewhere.
+    const onBar = this.mobilePrimary();
+
+    const displaced = this.mobileSwappable.filter((id) => onBar.indexOf(id) === -1 && visibleIds.includes(id));
+
+    const groups = displaced.length > 0 ? [{ title: "Trip", ids: displaced }] : [];
+
+    return groups.concat(
+      this.moreGroups
+        .map((group) => ({ title: group.title, ids: group.ids.filter((id) => visibleIds.includes(id)) }))
+        .filter((group) => group.ids.length > 0),
+    );
   },
 
   render() {
@@ -202,7 +243,9 @@ const Sidebar = {
   renderBottomBar() {
     const current = String(Router.currentPage || "dashboard").toLowerCase();
 
-    const onPrimary = this.mobilePrimary.includes(current);
+    const primaryIds = this.mobilePrimary();
+
+    const onPrimary = primaryIds.includes(current);
 
     const renderTab = (item) => {
       const label = this.mobileLabels[item.id] || item.title;
@@ -220,12 +263,12 @@ const Sidebar = {
 `;
     };
 
-    const primaryItems = this.mobilePrimary
+    const primaryItems = primaryIds
       .map((id) => this.menu.find((m) => m.id === id))
       .filter(Boolean);
 
-    // Two tabs either side of the capture button, matching mobile.css's
-    // 6-column grid (2 tabs, FAB, 2 tabs, More).
+    // Two either side of the capture button, matching mobile.css's
+    // 5-column grid: tab, tab, FAB, tab, More.
     const leftTabs = primaryItems.slice(0, 2).map(renderTab).join("");
 
     const rightTabs = primaryItems.slice(2).map(renderTab).join("");

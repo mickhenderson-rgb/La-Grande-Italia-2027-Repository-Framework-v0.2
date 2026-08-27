@@ -248,8 +248,11 @@ listed in the handoff README under "Markup changes".
      6 columns, not the handoff's 5 - "More" is kept (it's the only route
      to Budget/Settings/etc. on mobile until Part 3 gives it a new home). */
 
+  /* Two tabs, the capture button, two tabs. Was 1fr 1fr 66px 1fr 1fr 1fr -
+     six columns for five items around the button, which left three on its
+     right and two on its left, so the "centre" button sat off-centre. */
   .mobile-nav {
-    grid-template-columns: 1fr 1fr 66px 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr 66px 1fr 1fr;
     align-items: end;
   }
 
