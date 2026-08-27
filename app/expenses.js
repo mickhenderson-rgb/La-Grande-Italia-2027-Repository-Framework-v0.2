@@ -56,7 +56,20 @@ const Expenses = {
   render() {
     const items = this.getExpenses();
 
-    const total = items.reduce((sum, item) => sum + (item.amount || 0), 0);
+    // Same reason as renderByCategory: never add different currencies
+    // together, and never label a mixed sum with one currency's code.
+    const totalsByCurrency = {};
+
+    items.forEach((item) => {
+      const code = item.currency || "EUR";
+
+      totalsByCurrency[code] = (totalsByCurrency[code] || 0) + (item.amount || 0);
+    });
+
+    const total = Object.keys(totalsByCurrency)
+      .sort()
+      .map((code) => this.money(totalsByCurrency[code], code))
+      .join(" + ");
 
     return `
 
@@ -78,7 +91,7 @@ const Expenses = {
 
         <p>
 
-            ${items.length} expense${items.length === 1 ? "" : "s"} logged · Total ${this.money(total)}
+            ${items.length} expense${items.length === 1 ? "" : "s"} logged${total ? ` · Total ${total}` : ""}
 
         </p>
 
@@ -225,29 +238,49 @@ Logged Expenses
     return html;
   },
 
+  // Totals are kept PER CURRENCY, not added together.
+  //
+  // This used to sum every amount into one number and print it with the
+  // default label - so an expense logged in AUD showed correctly on its
+  // own card and then appeared as EUR in this table, and a trip with two
+  // currencies had them added as though a euro were a dollar. Wrong money
+  // stated confidently is worse than no total.
+  //
+  // Converting them into one figure would need a live rate, which this
+  // screen doesn't have (Budget does that job). Listing each currency on
+  // its own line is honest and needs nothing.
   renderByCategory(items) {
     const totals = {};
 
     this.categories.forEach((c) => {
-      totals[c] = 0;
+      totals[c] = {};
     });
 
     items.forEach((item) => {
       const cat = this.categories.includes(item.category) ? item.category : "Other";
 
-      totals[cat] += item.amount || 0;
+      const currency = item.currency || "EUR";
+
+      totals[cat][currency] = (totals[cat][currency] || 0) + (item.amount || 0);
     });
 
     let rows = "";
 
     this.categories.forEach((c) => {
+      const currencies = Object.keys(totals[c]).sort();
+
+      const cell =
+        currencies.length === 0
+          ? "—"
+          : currencies.map((code) => this.money(totals[c][code], code)).join("<br>");
+
       rows += `
 
 <tr>
 
 <td>${c}</td>
 
-<td>${this.money(totals[c])}</td>
+<td>${cell}</td>
 
 </tr>
 
@@ -523,7 +556,21 @@ ${rows}
     return `${currency || "EUR"} ${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
   },
 
+  // Full escaping, not just quotes.
+  //
+  // This escaped only " until v1.11.2, so any < in user text went into
+  // innerHTML as markup. Trips are SHARED, so a hotel name or an expense
+  // description written by one person renders in everyone else browser
+  // with their session - a stored XSS, not a cosmetic problem. Other
+  // modules were upgraded as they were touched; these were missed.
+  //
+  // & must be replaced first, or the & introduced by the later
+  // replacements gets escaped a second time.
   esc(value) {
-    return String(value ?? "").replace(/"/g, "&quot;");
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   },
 };

@@ -162,15 +162,15 @@ const Day = {
       .filter((item) => Array.isArray(item.dayRange))
       .map((item) => {
         if (item.dayRange[0] === dayNumber && item.dayRange[1] === dayNumber) {
-          return { icon: "🔑", label: `Staying at ${item.name || "your accommodation"} tonight`, action: `Accommodation.edit('${item.id}')` };
+          return { icon: "🔑", label: `Staying at ${this.esc(item.name) || "your accommodation"} tonight`, action: `Accommodation.edit('${item.id}')` };
         }
 
         if (item.dayRange[0] === dayNumber) {
-          return { icon: "🔑", label: `Checking in: ${item.name || "your accommodation"}`, action: `Accommodation.edit('${item.id}')` };
+          return { icon: "🔑", label: `Checking in: ${this.esc(item.name) || "your accommodation"}`, action: `Accommodation.edit('${item.id}')` };
         }
 
         if (item.dayRange[1] === dayNumber) {
-          return { icon: "🧳", label: `Checking out: ${item.name || "your accommodation"}`, action: `Accommodation.edit('${item.id}')` };
+          return { icon: "🧳", label: `Checking out: ${this.esc(item.name) || "your accommodation"}`, action: `Accommodation.edit('${item.id}')` };
         }
 
         return null;
@@ -347,7 +347,7 @@ const Day = {
     </h1>
 
     <h2>
-        ${day.title || ""}
+        ${this.esc(day.title)}
     </h2>
 
     ${day.location ? `<p>📍 ${this.pretty(day.location)}</p>` : `<p class="subtitle">No destination set yet</p>`}
@@ -356,7 +356,7 @@ const Day = {
 
     <div class="quick-links">
 
-        <button type="button" onclick="Destination.open('${day.location}', Day.current)">Destination</button>
+        <button type="button" onclick="Destination.open('${this.jsArg(day.location)}', Day.current)">Destination</button>
 
         <button type="button" onclick="Flights.open(Day.current)">Flights</button>
 
@@ -418,6 +418,23 @@ const Day = {
     return String(value || "")
       .replaceAll("-", " ")
       .replace(/\b\w/g, (c) => c.toUpperCase());
+  },
+
+  // For a value going inside a quoted JS string in an onclick attribute -
+  // a different job from esc(), which is for HTML text.
+  //
+  // day.location is free text, so an apostrophe ("king's cross") ended the
+  // string early and broke the button outright; a crafted one could run
+  // whatever it liked. Backslash first, then the quote, then the HTML
+  // escaping the attribute itself still needs.
+  jsArg(value) {
+    return String(value ?? "")
+      .replace(/\\/g, "\\\\")
+      .replace(/'/g, "\\'")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   },
 
   esc(value) {

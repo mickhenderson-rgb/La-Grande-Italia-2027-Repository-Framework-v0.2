@@ -973,7 +973,21 @@ const Flights = {
       });
   },
 
+  // Full escaping, not just quotes.
+  //
+  // This escaped only " until v1.11.2, so any < in user text went into
+  // innerHTML as markup. Trips are SHARED, so a hotel name or an expense
+  // description written by one person renders in everyone else browser
+  // with their session - a stored XSS, not a cosmetic problem. Other
+  // modules were upgraded as they were touched; these were missed.
+  //
+  // & must be replaced first, or the & introduced by the later
+  // replacements gets escaped a second time.
   esc(value) {
-    return String(value ?? "").replace(/"/g, "&quot;");
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   },
 };
