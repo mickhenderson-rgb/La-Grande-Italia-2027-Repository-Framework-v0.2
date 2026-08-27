@@ -5,7 +5,7 @@ COMPASS-TOS
 
 Geo (location lookup)
 
-Version 1.0.0
+Version 1.1.0
 
 Address autocomplete + geocoding, via the server's own
 /api/geo/* proxy. The Geoapify key lives only on the
@@ -205,6 +205,43 @@ const Geo = {
     };
 
     return codes[error && error.code] || fallback || "Something went wrong.";
+  },
+
+  // One leg, A to B. Returns null instead of throwing when the leg simply
+  // can't be driven - which is a normal, expected outcome, not an error:
+  //   - a flight leg (Sydney to Doha has no road)
+  //   - a waypoint that won't snap to a road (a mountain-range centroid
+  //     like "dolomites" is a point in the Alps, not a street)
+  //
+  // The null is cached for the session so a permanently unroutable leg
+  // isn't re-requested on every redraw. Genuine configuration errors
+  // (no API key) still throw, because those the caller must surface.
+  async routeLeg(a, b, options = {}) {
+    const key = this.cacheKey("leg", { a, b, mode: options.mode || "drive" });
+
+    if (this._cache.has(key)) {
+      return this._cache.get(key);
+    }
+
+    try {
+      const route = await this.route([a, b], options);
+
+      this._cache.set(key, route);
+
+      return route;
+    } catch (error) {
+      if (error.code === "GEOAPIFY_NOT_CONFIGURED") {
+        throw error;
+      }
+
+      // Cache the failure so we don't spend another credit on it this
+      // session. A page reload retries, which is the right balance: a
+      // transient outage recovers, a genuinely undrivable leg costs one
+      // credit per visit rather than one per redraw.
+      this._cache.set(key, null);
+
+      return null;
+    }
   },
 
   formatDuration(minutes) {

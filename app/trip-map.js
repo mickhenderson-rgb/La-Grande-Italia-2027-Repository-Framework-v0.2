@@ -38,12 +38,19 @@ const TripMap = {
 
   _route: null,
 
-  // The fetched driving route ({distanceKm, durationMinutes, path}), kept
+  // The fetched driving route ({distanceKm, durationMinutes}), kept
   // in memory only - not persisted into trip JSON, both because it's a
   // derived value and because Geoapify's terms don't explicitly cover
   // storing results. The server caches it for 24h, so revisiting the map
   // costs nothing.
   _drivingRoute: null,
+
+  // One polyline per leg (solid where drivable, dashed where not).
+  _routeLayers: [],
+
+  // Bumped on every map build so an in-flight route loop can tell it has
+  // been superseded and stop drawing.
+  _routeToken: 0,
 
   mode: "overview",
 
@@ -871,6 +878,12 @@ ${unplotted}
 
       this._route = null;
 
+      // The whole map is gone, so the layers went with it - just drop the
+      // references, and move the token so any in-flight route loop stops.
+      this._routeLayers = [];
+
+      this._routeToken += 1;
+
       this._dayMarkers = null;
     }
 
@@ -1012,6 +1025,11 @@ ${unplotted}
       return;
     }
 
+    // Supersede any route loop still running from a previous build.
+    this._routeToken += 1;
+
+    this.clearRouteLayers();
+
     const pts = this.plottedStops().map((s) => s.coords);
 
     if (pts.length > 1) {
@@ -1026,66 +1044,130 @@ ${unplotted}
     this.loadDrivingRoute();
   },
 
-  // Replaces the straight line with the actual driving route.
+  // Replaces the provisional straight line with real roads, ONE LEG AT A
+  // TIME.
   //
-  // One request covers the whole trip (all stops as waypoints) rather than
-  // one per leg - routing bills per waypoint pair either way, but a single
-  // call is one round trip and gives a continuous road path. On failure the
-  // dashed straight line simply stays, so the map degrades rather than
-  // breaking.
+  // Originally this asked for the whole trip in a single request, which
+  // meant any single undrivable leg killed the entire route - and real
+  // trips have those: an intercontinental flight (Sydney to Doha has no
+  // road) or a stop that won't snap to a street ("dolomites" is a point in
+  // the mountains). The Italy trip has both, so its map showed nothing but
+  // direct lines while the Australian one worked.
+  //
+  // Per-leg costs the same - routing bills per waypoint pair either way -
+  // and caches better, since editing one stop only invalidates its own
+  // legs.
   async loadDrivingRoute() {
-    const pts = this.plottedStops().map((s) => s.coords);
+    const stops = this.plottedStops();
 
-    if (pts.length < 2 || typeof Geo === "undefined") {
+    if (stops.length < 2 || typeof Geo === "undefined") {
       return;
     }
 
     const summary = document.getElementById("tm-route-summary");
 
-    if (summary) {
-      summary.textContent = "Working out the driving route…";
-    }
+    const setSummary = (text) => {
+      if (summary) {
+        summary.textContent = text;
+      }
+    };
 
-    try {
-      const route = await Geo.route(pts);
+    setSummary("Working out the driving route…");
 
-      if (!route || !route.path || route.path.length < 2) {
-        if (summary) {
-          summary.textContent = "No driving route found between these stops.";
-        }
+    // Captured now; if the map is rebuilt mid-fetch the token moves on and
+    // this (now stale) loop stops drawing onto the new map.
+    const token = this._routeToken;
+
+    let totalKm = 0;
+
+    let totalMinutes = 0;
+
+    let drivable = 0;
+
+    const undrivable = [];
+
+    for (let i = 0; i < stops.length - 1; i++) {
+      const from = stops[i];
+
+      const to = stops[i + 1];
+
+      let leg = null;
+
+      try {
+        leg = await Geo.routeLeg(from.coords, to.coords);
+      } catch (error) {
+        // Only a configuration error reaches here - routeLeg swallows the
+        // ordinary "can't drive this" case.
+        console.error("Could not load driving routes:", error);
+
+        setSummary(`${Geo.errorMessage(error, "Couldn't load driving routes.")} Showing direct lines instead.`);
 
         return;
       }
 
-      // The map may have been torn down while this was in flight.
-      if (!this.map || !window.L) {
+      // The view may have been torn down or rebuilt while awaiting.
+      if (!this.map || !window.L || this._routeToken !== token) {
         return;
       }
 
-      if (this._route) {
-        this.map.removeLayer(this._route);
-      }
+      if (leg && leg.path && leg.path.length > 1) {
+        totalKm += leg.distanceKm || 0;
 
-      this._route = window.L.polyline(route.path, {
-        color: "#34495E",
-        weight: 4,
-        opacity: 0.75,
-      }).addTo(this.map);
+        totalMinutes += leg.durationMinutes || 0;
 
-      this._drivingRoute = route;
+        drivable += 1;
 
-      if (summary) {
-        summary.textContent = `Driving the whole route: ${route.distanceKm} km · about ${Geo.formatDuration(route.durationMinutes)}`;
-      }
-    } catch (error) {
-      console.error("Could not load the driving route:", error);
+        this._routeLayers.push(
+          window.L.polyline(leg.path, { color: "#34495E", weight: 4, opacity: 0.75 }).addTo(this.map),
+        );
+      } else {
+        undrivable.push(`${this.pretty(from.location)} → ${this.pretty(to.location)}`);
 
-      if (summary) {
-        summary.textContent =
-          (typeof Geo !== "undefined" ? Geo.errorMessage(error, "Couldn't load the driving route.") : "Couldn't load the driving route.") +
-          " Showing direct lines instead.";
+        // Keep a dashed direct line for this leg only, so the trip still
+        // reads as continuous.
+        this._routeLayers.push(
+          window.L.polyline([from.coords, to.coords], {
+            color: "#34495E",
+            weight: 3,
+            opacity: 0.35,
+            dashArray: "6 6",
+          }).addTo(this.map),
+        );
       }
     }
+
+    // Every leg is drawn now, so the provisional whole-trip line can go.
+    if (this._route && this.map) {
+      this.map.removeLayer(this._route);
+
+      this._route = null;
+    }
+
+    this._drivingRoute = { distanceKm: Math.round(totalKm * 10) / 10, durationMinutes: totalMinutes };
+
+    if (drivable === 0) {
+      setSummary("None of these legs can be driven - showing direct lines.");
+
+      return;
+    }
+
+    const driving = `Driving ${drivable} of ${stops.length - 1} legs: ${Math.round(totalKm * 10) / 10} km · about ${Geo.formatDuration(totalMinutes)}`;
+
+    setSummary(
+      undrivable.length === 0
+        ? driving
+        : `${driving}. Shown as direct lines (no road route): ${undrivable.join(", ")}.`,
+    );
+  },
+
+  clearRouteLayers() {
+    if (this.map && this._routeLayers) {
+      this._routeLayers.forEach((layer) => {
+        this.map.removeLayer(layer);
+      });
+    }
+
+    this._routeLayers = [];
   },
 
   renderPins() {
@@ -1362,6 +1444,11 @@ ${unplotted}
 
       this._route = null;
     }
+
+    // Supersede any route loop still drawing legs onto the overview.
+    this._routeToken += 1;
+
+    this.clearRouteLayers();
   },
 
   clearDayLayers() {
