@@ -1172,10 +1172,50 @@ const Planner = {
     return this.snapLine("Rating", rating) + this.snapLine("Review", item.actual ? item.actual.review : "");
   },
 
+  // Which flight this is, or just where it goes - depending on how settled
+  // it is.
+  //
+  // While you're still comparing options, the route is the thing you're
+  // choosing between and the airline is noise. Once you've picked one, the
+  // route is a given and WHICH flight becomes the useful bit - it's what
+  // you check at the airport.
+  //
+  // (Between the multi-leg build and this, the title dropped the airline
+  // and number entirely, so a booked flight showed as just "Rome".)
   flightTitle(it) {
     const route = Flights.routeSummary(it);
 
-    return route || "Flight";
+    const identity = this.confirmedFlight(it) ? this.flightIdentity(it) : "";
+
+    if (identity && route) {
+      return `${identity} · ${route}`;
+    }
+
+    return identity || route || "Flight";
+  },
+
+  // Selected or beyond. Research and Shortlisted are still a shortlist.
+  confirmedFlight(it) {
+    return ["Selected", "Booked", "Travel", "Review"].indexOf(it.status) > -1;
+  },
+
+  // A multi-leg ticket has an airline and number PER LEG, so this can be
+  // several. Two is as many as a card can carry before the route gets
+  // pushed off the end; beyond that it says how many more.
+  flightIdentity(it) {
+    const codes = Flights.getLegs(it)
+      .map((leg) => [leg.airline, leg.flightNumber].filter(Boolean).join(" "))
+      .filter(Boolean);
+
+    if (codes.length === 0) {
+      return "";
+    }
+
+    if (codes.length <= 2) {
+      return codes.join(" · ");
+    }
+
+    return `${codes[0]} +${codes.length - 1} more`;
   },
 
   flightSnippet(it) {

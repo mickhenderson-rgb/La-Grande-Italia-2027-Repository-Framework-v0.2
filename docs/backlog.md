@@ -31,12 +31,20 @@ The agreed order of work as at 2026-08-27.
 
 ### B1. Dead test suites — PARTLY REPAIRED (12 remain)
 
-`run-all.js` reports **41/53 passing** (was 33/52). Seven suites repaired on
-2026-08-27. None of the failures are application bugs.
+`run-all.js` reports **43/54 passing** (was 33/52). Eight suites repaired on
+2026-08-27.
 
 **Repaired:** `test-day-reference`, `test-form-delete`, `test-mail`,
-`test-mail-confirm`, `test-maplinks`, `test-trip-export`,
+`test-mail-confirm`, `test-maplinks`, `test-snapshot`, `test-trip-export`,
 `test-ux-review-fixes`.
+
+`test-snapshot` was the one that mattered: it flagged a **real regression**
+(flight titles had lost the airline and number — fixed in v1.11.5) *and* a
+bug in the repair itself. A stub of `Transport.matchesDay` returning
+`false` silently removed the entire transport section from the snapshot, so
+an assertion about transport titles failed for a reason that had nothing to
+do with transport. Stubs that return plausible-but-wrong values are worse
+than missing globals, because the suite still runs.
 
 **The lesson from doing it:** the rot was almost entirely sandboxes that had
 fallen behind the app — a module grew a reference to `DayReference`,
@@ -51,7 +59,6 @@ real module; stub only what's genuinely irrelevant.
 
 | Suite | Symptom | The question to answer |
 |---|---|---|
-| `test-snapshot` | expects flight title `Qantas QF001 → Rome`, gets `Rome` | `Planner.flightTitle` now uses `Flights.routeSummary`, which drops the airline and flight number. **Is that a regression from the multi-leg build, or intended?** A flight card titled just "Rome" looks like a loss. Two other assertions in this suite pin `Planner.snapshotStyles()`, which was deliberately deleted when its CSS moved to `components.css` — those are simply obsolete. |
 | `test-diagnose-accom` | `Planner.matchByDestination is not a function` | Confirm the replacement is `matchByDayRange` and that the suite's intent still holds. |
 | `test-dates` | "new flight: departure pre-fills day 1" | Date pre-fill behaviour may have changed with multi-leg flights. |
 | `test-budget` | `all.find is not a function` | Something the suite expects to be an array no longer is. |
