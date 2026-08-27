@@ -633,6 +633,8 @@ ${this.styles()}
 
             <p class="tripmap-route-summary" id="tm-route-summary" aria-live="polite"></p>
 
+            <p class="tripmap-route-legend" id="tm-route-legend"></p>
+
         </div>
 
     </div>
@@ -1044,19 +1046,130 @@ ${unplotted}
     this.loadDrivingRoute();
   },
 
-  // Replaces the provisional straight line with real roads, ONE LEG AT A
-  // TIME.
+  // How each way of getting between two stops is drawn.
   //
-  // Originally this asked for the whole trip in a single request, which
-  // meant any single undrivable leg killed the entire route - and real
-  // trips have those: an intercontinental flight (Sydney to Doha has no
-  // road) or a stop that won't snap to a street ("dolomites" is a point in
-  // the mountains). The Italy trip has both, so its map showed nothing but
-  // direct lines while the Australian one worked.
+  // `routeAs` is the Geoapify travel mode to ask for, or null for "don't
+  // ask". Rail and sea are null on purpose: Geoapify has no rail mode at
+  // all, and offers ferries only as something to AVOID, never as a mode.
+  // Asking `drive` for either is worse than useless - a ferry crossing
+  // comes back routed the long way round by land, which reads as a real
+  // answer while being completely wrong.
   //
-  // Per-leg costs the same - routing bills per waypoint pair either way -
-  // and caches better, since editing one stop only invalidates its own
-  // legs.
+  // So a train or ferry leg is drawn as a direct line by DESIGN, not as a
+  // failure, and it costs no credit to find that out.
+  LEG_STYLES: {
+    drive: { routeAs: "drive", verb: "driving", color: "#34495E", weight: 4, opacity: 0.75 },
+
+    walk: { routeAs: "walk", verb: "walking", color: "#34495E", weight: 4, opacity: 0.75 },
+
+    train: { routeAs: null, verb: "by train", color: "#8E44AD", weight: 3, opacity: 0.7, dashArray: "12 5" },
+
+    ferry: { routeAs: null, verb: "by ferry", color: "#2980B9", weight: 3, opacity: 0.7, dashArray: "2 7" },
+
+    flight: { routeAs: null, verb: "by air", color: "#7F8C8D", weight: 2, opacity: 0.6, dashArray: "10 8" },
+
+    // Nothing booked for this gap yet, or "Other". Try the road and fall
+    // back quietly - this is the only case where a failed lookup is news.
+    unknown: { routeAs: "drive", verb: "driving", color: "#34495E", weight: 4, opacity: 0.75 },
+  },
+
+  // The dashed line used when a leg we EXPECTED to drive turns out not to
+  // be drivable (an unroutable waypoint, or genuinely no road).
+  NO_ROUTE_STYLE: { color: "#34495E", weight: 3, opacity: 0.35, dashArray: "6 6" },
+
+  // Transport.modes -> a LEG_STYLES key. Car Rental and Transfer are cars
+  // on roads, so they route exactly like Drive.
+  TRANSPORT_MODE_KEYS: {
+    drive: "drive",
+    "car rental": "drive",
+    transfer: "drive",
+    walk: "walk",
+    train: "train",
+    ferry: "ferry",
+  },
+
+  // Works out HOW you get from one stop to the next, by looking for the
+  // booking that covers the gap between them.
+  //
+  // Stops come from day.overnight and know nothing about Transport, so
+  // this is the join: a transport or flight item whose days overlap the
+  // window between leaving `from` and arriving at `to`. Where several
+  // overlap, the one whose destination matches the next stop wins.
+  legModeKey(from, to) {
+    const lo = from.dayRange[1];
+
+    const hi = to.dayRange[0];
+
+    const target = String(to.location || "").toLowerCase();
+
+    // Flights first: a flight across the gap settles it regardless of any
+    // ground transport booked around it.
+    const flights = Project.get("flights");
+
+    const flightItems = flights && Array.isArray(flights.items) ? flights.items : [];
+
+    const flownIt = flightItems.some((item) => this.itemSpansGap(item, lo, hi));
+
+    if (flownIt) {
+      return "flight";
+    }
+
+    const transport = Project.get("transport");
+
+    const items = (transport && Array.isArray(transport.items) ? transport.items : []).filter((item) =>
+      this.itemSpansGap(item, lo, hi),
+    );
+
+    if (items.length === 0) {
+      return "unknown";
+    }
+
+    // Prefer the booking that actually ends where the next stop is - a
+    // three-day window can contain a local taxi as well as the train that
+    // moved you between cities.
+    const arriving = items.filter((item) => String(item.to || "").toLowerCase() === target);
+
+    const chosen = (arriving.length > 0 ? arriving : items)[0];
+
+    return this.TRANSPORT_MODE_KEYS[String(chosen.mode || "").toLowerCase()] || "unknown";
+  },
+
+  itemSpansGap(item, lo, hi) {
+    let a;
+
+    let b;
+
+    if (Array.isArray(item.dayRange) && item.dayRange.length >= 1) {
+      a = item.dayRange[0];
+
+      b = item.dayRange[item.dayRange.length - 1];
+    } else if (typeof item.day === "number") {
+      a = item.day;
+
+      b = item.day;
+    } else {
+      return false;
+    }
+
+    return a <= hi && b >= lo;
+  },
+
+  // Replaces the provisional straight lines with the real shape of the
+  // trip, ONE LEG AT A TIME, using the mode you actually booked.
+  //
+  // Two things are going on here, and they were separate bugs:
+  //
+  // 1. This once asked for the whole trip in a single routing request, so
+  //    one undrivable waypoint killed every leg. The Italy trip hit that
+  //    two ways at once - a flight leg with no road (sydney -> doha) and a
+  //    mountain-range centroid that won't snap to a street (dolomites).
+  //    Per-leg costs the same (routing bills per waypoint pair either way)
+  //    and caches better.
+  //
+  // 2. It assumed every gap was a drive. A train or ferry leg would burn a
+  //    credit to be told "no route", then be reported as a failure - when
+  //    it was never drivable and we already knew that from your own
+  //    Transport entry.
   async loadDrivingRoute() {
     const stops = this.plottedStops();
 
@@ -1072,7 +1185,7 @@ ${unplotted}
       }
     };
 
-    setSummary("Working out the driving route…");
+    setSummary("Working out the route…");
 
     // Captured now; if the map is rebuilt mid-fetch the token moves on and
     // this (now stale) loop stops drawing onto the new map.
@@ -1082,27 +1195,42 @@ ${unplotted}
 
     let totalMinutes = 0;
 
-    let drivable = 0;
+    let routed = 0;
 
-    const undrivable = [];
+    // Legs drawn direct because that mode has no road route - expected,
+    // not a problem worth reporting as one.
+    const byOtherMeans = {};
+
+    // Legs we expected to route and couldn't. This IS worth reporting.
+    const noRoute = [];
+
+    // Which line styles this trip actually uses, so the legend can show
+    // only those.
+    const usedKeys = {};
 
     for (let i = 0; i < stops.length - 1; i++) {
       const from = stops[i];
 
       const to = stops[i + 1];
 
+      const key = this.legModeKey(from, to);
+
+      const style = this.LEG_STYLES[key] || this.LEG_STYLES.unknown;
+
       let leg = null;
 
-      try {
-        leg = await Geo.routeLeg(from.coords, to.coords);
-      } catch (error) {
-        // Only a configuration error reaches here - routeLeg swallows the
-        // ordinary "can't drive this" case.
-        console.error("Could not load driving routes:", error);
+      if (style.routeAs) {
+        try {
+          leg = await Geo.routeLeg(from.coords, to.coords, { mode: style.routeAs });
+        } catch (error) {
+          // Only a configuration error reaches here - routeLeg swallows
+          // the ordinary "can't route this" case.
+          console.error("Could not load routes:", error);
 
-        setSummary(`${Geo.errorMessage(error, "Couldn't load driving routes.")} Showing direct lines instead.`);
+          setSummary(`${Geo.errorMessage(error, "Couldn't load routes.")} Showing direct lines instead.`);
 
-        return;
+          return;
+        }
       }
 
       // The view may have been torn down or rebuilt while awaiting.
@@ -1115,24 +1243,28 @@ ${unplotted}
 
         totalMinutes += leg.durationMinutes || 0;
 
-        drivable += 1;
+        routed += 1;
 
-        this._routeLayers.push(
-          window.L.polyline(leg.path, { color: "#34495E", weight: 4, opacity: 0.75 }).addTo(this.map),
-        );
+        usedKeys[key] = true;
+
+        this._routeLayers.push(this.drawLeg(leg.path, style));
+
+        continue;
+      }
+
+      const direct = [from.coords, to.coords];
+
+      if (style.routeAs) {
+        // We asked for a road and didn't get one.
+        noRoute.push(`${this.pretty(from.location)} → ${this.pretty(to.location)}`);
+
+        this._routeLayers.push(this.drawLeg(direct, this.NO_ROUTE_STYLE));
       } else {
-        undrivable.push(`${this.pretty(from.location)} → ${this.pretty(to.location)}`);
+        byOtherMeans[style.verb] = (byOtherMeans[style.verb] || 0) + 1;
 
-        // Keep a dashed direct line for this leg only, so the trip still
-        // reads as continuous.
-        this._routeLayers.push(
-          window.L.polyline([from.coords, to.coords], {
-            color: "#34495E",
-            weight: 3,
-            opacity: 0.35,
-            dashArray: "6 6",
-          }).addTo(this.map),
-        );
+        usedKeys[key] = true;
+
+        this._routeLayers.push(this.drawLeg(direct, style));
       }
     }
 
@@ -1145,19 +1277,91 @@ ${unplotted}
 
     this._drivingRoute = { distanceKm: Math.round(totalKm * 10) / 10, durationMinutes: totalMinutes };
 
-    if (drivable === 0) {
-      setSummary("None of these legs can be driven - showing direct lines.");
+    setSummary(this.routeSummaryText(stops.length - 1, routed, totalKm, totalMinutes, byOtherMeans, noRoute));
+
+    this.renderRouteLegend(usedKeys, noRoute.length > 0);
+  },
+
+  // A key for the line colours, showing ONLY what this trip actually uses -
+  // a legend listing ferries on a trip with no ferries is just noise.
+  // The summary line above already says the same thing in words, so this
+  // is decoration for the map, not the accessible source of truth.
+  renderRouteLegend(usedKeys, showNoRoute) {
+    const el = document.getElementById("tm-route-legend");
+
+    if (!el) {
+      return;
+    }
+
+    const entries = Object.keys(usedKeys)
+      .filter((key) => key !== "unknown")
+      .map((key) => ({ style: this.LEG_STYLES[key], label: this.LEG_STYLES[key].verb }));
+
+    if (showNoRoute) {
+      entries.push({ style: this.NO_ROUTE_STYLE, label: "no road route" });
+    }
+
+    // One mode and nothing unusual - the map explains itself.
+    if (entries.length < 2) {
+      el.innerHTML = "";
 
       return;
     }
 
-    const driving = `Driving ${drivable} of ${stops.length - 1} legs: ${Math.round(totalKm * 10) / 10} km · about ${Geo.formatDuration(totalMinutes)}`;
+    el.innerHTML = entries
+      .map((entry) => {
+        const s = entry.style;
 
-    setSummary(
-      undrivable.length === 0
-        ? driving
-        : `${driving}. Shown as direct lines (no road route): ${undrivable.join(", ")}.`,
-    );
+        const dash = s.dashArray ? ` stroke-dasharray="${s.dashArray}"` : "";
+
+        return `<span class="tripmap-legend-item"><svg width="26" height="8" aria-hidden="true" focusable="false"><line x1="0" y1="4" x2="26" y2="4" stroke="${s.color}" stroke-width="${s.weight}" stroke-opacity="${s.opacity}"${dash} /></svg>${this.esc(entry.label)}</span>`;
+      })
+      .join("");
+  },
+
+  drawLeg(latlngs, style) {
+    const opts = {
+      color: style.color,
+      weight: style.weight,
+      opacity: style.opacity,
+    };
+
+    if (style.dashArray) {
+      opts.dashArray = style.dashArray;
+    }
+
+    return window.L.polyline(latlngs, opts).addTo(this.map);
+  },
+
+  // One line that says what the map is showing. Order matters: what was
+  // measured, then what's travelled another way (normal), then what
+  // couldn't be worked out (the only part that's a problem).
+  routeSummaryText(legCount, routed, totalKm, totalMinutes, byOtherMeans, noRoute) {
+    const parts = [];
+
+    if (routed > 0) {
+      const km = Math.round(totalKm * 10) / 10;
+
+      const scope = routed === legCount ? "the whole route" : `${routed} of ${legCount} legs`;
+
+      parts.push(`On the road for ${scope}: ${km} km · about ${Geo.formatDuration(totalMinutes)}`);
+    }
+
+    const others = Object.keys(byOtherMeans).map((verb) => {
+      const n = byOtherMeans[verb];
+
+      return `${n} ${n === 1 ? "leg" : "legs"} ${verb}`;
+    });
+
+    if (others.length > 0) {
+      parts.push(`${others.join(", ")} - shown as direct lines`);
+    }
+
+    if (noRoute.length > 0) {
+      parts.push(`No road route found for: ${noRoute.join(", ")}`);
+    }
+
+    return parts.length > 0 ? parts.join(". ") + "." : "Nothing to route yet.";
   },
 
   clearRouteLayers() {
@@ -2064,6 +2268,14 @@ ${hint}
 .tripmap-surface-wrap { display: flex; flex-direction: column; gap: 8px; }
 
 .tripmap-route-summary { margin: 0; font-size: 12.5px; color: var(--color-muted, #6b6357); min-height: 1.2em; }
+
+/* Empty until a trip actually uses more than one kind of line, so it takes
+   no vertical space on an ordinary road trip. */
+.tripmap-route-legend { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11.5px; color: var(--color-muted, #6b6357); }
+
+.tripmap-route-legend:empty { display: none; }
+
+.tripmap-legend-item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 
 .tripmap-map-msg { display: flex; height: 100%; align-items: center; justify-content: center; padding: 16px; color: #6b6357; font-style: italic; text-align: center; }
 
