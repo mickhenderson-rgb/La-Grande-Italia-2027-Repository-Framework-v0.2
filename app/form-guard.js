@@ -71,10 +71,35 @@ const FormGuard = {
     }
 
     // The old element went with the old innerHTML, so the listener has to
-    // be reattached each render. One delegated pair covers every field.
-    form.addEventListener("input", this._touch);
+    // be reattached each render.
+    //
+    // data-guard-fields narrows the watch to named inputs instead of the
+    // whole container. The journal needs this: its checklist and photo
+    // widgets save themselves live and re-render the page, so a delegated
+    // listener would mark the page dirty every time you ticked a box and
+    // then nag about changes that were already saved. Only the fields the
+    // page's own Save button writes should count.
+    const only = form.getAttribute("data-guard-fields");
 
-    form.addEventListener("change", this._touch);
+    if (!only) {
+      form.addEventListener("input", this._touch);
+
+      form.addEventListener("change", this._touch);
+
+      return;
+    }
+
+    only.split(/\s+/).forEach((id) => {
+      const field = document.getElementById(id);
+
+      if (!field) {
+        return;
+      }
+
+      field.addEventListener("input", this._touch);
+
+      field.addEventListener("change", this._touch);
+    });
   },
 
   // An arrow so `this` inside it is irrelevant - it's used as a bare

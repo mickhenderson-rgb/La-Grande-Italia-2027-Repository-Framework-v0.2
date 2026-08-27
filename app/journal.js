@@ -167,12 +167,72 @@ const Journal = {
     };
   },
 
+  // What's been typed into the entry but not saved yet, carried across the
+  // page's OWN re-renders.
+  //
+  // Adding a checklist item or a photo saves that one thing live and then
+  // calls openDay(), which rebuilds the page from STORED data - so anything
+  // typed into the notes was silently destroyed by ticking a checkbox.
+  // Notes are the one thing in this app you can't retype: you won't
+  // remember what you wrote about Tuesday.
+  //
+  // Same shape as Transport.pendingImage - client-side only, never
+  // persisted, discarded once the real save succeeds.
+  draft: null,
+
+  // Reads the entry fields out of the DOM before an action that re-renders.
+  //
+  // The day defaults to whichever entry is open, because half the handlers
+  // that need this (toggleChecklistItem, removePhoto) are called from a row
+  // and only know an item id.
+  captureDraft(dayNumber) {
+    const day = dayNumber === undefined || dayNumber === null ? this.currentDay && this.currentDay.day : dayNumber;
+
+    const notes = document.getElementById("jrn-notes");
+
+    if (!notes || day === undefined || day === null) {
+      return;
+    }
+
+    const value = (id) => {
+      const el = document.getElementById(id);
+
+      return el ? el.value : "";
+    };
+
+    this.draft = {
+      day: day,
+      notes: notes.value,
+      locationName: value("jrn-location-name"),
+      locationAddress: value("jrn-location-address"),
+    };
+  },
+
+  clearDraft() {
+    this.draft = null;
+  },
+
+  // The draft wins over stored values, but only for the day it belongs to.
+  draftFor(dayNumber) {
+    return this.draft && this.draft.day === dayNumber ? this.draft : null;
+  },
+
   renderEntry(day) {
     const entry = this.getEntry(day.day);
 
+    const draft = this.draftFor(day.day);
+
+    const notesValue = draft ? draft.notes : entry.notes;
+
+    const locationName = draft ? draft.locationName : (entry.location || {}).name;
+
+    const locationAddress = draft ? draft.locationAddress : (entry.location || {}).address;
+
     return `
 
-<div class="manager">
+<div class="manager"
+     data-guard="journal:${day.day}"
+     data-guard-fields="jrn-notes jrn-location-name jrn-location-address">
 
     <section class="hero">
 
@@ -204,7 +264,7 @@ const Journal = {
 
             <label class="form-field form-field-wide">
                 Planning notes, reflections, memories...
-                <textarea id="jrn-notes" rows="8">${this.esc(entry.notes)}</textarea>
+                <textarea id="jrn-notes" rows="8">${this.esc(notesValue)}</textarea>
             </label>
 
             ${entry.notesAuthor ? `<p class="form-hint">Last edited by ${this.esc(entry.notesAuthor)}</p>` : ""}
@@ -219,12 +279,12 @@ const Journal = {
 
                 <label class="form-field">
                     Name
-                    <input type="text" id="jrn-location-name" value="${this.esc(entry.location?.name)}" placeholder="e.g. Lake Como">
+                    <input type="text" id="jrn-location-name" value="${this.esc(locationName)}" placeholder="e.g. Lake Como">
                 </label>
 
                 <label class="form-field">
                     Address / Details
-                    <input type="text" id="jrn-location-address" value="${this.esc(entry.location?.address)}">
+                    <input type="text" id="jrn-location-address" value="${this.esc(locationAddress)}">
                 </label>
 
             </div>
@@ -425,6 +485,10 @@ const Journal = {
   },
 
   addChecklistItem(dayNumber) {
+    // Stash the typed entry before this re-renders the page from stored
+    // data - otherwise adding a checklist item wipes unsaved notes.
+    this.captureDraft(dayNumber);
+
     const input = document.getElementById("jrn-new-checklist");
 
     const text = input.value.trim();
@@ -462,6 +526,9 @@ const Journal = {
   },
 
   toggleChecklistItem(id, checked) {
+    // Stash the typed entry first - this re-renders from stored data.
+    this.captureDraft();
+
     const dayNumber = this.currentDay.day;
 
     fetch(`${window.API_BASE}/api/journal/${Data.currentProjectFolder}/${dayNumber}/checklist/${id}`, {
@@ -496,6 +563,9 @@ const Journal = {
   },
 
   removeChecklistItem(id) {
+    // Stash the typed entry first - this re-renders from stored data.
+    this.captureDraft();
+
     if (!confirm("Remove this checklist item?")) {
       return;
     }
@@ -528,6 +598,10 @@ const Journal = {
   },
 
   addPhoto(dayNumber) {
+    // Stash the typed entry before this re-renders the page from stored
+    // data - otherwise adding a checklist item wipes unsaved notes.
+    this.captureDraft(dayNumber);
+
     const url = document.getElementById("jrn-new-photo-url").value.trim();
 
     const caption = document.getElementById("jrn-new-photo-caption").value.trim();
@@ -584,6 +658,9 @@ const Journal = {
   },
 
   triggerLibrary(dayNumber) {
+    // Stash the typed entry first - this re-renders from stored data.
+    this.captureDraft();
+
     this.pendingDay = dayNumber;
 
     document.getElementById("jrn-library-input").click();
@@ -717,6 +794,9 @@ const Journal = {
   },
 
   removePhoto(id) {
+    // Stash the typed entry first - this re-renders from stored data.
+    this.captureDraft();
+
     if (!confirm("Remove this photo?")) {
       return;
     }
@@ -769,6 +849,15 @@ const Journal = {
     };
 
     Project.update("journal", result.data);
+
+    // Saved, so the stashed copy is stale and there's nothing unsaved left
+    // to warn about. Order matters: clear before the re-render, or
+    // renderEntry would prefer the draft over what was just written.
+    this.clearDraft();
+
+    if (typeof FormGuard !== "undefined") {
+      FormGuard.release();
+    }
 
     this.openDay(dayNumber);
   },
