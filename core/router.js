@@ -14,6 +14,14 @@ const Router = {
   currentPage: "dashboard",
 
   navigate(page) {
+    // Asked here as well as in Render.show so that declining to leave an
+    // unsaved form doesn't leave currentPage pointing at a screen we never
+    // actually rendered. Agreeing releases the guard, so this never
+    // prompts twice for one gesture.
+    if (typeof FormGuard !== "undefined" && !FormGuard.confirmLeave()) {
+      return;
+    }
+
     this.currentPage = page;
 
     switch ((page || "").toLowerCase()) {

@@ -765,7 +765,7 @@ const Flights = {
 
     </section>
 
-    <div class="manager-card form-card">
+    <div class="manager-card form-card" data-guard="flights:${item.id || 'new'}">
 
         ${DayReference.render("Flights", "single", { single: "Depart This Day" })}
 
@@ -919,6 +919,13 @@ const Flights = {
     }
 
     this.saving = true;
+
+    // These changes are on their way to the server, so navigating away
+    // from the form once it succeeds must not ask about them. Guarded so a
+    // deployment that somehow lacks form-guard.js still saves.
+    if (typeof FormGuard !== "undefined") {
+      FormGuard.release();
+    }
 
     const url = isNew
       ? `${window.API_BASE}/api/items/${Data.currentProjectFolder}/flights`

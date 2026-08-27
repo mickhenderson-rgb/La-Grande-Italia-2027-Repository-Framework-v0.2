@@ -96,9 +96,23 @@ const Budget = {
     return null;
   },
 
+  // Nights, NOT days.
+  //
+  // dayRange[1] is the day you CHECK OUT, not the last night you sleep
+  // there - the accommodation form says so in as many words ("3 nights
+  // from Day 1 is Check-out Day 4"). So Day 1 to Day 4 is three nights,
+  // and the difference IS the answer; adding one counted the checkout day
+  // as a night you paid for.
+  //
+  // That mattered because accommodation defaults to per-night pricing, so
+  // every stay in every trip was billed one night over.
+  //
+  // The floor of 1 covers a stay whose check-out day hasn't been set yet
+  // (a new item starts as [day, day]), which the form itself calls a
+  // single-night stay.
   calculateNights(item) {
     if (Array.isArray(item.dayRange) && item.dayRange.length === 2) {
-      return Math.max(1, item.dayRange[1] - item.dayRange[0] + 1);
+      return Math.max(1, item.dayRange[1] - item.dayRange[0]);
     }
 
     if (item.schedule && item.schedule.nights) {
