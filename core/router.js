@@ -62,6 +62,11 @@ const Router = {
 
         break;
 
+      case "readiness":
+        Readiness.open();
+
+        break;
+
       case "budget":
         Budget.open();
 

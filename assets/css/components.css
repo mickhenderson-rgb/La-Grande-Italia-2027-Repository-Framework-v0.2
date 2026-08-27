@@ -1678,3 +1678,29 @@ button {
 
   .dash-pair { grid-template-columns: 1fr; }
 }
+/* ── Readiness ─────────────────────────────────────────
+   A coloured left edge carries the severity at a glance,
+   but never on its own - each group has a text heading
+   too, so the meaning survives colour blindness, a
+   greyscale print, and a dark theme. */
+
+.readiness-item {
+  border-left: 4px solid var(--color-muted, #6b6357);
+}
+
+.readiness-item--blocking {
+  border-left-color: #B4472F;
+}
+
+.readiness-item--money {
+  border-left-color: var(--color-secondary, #C79C5D);
+}
+
+.readiness-item--tidy {
+  border-left-color: var(--color-muted, #6b6357);
+}
+
+.readiness-item strong {
+  display: block;
+  margin-bottom: 4px;
+}

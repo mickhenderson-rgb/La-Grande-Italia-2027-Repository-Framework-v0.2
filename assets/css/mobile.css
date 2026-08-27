@@ -340,3 +340,64 @@ listed in the handoff README under "Markup changes".
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Tables ────────────────────────────────────────────
+   Ten modules render a <table> and none of them fitted a
+   phone. Budget is the worst - a row is a label, a native
+   subtotal and a converted subtotal, which is simply wider
+   than 375px.
+
+   Nothing here had ANY table rules, so a wide table pushed
+   the whole page sideways: the header, the bottom bar and
+   every other screen inherited a horizontal scroll from
+   one table on one page.
+
+   The fix is per-table scrolling, which keeps the page
+   itself locked. `display: block` on the table is what
+   makes overflow-x apply at all - a table element ignores
+   it as `display: table`.
+   ────────────────────────────────────────────────────── */
+@media (max-width: 1000px) {
+
+  /* Every table, not just the ones inside a known card. Budget - the worst
+     offender - renders its per-category tables under a bare <h3>, so a
+     wrapper-scoped selector missed exactly the page that needed it most.
+     A bare `table` selector can't miss. */
+  table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    /* Momentum scrolling on iOS. */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Rows must stay table-ish inside the now-block table, or the cells
+     stack into a single column and the meaning is lost. */
+  table tbody {
+    display: table;
+    width: 100%;
+  }
+
+  table td,
+  table th {
+    /* A label that wraps to five words per line is unreadable; let the
+       cell keep its width and let the table scroll instead. */
+    white-space: nowrap;
+    padding: 10px 12px;
+  }
+
+  /* The first column is the label and carries the meaning, so it's the one
+     allowed to wrap rather than push everything else off-screen. */
+  table td:first-child {
+    white-space: normal;
+    min-width: 40%;
+  }
+
+  /* Belt and braces: whatever else a page contains, the page itself never
+     scrolls sideways. Without this, one over-wide element anywhere breaks
+     the layout of every other element on the screen. */
+  html,
+  body {
+    overflow-x: hidden;
+  }
+}

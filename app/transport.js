@@ -727,13 +727,13 @@ ${rows}
             <label class="form-field">
                 Distance (km)
                 <input type="number" id="trn-distance" value="${item.route?.distanceKm ?? 0}" min="0" step="0.1">
-                <span class="form-hint">Drive/Walk only</span>
+                <span class="form-hint">Road distance - approximate for train/ferry</span>
             </label>
 
             <label class="form-field">
                 Duration (Minutes)
                 <input type="number" id="trn-duration" value="${item.route?.durationMinutes ?? 0}" min="0">
-                <span class="form-hint">Drive/Walk only</span>
+                <span class="form-hint">Road distance - approximate for train/ferry</span>
             </label>
 
             <label class="form-field form-field-wide">
@@ -741,7 +741,7 @@ ${rows}
                 <button type="button" class="btn-secondary btn-sm" onclick="Transport.lookupRoute()">
                     Look up distance &amp; duration
                 </button>
-                <span class="form-hint" id="trn-route-status">Fills in the real driving distance and time from the From and To above.</span>
+                <span class="form-hint" id="trn-route-status">Fills in distance and time from the From and To above. Rail and sea have no routing of their own, so those come back as road figures.</span>
             </label>
 
             <label class="form-field">
@@ -953,9 +953,21 @@ ${rows}
   // Fills the Distance and Duration fields from a real driving route.
   //
   // Uses the exact coordinates if they've been entered (most accurate),
-  // otherwise geocodes the From/To text first. Walk mode routes as a
-  // pedestrian; everything else routes as driving, since a train or ferry
-  // leg's road distance is still a better estimate than nothing.
+  // Which Transport modes genuinely travel on the road network. Rail, sea
+  // and air do not - Geoapify has no rail mode and treats ferries only as
+  // something to avoid, so their numbers can only ever be a road-based
+  // approximation. Same fact the trip map uses to decide what to draw.
+  routesOnRoads(mode) {
+    return ["drive", "car rental", "transfer", "walk"].indexOf(String(mode || "").toLowerCase()) > -1;
+  },
+
+  // Uses whatever coordinates are already in the Advanced fields, and
+  // otherwise geocodes the From/To text first.
+  //
+  // Walk routes as a pedestrian. Everything else routes by road - even a
+  // train or ferry, because a road distance is a more useful starting
+  // point than an empty box. What matters is that the result SAYS it's a
+  // road figure rather than passing itself off as a train time.
   async lookupRoute() {
     const status = document.getElementById("trn-route-status");
 
@@ -996,7 +1008,9 @@ ${rows}
         return;
       }
 
-      const mode = document.getElementById("trn-mode").value === "Walk" ? "walk" : "drive";
+      const chosen = document.getElementById("trn-mode").value;
+
+      const mode = chosen === "Walk" ? "walk" : "drive";
 
       const route = await Geo.route([fromCoords, toCoords], { mode });
 
@@ -1010,7 +1024,13 @@ ${rows}
 
       document.getElementById("trn-duration").value = route.durationMinutes;
 
-      setStatus(`Found: ${route.distanceKm} km, about ${Geo.formatDuration(route.durationMinutes)} by ${mode}.`);
+      const found = `Found: ${route.distanceKm} km, about ${Geo.formatDuration(route.durationMinutes)}`;
+
+      setStatus(
+        this.routesOnRoads(chosen)
+          ? `${found} by ${mode === "walk" ? "foot" : "road"}.`
+          : `${found} BY ROAD - there's no ${chosen.toLowerCase()} routing available, so treat this as a rough guide to the distance, not the journey time.`,
+      );
     } catch (error) {
       console.error("Route lookup failed:", error);
 
@@ -1211,16 +1231,34 @@ ${rows}
 `;
   },
 
+  // This used to return nothing at all unless the mode was Drive or Walk,
+  // so a train or ferry showed no distance or time even when they'd been
+  // filled in - the route lookup's numbers went into the form and were
+  // never seen again.
+  //
+  // Now every mode shows its figures. What changes by mode is the honesty
+  // note and the buttons: rail and sea have no routing of their own (see
+  // routesOnRoads), so their numbers can only be road-derived, and saying
+  // so is the difference between a useful estimate and a wrong journey
+  // time. Waze is driving-only, so it's dropped where it can't help.
   renderRouteInfo(item) {
-    const isRoutable = item.mode === "Drive" || item.mode === "Walk";
-
-    if (!isRoutable) {
-      return "";
-    }
-
     const route = item.route || {};
 
     const hasFacts = route.distanceKm > 0 || route.durationMinutes > 0;
+
+    const onRoads = this.routesOnRoads(item.mode);
+
+    const duration =
+      route.durationMinutes > 0 && typeof Geo !== "undefined"
+        ? Geo.formatDuration(route.durationMinutes)
+        : `${route.durationMinutes || 0} min`;
+
+    if (!hasFacts && !onRoads) {
+      // No numbers and no road route to look one up against - an empty
+      // "No route facts entered yet" plus map buttons would just be clutter
+      // on a ferry card.
+      return "";
+    }
 
     return `
 
@@ -1228,7 +1266,7 @@ ${rows}
 
     ${
       hasFacts
-        ? `${route.distanceKm || 0} km · ${route.durationMinutes || 0} min${route.tollsEstimate > 0 ? ` · Tolls ~${route.tollsCurrency || "EUR"} ${route.tollsEstimate}` : ""}`
+        ? `${route.distanceKm || 0} km · ${duration}${onRoads ? "" : " by road (approximate)"}${route.tollsEstimate > 0 ? ` · Tolls ~${route.tollsCurrency || "EUR"} ${route.tollsEstimate}` : ""}`
         : "No route facts entered yet."
     }
     ${this.hasCoordinates(item.toCoordinates) ? ` · <span class="badge">📍 Precise routing</span>` : ""}
@@ -1239,11 +1277,15 @@ ${rows}
 
     <a class="map-btn" href="${this.googleMapsUrl(item)}" target="_blank" rel="noopener">Open in Google Maps</a>
 
-    <a class="map-btn" href="${this.wazeUrl(item)}" target="_blank" rel="noopener" title="Opens directly on mobile with the Waze app installed. On desktop it will prompt to download.">Open in Waze</a>
+    ${
+      onRoads
+        ? `<a class="map-btn" href="${this.wazeUrl(item)}" target="_blank" rel="noopener" title="Opens directly on mobile with the Waze app installed. On desktop it will prompt to download.">Open in Waze</a>`
+        : ""
+    }
 
 </div>
 
-<p class="form-hint">Waze opens directly on mobile with the app installed; on desktop it prompts an app download instead.</p>
+${onRoads ? `<p class="form-hint">Waze opens directly on mobile with the app installed; on desktop it prompts an app download instead.</p>` : ""}
 
 `;
   },
