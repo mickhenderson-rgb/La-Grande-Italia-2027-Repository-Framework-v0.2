@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-28 (v1.17.4).
+Last reviewed: 2026-08-28 (v1.17.5).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -445,6 +445,41 @@ display and match exactly as before, but they do not carry a code, so the
 map falls back to matching them by name. Reopening a flight and re-picking
 each airport from the list upgrades it. Nothing breaks if that never
 happens.
+
+### C17. The stop label was unreadable in dark mode — DONE (v1.17.5)
+
+`.tm-plabel` had a **hard-coded white** background and a **themed** text
+colour. Light mode: `#2C3E50` on white, 10.98:1, fine. Dark mode:
+`--color-text` becomes `#e8eaed`, so it was `#e8eaed` on `#ffffff` —
+
+**1.21:1**, against the 4.5:1 body text needs.
+
+A category error rather than a typo. Pins and labels are drawn **on map
+tiles**, and the tiles are the same light beige whichever theme the app is
+in. So they must follow the MAP, not the app. Half-following the theme is
+the worst of both, and that is what shipped.
+
+The same slip left the Booked pin glyph at 2.77:1 on its own themed
+background. Both are now fixed literals from the light palette, written
+out rather than referenced, because not moving with the theme is the
+point.
+
+This collided with a rule from v1.11.3 — "no surface in the map panel is
+still hard-coded white" — which is right about panel chrome (rail, cards,
+buttons sit on the app surface) and wrong about anything drawn on tiles.
+The on-tile elements are now exempted **by name**, with a companion
+assertion that they are ENTIRELY literal, so the exemption stays a
+decision rather than a loophole. Same treatment the status badge hues
+already had.
+
+Guarded by `test-map-ink-contrast.js`, which computes real WCAG ratios
+against the tile colour rather than checking for the presence of a token —
+so it fails on what a person actually experiences. It fails on the shipped
+combination.
+
+**Checked and NOT a bug:** the route legend appeared to be missing "by
+air" while the summary said "1 leg by air". Probed directly — the legend
+does emit it. A cropped screenshot, not a defect.
 
 ## D. Data-model and design questions
 

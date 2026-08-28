@@ -2601,17 +2601,29 @@ ${hint}
 
 .tripmap-pin-wrap { background: transparent; border: none; }
 
-.tm-pin { width: 100%; height: 100%; border-radius: 50%; background: var(--color-surface, #ffffff); box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 15px; line-height: 1; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); cursor: pointer; transition: transform 0.12s; }
+/* MAP INK - fixed, not themed.
+   Everything below is drawn ON MAP TILES, and the tiles are the same light
+   beige whichever theme the app is in. So these follow the map, not the
+   app.
+   Getting that backwards is what made the stop label unreadable in dark
+   mode: a hard-coded white pill with themed text, which in dark mode meant
+   #e8eaed on #ffffff - a contrast ratio of 1.21:1, against the 4.5:1 that
+   body text needs. The same slip left the Booked pin glyph at 2.77:1 on
+   its own themed background.
+   The values here are the LIGHT palette, written out rather than
+   referenced, because that is the point: they must not move when the theme
+   does. */
+.tm-pin { width: 100%; height: 100%; border-radius: 50%; background: #ffffff; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 15px; line-height: 1; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); cursor: pointer; transition: transform 0.12s; }
 
-.tm-pin.is-booked { border: 2px solid var(--color-primary, #34495E); color: var(--color-primary, #34495E); }
+.tm-pin.is-booked { border: 2px solid #34495E; color: #34495E; }
 
-.tm-pin.is-selected { border: 3px double var(--color-secondary, #C79C5D); color: #9a7736; }
+.tm-pin.is-selected { border: 3px double #C79C5D; color: #9a7736; }
 
 .tm-pin.is-research { border: 2px dashed #9aa0a6; color: #6b7075; background: #f4f4f5; }
 
 .tm-pin.is-active { transform: scale(1.3); box-shadow: 0 0 0 6px rgba(52, 73, 94, 0.22), 0 1px 3px rgba(0, 0, 0, 0.4); }
 
-.tm-plabel { display: none; position: absolute; left: 32px; top: 2px; white-space: nowrap; background: rgba(255, 255, 255, 0.94); border: 1px solid var(--color-border, #e2e5ea); border-radius: 6px; padding: 1px 7px; font-size: 11px; font-weight: 600; color: var(--color-text, #2C3E50); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18); pointer-events: none; }
+.tm-plabel { display: none; position: absolute; left: 32px; top: 2px; white-space: nowrap; background: rgba(255, 255, 255, 0.96); border: 1px solid #c8ccd2; border-radius: 6px; padding: 1px 7px; font-size: 11px; font-weight: 600; color: #2C3E50; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18); pointer-events: none; }
 
 .tripmap-pin-wrap:hover .tm-plabel, .tm-pin.is-active + .tm-plabel { display: block; }
 
