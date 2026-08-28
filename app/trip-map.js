@@ -127,6 +127,39 @@ const TripMap = {
     this.registerKeyboard();
 
     this.loadMap();
+
+    this.primeAirports();
+  },
+
+  // resolveCoords can place a stop from the airport a flight lands at, but
+  // only once the airport list is in hand - and the first render happens
+  // before the fetch resolves. So: if anything is currently unplotted, wait
+  // for the list and redraw, but ONLY if it actually placed something.
+  // Redrawing for no gain would be a pointless flicker.
+  primeAirports() {
+    if (typeof Airports === "undefined" || Airports.ready()) {
+      return;
+    }
+
+    const unplacedBefore = this.stops.filter((stop) => !stop.coords).length;
+
+    if (unplacedBefore === 0) {
+      return;
+    }
+
+    Airports.load()
+      .then(() => {
+        this.computeStops();
+
+        if (this.stops.filter((stop) => !stop.coords).length < unplacedBefore) {
+          // open() restores the selected stop itself, and calls back into
+          // here - harmlessly, since the list is loaded by then.
+          this.open();
+        }
+      })
+      .catch(() => {
+        // No list, no extra placements. The rail still flags them.
+      });
   },
 
   // =========================================================
@@ -220,7 +253,25 @@ const TripMap = {
       return fromTable.slice();
     }
 
-    // Tier 3: unplotted - the rail flags it, nothing is dropped.
+    // Tier 3: an airport this stop flies into or out of.
+    //
+    // cityCoords is a hand-kept list of 28 European towns. It was fine
+    // while every trip was Italian, and useless the moment one started in
+    // Sydney and stopped in Doha - neither is in it, so both stops came
+    // out unplotted, were filtered from plottedStops(), and the flight
+    // legs between them were never drawn at all. The flights had not been
+    // misclassified; they had nowhere to be drawn.
+    //
+    // A leg now carries an IATA code, so the app knows exactly where DOH
+    // is. Only reached when the first two tiers found nothing, so it can
+    // never override a real pin.
+    const fromFlight = this.airportCoordsForStop(stop);
+
+    if (fromFlight) {
+      return fromFlight;
+    }
+
+    // Tier 4: unplotted - the rail flags it, nothing is dropped.
     return null;
   },
 
@@ -1099,6 +1150,86 @@ ${unplotted}
     ferry: "ferry",
   },
 
+  // The airport a stop is at, for a stop with no coordinates of its own.
+  //
+  // Matched by DAY, the same join legModeKey uses: a flight whose days
+  // overlap this stop is a flight that put you here. The arrival airport
+  // is tried before the departure one, because you sleep where you land.
+  //
+  // Deliberately approximate. It is only consulted for a stop that would
+  // otherwise be a blank, and an airport 20 km from the city centre is a
+  // far better answer than no line on the map.
+  airportCoordsForStop(stop) {
+    if (typeof Airports === "undefined" || !Airports.ready() || typeof Flights === "undefined") {
+      return null;
+    }
+
+    const flights = Project.get("flights");
+
+    const items = flights && Array.isArray(flights.items) ? flights.items : [];
+
+    const lo = stop.dayRange[0];
+
+    const hi = stop.dayRange[1];
+
+    const want = Airports.normalise(stop.location);
+
+    const candidates = [];
+
+    for (let i = 0; i < items.length; i++) {
+      if (!this.itemSpansGap(items[i], lo, hi)) {
+        continue;
+      }
+
+      const legs = Flights.getLegs(items[i]);
+
+      // Arrivals before departures, and the LAST leg first, because on a
+      // through booking the final arrival is where you end up.
+      for (let j = legs.length - 1; j >= 0; j--) {
+        candidates.push(legs[j].to);
+      }
+
+      for (let j = 0; j < legs.length; j++) {
+        candidates.push(legs[j].from);
+      }
+    }
+
+    // First choice: an airport that is demonstrably THIS place.
+    //
+    // Order alone is not enough on a through booking. Sydney -> Doha ->
+    // Milan is one item spanning the Doha stopover, so "the last arrival"
+    // put the Doha stop at Malpensa - 4,000 km out, and confidently.
+    // Matching the name settles which of a booking's airports is this one.
+    if (want) {
+      for (let i = 0; i < candidates.length; i++) {
+        const airport = Airports.lookup(candidates[i]);
+
+        if (!airport) {
+          continue;
+        }
+
+        if (
+          Airports.normalise(airport.m).indexOf(want) >= 0 ||
+          Airports.normalise(airport.n).indexOf(want) >= 0
+        ) {
+          return [airport.y, airport.x];
+        }
+      }
+    }
+
+    // Otherwise the first airport this booking touches, in the order above.
+    // A stop named something no airport echoes still beats a blank.
+    for (let i = 0; i < candidates.length; i++) {
+      const coords = Airports.coordsOf(candidates[i]);
+
+      if (coords) {
+        return coords;
+      }
+    }
+
+    return null;
+  },
+
   // Works out HOW you get from one stop to the next, by looking for the
   // booking that covers the gap between them.
   //
@@ -1273,35 +1404,126 @@ ${unplotted}
     // only those.
     const usedKeys = {};
 
-    for (let i = 0; i < stops.length - 1; i++) {
-      const from = stops[i];
+    const legCount = stops.length - 1;
 
-      const to = stops[i + 1];
+    // Legs are routed SEVERAL AT A TIME.
+    //
+    // One at a time, a 15-stop trip took 30-40 seconds to finish drawing -
+    // thirteen round trips to the routing service, each waiting for the
+    // last, on a phone. Nothing about them is sequential: no leg's request
+    // depends on any other leg's answer.
+    //
+    // Four at once, not thirteen: a routing API is a shared, rate-limited
+    // resource, and firing every leg simultaneously is how a trip earns a
+    // 429 and comes back with nothing. Four keeps a long trip well under
+    // ten seconds while staying a polite client.
+    const CONCURRENCY = 4;
 
-      const key = this.legModeKey(from, to);
+    // Results are collected BY INDEX and read back in order afterwards, so
+    // the summary lists legs in trip order however the answers arrive.
+    const results = new Array(legCount);
 
-      const style = this.LEG_STYLES[key] || this.LEG_STYLES.unknown;
+    let cursor = 0;
 
-      let leg = null;
+    let stopped = false;
 
-      if (style.routeAs) {
-        try {
-          leg = await Geo.routeLeg(from.coords, to.coords, { mode: style.routeAs });
-        } catch (error) {
-          // Only a configuration error reaches here - routeLeg swallows
-          // the ordinary "can't route this" case.
-          console.error("Could not load routes:", error);
+    let fatal = null;
 
-          setSummary(`${Geo.errorMessage(error, "Couldn't load routes.")} Showing direct lines instead.`);
+    const routeOne = async () => {
+      while (!stopped) {
+        const i = cursor;
+
+        cursor += 1;
+
+        if (i >= legCount) {
+          return;
+        }
+
+        const from = stops[i];
+
+        const to = stops[i + 1];
+
+        const key = this.legModeKey(from, to);
+
+        const style = this.LEG_STYLES[key] || this.LEG_STYLES.unknown;
+
+        let leg = null;
+
+        if (style.routeAs) {
+          try {
+            leg = await Geo.routeLeg(from.coords, to.coords, { mode: style.routeAs });
+          } catch (error) {
+            // Only a configuration error reaches here - routeLeg swallows
+            // the ordinary "can't route this" case. One is enough: the key
+            // is missing or wrong for every leg, so the other workers stop
+            // rather than repeating the same failure twelve more times.
+            stopped = true;
+
+            fatal = error;
+
+            return;
+          }
+        }
+
+        // The view may have been torn down or rebuilt while awaiting.
+        if (!this.map || !window.L || this._routeToken !== token) {
+          stopped = true;
 
           return;
         }
+
+        results[i] = { key: key, style: style, leg: leg, from: from, to: to };
+
+        // Drawn as it arrives rather than all at the end, so the map fills
+        // in while the rest are still in flight.
+        if (leg && leg.path && leg.path.length > 1) {
+          this._routeLayers.push(this.drawLeg(leg.path, style));
+        } else {
+          this._routeLayers.push(
+            this.drawLeg([from.coords, to.coords], style.routeAs ? this.NO_ROUTE_STYLE : style),
+          );
+        }
+
+        const done = results.filter(Boolean).length;
+
+        if (done < legCount) {
+          setSummary(`Working out the route… ${done} of ${legCount} legs`);
+        }
+      }
+    };
+
+    const workers = [];
+
+    for (let w = 0; w < Math.min(CONCURRENCY, legCount); w++) {
+      workers.push(routeOne());
+    }
+
+    await Promise.all(workers);
+
+    if (fatal) {
+      console.error("Could not load routes:", fatal);
+
+      setSummary(`${Geo.errorMessage(fatal, "Couldn't load routes.")} Showing direct lines instead.`);
+
+      return;
+    }
+
+    // Torn down mid-flight - the token moved on, so this map is stale.
+    if (!this.map || !window.L || this._routeToken !== token) {
+      return;
+    }
+
+    // Tallied in trip order, so "No road route found for: A → B, C → D"
+    // reads the way the trip runs rather than the order the network
+    // happened to answer in.
+    for (let i = 0; i < legCount; i++) {
+      const result = results[i];
+
+      if (!result) {
+        continue;
       }
 
-      // The view may have been torn down or rebuilt while awaiting.
-      if (!this.map || !window.L || this._routeToken !== token) {
-        return;
-      }
+      const leg = result.leg;
 
       if (leg && leg.path && leg.path.length > 1) {
         totalKm += leg.distanceKm || 0;
@@ -1310,26 +1532,17 @@ ${unplotted}
 
         routed += 1;
 
-        usedKeys[key] = true;
-
-        this._routeLayers.push(this.drawLeg(leg.path, style));
+        usedKeys[result.key] = true;
 
         continue;
       }
 
-      const direct = [from.coords, to.coords];
-
-      if (style.routeAs) {
-        // We asked for a road and didn't get one.
-        noRoute.push(`${this.pretty(from.location)} → ${this.pretty(to.location)}`);
-
-        this._routeLayers.push(this.drawLeg(direct, this.NO_ROUTE_STYLE));
+      if (result.style.routeAs) {
+        noRoute.push(`${this.pretty(result.from.location)} → ${this.pretty(result.to.location)}`);
       } else {
-        byOtherMeans[style.verb] = (byOtherMeans[style.verb] || 0) + 1;
+        byOtherMeans[result.style.verb] = (byOtherMeans[result.style.verb] || 0) + 1;
 
-        usedKeys[key] = true;
-
-        this._routeLayers.push(this.drawLeg(direct, style));
+        usedKeys[result.key] = true;
       }
     }
 
@@ -1342,7 +1555,7 @@ ${unplotted}
 
     this._drivingRoute = { distanceKm: Math.round(totalKm * 10) / 10, durationMinutes: totalMinutes };
 
-    setSummary(this.routeSummaryText(stops.length - 1, routed, totalKm, totalMinutes, byOtherMeans, noRoute));
+    setSummary(this.routeSummaryText(legCount, routed, totalKm, totalMinutes, byOtherMeans, noRoute));
 
     this.renderRouteLegend(usedKeys, noRoute.length > 0);
   },

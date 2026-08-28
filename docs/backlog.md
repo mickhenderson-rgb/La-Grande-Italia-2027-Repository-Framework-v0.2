@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-28 (v1.17.2).
+Last reviewed: 2026-08-28 (v1.17.3).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -283,7 +283,7 @@ claims a stop called "milan", because nothing better wants it.
 
 Latent on the Italy trip rather than active — worth fixing before it is not.
 
-### C9. Milan → Le Noirmont has no road route — OPEN
+### C9. Milan → Le Noirmont has no road route — DONE (bad pin, re-placed 2026-08-28)
 
 Both are ordinary drivable places, so this is almost certainly a bad
 coordinate rather than a genuine absence of road: Geoapify cannot snap a
@@ -369,6 +369,40 @@ field in the planner, which had the same wrapper and the same problem.
 Both are pinned by `test-airport-picker-render.js`, which asserts the
 UNLOADED state — every other suite tests the picker after load, which is
 exactly why neither showed up.
+
+### C15. The flight legs vanished from the map — DONE (v1.17.3)
+
+Reported as "the flights have disappeared". They had not been
+misclassified — they had nowhere to be drawn.
+
+`resolveCoords` placed a stop from `cityCoords`, a hand-kept table of 28
+European towns. It has rome, milan, matera, le noirmont. It has no doha
+and no sydney, so both stops resolved to null, `plottedStops()` filtered
+them out, and the legs between them were never legs at all. The summary
+said "13 of 15" and never mentioned the two it had dropped.
+
+A leg carries an IATA code now, so the app knows exactly where DOH is.
+New tier 3 in `resolveCoords`: the airport a flight lands at or leaves
+from, matched by day overlap. Tiers 1 and 2 (the day's own pin, then the
+table) still win, so no existing placement moves.
+
+Caught by the guard while writing it: taking "the last leg's arrival"
+put the DOHA stop at MALPENSA, because Sydney → Doha → Milan is ONE
+booking and its final arrival is Milan. The stop is now matched by name
+against each of the booking's airports first, and only falls back to
+order when nothing matches.
+
+### C16. The map took 30–40 seconds to finish drawing — DONE (v1.17.3)
+
+Legs were routed one at a time: thirteen round trips to the routing
+service, each waiting for the last, on a phone. Nothing about them is
+sequential — no leg's request depends on another leg's answer.
+
+Four at a time now, not thirteen: a routing API is shared and rate
+limited, and firing every leg at once is how a trip earns a 429 and comes
+back with nothing. Results are collected BY INDEX and tallied afterwards
+so the summary still reads in trip order, and each leg is still drawn the
+moment it arrives. The progress line now counts ("7 of 15 legs").
 
 ### C12. Old flights still hold free text — OPEN (housekeeping, not a bug)
 
