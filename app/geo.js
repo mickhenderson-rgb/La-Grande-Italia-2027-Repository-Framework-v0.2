@@ -202,20 +202,32 @@ const Geo = {
       GEO_SHAPE_FAILED: "The location service replied, but the app couldn't read it. This is a bug - please report it.",
       GEO_BAD_RESPONSE: "The location service returned something unexpected.",
       GEO_UPSTREAM_UNREACHABLE: "Couldn't reach the location service. Try again in a moment.",
+      GEO_UPSTREAM_STATUS: "The location service turned the request down - usually too many at once. Try again in a moment.",
     };
 
     return codes[error && error.code] || fallback || "Something went wrong.";
   },
 
-  // One leg, A to B. Returns null instead of throwing when the leg simply
-  // can't be driven - which is a normal, expected outcome, not an error:
+  // One leg, A to B.
+  //
+  // Returns null when the leg simply CANNOT BE DRIVEN - a normal, expected
+  // outcome, not an error:
   //   - a flight leg (Sydney to Doha has no road)
   //   - a waypoint that won't snap to a road (a mountain-range centroid
   //     like "dolomites" is a point in the Alps, not a street)
   //
-  // The null is cached for the session so a permanently unroutable leg
-  // isn't re-requested on every redraw. Genuine configuration errors
-  // (no API key) still throw, because those the caller must surface.
+  // THROWS when the request itself failed - a rate limit, a timeout, the
+  // service being down. That is a different thing and the caller must be
+  // able to tell, because the advice differs completely: "no road here,
+  // check the pin" versus "try again in a moment".
+  //
+  // This used to swallow both. A transient failure on Milan -> Le Noirmont
+  // was reported as a missing road, and the fix suggested was to move a pin
+  // that was correct all along. The trip then "fixed itself" on a later
+  // load, which is exactly what a swallowed transient failure looks like.
+  //
+  // Only the genuine null is cached, so an undrivable leg costs one credit
+  // per session while a failed request is simply retried next redraw.
   async routeLeg(a, b, options = {}) {
     const key = this.cacheKey("leg", { a, b, mode: options.mode || "drive" });
 
@@ -223,25 +235,33 @@ const Geo = {
       return this._cache.get(key);
     }
 
-    try {
-      const route = await this.route([a, b], options);
+    let lastError = null;
 
-      this._cache.set(key, route);
+    // Two attempts. A rate limit clears in well under a second, and a leg
+    // that is genuinely unroutable never reaches here - it comes back as a
+    // null, not as a throw, so retrying costs nothing in the common case.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const route = await this.route([a, b], options);
 
-      return route;
-    } catch (error) {
-      if (error.code === "GEOAPIFY_NOT_CONFIGURED") {
-        throw error;
+        this._cache.set(key, route);
+
+        return route;
+      } catch (error) {
+        lastError = error;
+
+        // A missing key will fail identically every time.
+        if (error.code === "GEOAPIFY_NOT_CONFIGURED") {
+          throw error;
+        }
+
+        if (attempt === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+        }
       }
-
-      // Cache the failure so we don't spend another credit on it this
-      // session. A page reload retries, which is the right balance: a
-      // transient outage recovers, a genuinely undrivable leg costs one
-      // credit per visit rather than one per redraw.
-      this._cache.set(key, null);
-
-      return null;
     }
+
+    throw lastError;
   },
 
   formatDuration(minutes) {

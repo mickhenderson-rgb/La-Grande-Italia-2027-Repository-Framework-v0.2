@@ -1397,8 +1397,16 @@ ${unplotted}
     // not a problem worth reporting as one.
     const byOtherMeans = {};
 
-    // Legs we expected to route and couldn't. This IS worth reporting.
+    // Legs we expected to route and couldn't, because there is no road.
+    // Worth reporting, and the fix is usually a misplaced pin.
     const noRoute = [];
+
+    // Legs where the REQUEST failed - a rate limit, a timeout, the service
+    // having a moment. A completely different thing needing completely
+    // different advice. Conflating the two is how a perfectly good pin on
+    // Le Noirmont got reported as a missing road, and then "fixed itself"
+    // on the next load.
+    let unreachable = 0;
 
     // Which line styles this trip actually uses, so the legend can show
     // only those.
@@ -1449,19 +1457,27 @@ ${unplotted}
 
         let leg = null;
 
+        let failed = null;
+
         if (style.routeAs) {
           try {
             leg = await Geo.routeLeg(from.coords, to.coords, { mode: style.routeAs });
           } catch (error) {
-            // Only a configuration error reaches here - routeLeg swallows
-            // the ordinary "can't route this" case. One is enough: the key
-            // is missing or wrong for every leg, so the other workers stop
-            // rather than repeating the same failure twelve more times.
-            stopped = true;
+            if (error && error.code === "GEOAPIFY_NOT_CONFIGURED") {
+              // The key is missing or wrong for every leg, so the other
+              // workers stop rather than repeating this twelve more times.
+              stopped = true;
 
-            fatal = error;
+              fatal = error;
 
-            return;
+              return;
+            }
+
+            // Everything else is THIS leg failing, not the trip failing:
+            // a rate limit, a timeout, the service having a moment. It is
+            // emphatically NOT "there is no road here", and must not be
+            // reported as one.
+            failed = error;
           }
         }
 
@@ -1472,7 +1488,7 @@ ${unplotted}
           return;
         }
 
-        results[i] = { key: key, style: style, leg: leg, from: from, to: to };
+        results[i] = { key: key, style: style, leg: leg, from: from, to: to, failed: failed };
 
         // Drawn as it arrives rather than all at the end, so the map fills
         // in while the rest are still in flight.
@@ -1537,7 +1553,9 @@ ${unplotted}
         continue;
       }
 
-      if (result.style.routeAs) {
+      if (result.failed) {
+        unreachable += 1;
+      } else if (result.style.routeAs) {
         noRoute.push(`${this.pretty(result.from.location)} → ${this.pretty(result.to.location)}`);
       } else {
         byOtherMeans[result.style.verb] = (byOtherMeans[result.style.verb] || 0) + 1;
@@ -1555,7 +1573,9 @@ ${unplotted}
 
     this._drivingRoute = { distanceKm: Math.round(totalKm * 10) / 10, durationMinutes: totalMinutes };
 
-    setSummary(this.routeSummaryText(legCount, routed, totalKm, totalMinutes, byOtherMeans, noRoute));
+    setSummary(
+      this.routeSummaryText(legCount, routed, totalKm, totalMinutes, byOtherMeans, noRoute, unreachable),
+    );
 
     this.renderRouteLegend(usedKeys, noRoute.length > 0);
   },
@@ -1614,7 +1634,7 @@ ${unplotted}
   // One line that says what the map is showing. Order matters: what was
   // measured, then what's travelled another way (normal), then what
   // couldn't be worked out (the only part that's a problem).
-  routeSummaryText(legCount, routed, totalKm, totalMinutes, byOtherMeans, noRoute) {
+  routeSummaryText(legCount, routed, totalKm, totalMinutes, byOtherMeans, noRoute, unreachable) {
     const parts = [];
 
     if (routed > 0) {
@@ -1644,6 +1664,14 @@ ${unplotted}
 
       parts.push(
         `No road route found for: ${noRoute.join(", ")} - check the pins on ${which}, one of them is probably not on a road`,
+      );
+    }
+
+    if (unreachable > 0) {
+      const legs = unreachable === 1 ? "leg" : "legs";
+
+      parts.push(
+        `Couldn't reach the routing service for ${unreachable} ${legs} - shown as direct lines. Reopen the map to try again`,
       );
     }
 

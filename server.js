@@ -1142,7 +1142,31 @@ async function handleGeoRoute(req, res, action) {
     if (upstream.status !== 200) {
       console.error(`[geoapify] ${action} responded ${upstream.status}`);
 
-      return sendJSON(res, 502, { error: "Location service unavailable." });
+      // A 4xx is an answer ABOUT THE REQUEST: these two points cannot be
+      // routed between. That is not a failure and must not be retried -
+      // it will say the same thing every time. For routing it means
+      // exactly what an empty feature list means, so it is reported the
+      // same way: no route.
+      //
+      // Geoapify is not consistent about which of the two it uses for an
+      // unroutable pair, so both spellings are handled rather than
+      // guessed at.
+      if (upstream.status >= 400 && upstream.status < 500 && upstream.status !== 429) {
+        if (action === "routing") {
+          return sendJSON(res, 200, { route: null });
+        }
+
+        return sendJSON(res, 200, { results: [] });
+      }
+
+      // A 429 or a 5xx is the service having a moment. Carries a CODE and
+      // the status so the client can say "try again" instead of blaming a
+      // pin that was correct all along.
+      return sendJSON(res, 502, {
+        error: "Location service unavailable.",
+        code: "GEO_UPSTREAM_STATUS",
+        upstreamStatus: upstream.status,
+      });
     }
 
     let parsed;

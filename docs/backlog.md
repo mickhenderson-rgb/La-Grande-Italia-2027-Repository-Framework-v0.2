@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-28 (v1.17.3).
+Last reviewed: 2026-08-28 (v1.17.4).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -283,22 +283,56 @@ claims a stop called "milan", because nothing better wants it.
 
 Latent on the Italy trip rather than active — worth fixing before it is not.
 
-### C9. Milan → Le Noirmont has no road route — DONE (bad pin, re-placed 2026-08-28)
+### C9. Milan → Le Noirmont had no road route — DONE (v1.17.4)
 
-Both are ordinary drivable places, so this is almost certainly a bad
-coordinate rather than a genuine absence of road: Geoapify cannot snap a
-waypoint that sits off the network, which is the same failure the
-Dolomites centroid caused in v1.10.0. "le noirmont" is a plausible
-mis-geocode — there is a village in the Swiss Jura and a summit of nearly
-the same name.
+**The earlier entry here was wrong.** It recorded this as a mis-placed pin
+that Mick re-placed. He did not: *"I didn't re-pin Le Noirmont, it fixed
+itself."*
 
-Not diagnosable from here: the trip data lives server-side only and the
-local `data/projects/` copy is stale (9 days, Rome→Bologna). Needs either
-the stored coordinates for those two stops, or a drag of the pins on the
-map to see whether the route appears.
+Which ruled out the diagnosis and pointed at the real bug. `Geo.routeLeg`
+caught **every** error except a missing API key, cached a null and returned
+it. So a rate limit, a timeout and a road that genuinely does not exist
+were indistinguishable, and all three were reported as:
 
-The route summary now says which pins to check rather than only naming
-the leg.
+> No road route found for: Milan → Le Noirmont — check the pins on this
+> leg, one of them is probably not on a road
+
+against a pin that was correct all along — Le Noirmont has been in
+`cityCoords` at [47.2306, 6.9628] the whole time. The failure was cached
+for the session, so it persisted until a reload and then "fixed itself",
+which is exactly what a swallowed transient failure looks like.
+
+The distinction already existed everywhere else. `routeLeg` was the one
+place that threw it away:
+
+| Upstream | Server | `route()` | Means |
+|---|---|---|---|
+| 200, no features | `{route: null}` | returns `null` | no road exists |
+| 4xx (not 429) | `{route: null}` | returns `null` | no road exists |
+| 429, 5xx | 502 `GEO_UPSTREAM_STATUS` | **throws** | try again |
+| unreachable | 502 `GEO_UPSTREAM_UNREACHABLE` | **throws** | try again |
+
+`routeLeg` now returns null only for a real answer, retries a transient
+failure once, and throws if it still fails. Failures are no longer cached,
+so the next redraw retries. The map counts them separately and says
+"Couldn't reach the routing service for 2 legs — reopen the map to try
+again" instead of blaming a pin.
+
+The upstream-4xx mapping is new: a 4xx is an answer about the request, not
+a failure, and retrying it forever would be as wrong in the other
+direction. Geoapify is not consistent about whether an unroutable pair
+comes back as 200-with-no-features or as a 4xx, so both are handled rather
+than guessed at — this was **not** verified against the live API, which
+needs a key.
+
+Made more urgent by v1.17.3: four concurrent requests instead of one
+sequential means more chance of a 429, so this failure was getting *more*
+likely, not less.
+
+`test-route-legs.js` had encoded the wrong premise in its own stub — "502
+the way Geoapify does for a flight or an unsnappable point". Corrected;
+502 now means the service failed, and `test-route-failure-kinds.js` covers
+each failure mode separately.
 
 ### C10. Flights had no idea which airport they meant — DONE (v1.17.0)
 
