@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-28 (v1.16.0).
+Last reviewed: 2026-08-28 (v1.16.1).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -19,7 +19,7 @@ The agreed order of work, as at 2026-08-28.
 | # | Item | Status |
 |---|---|---|
 | A1 | Journal unsaved-changes guard (§B2) | DONE — v1.11.4 |
-| A2 | Repair the dead test suites (§B1) | PARTLY DONE — 46/57 passing, 11 remain |
+| A2 | Repair the dead test suites (§B1) | DONE — 62/62 passing |
 | A3 | Shared money/date/place formatters (§C4, C5, D7) | DONE — v1.12.0 |
 | A4 | Header wrap (§C1), "1 item(s)" (§C3) | DONE — v1.12.0 |
 | A5 | Transit nights (§D8) + countdown destination (§C2) | DONE — v1.13.0 |
@@ -27,9 +27,8 @@ The agreed order of work, as at 2026-08-28.
 | A7 | Readiness button labels (§C6), button styles (§D11), scroll affordance (§D12) | DONE — v1.13.2 |
 | A8 | Weather: fetch seasonal data + sunrise/sunset (§D9) | DONE — v1.14.0 |
 | A9 | Audit the journal export (§B4) | DONE — v1.14.1 |
-| A10 | End-of-day journal flow (§B3) | OPEN — next, workshop first |
 | A11 | Photo book + web story exports (§B4) | OPEN — net-new builds, not repairs |
-| A12 | Tonight flow — the end-of-day journal (§B3) | DONE — v1.16.0 |
+| A10 | Tonight flow — the end-of-day journal (§B3) | DONE — v1.16.0 |
 
 Decisions taken 2026-08-28, recorded so they aren't re-litigated:
 
@@ -55,50 +54,79 @@ Decisions taken 2026-08-28, recorded so they aren't re-litigated:
 
 ## B. Structural gaps
 
-### B1. Dead test suites — PARTLY REPAIRED (11 remain)
+### B1. Test suites — ALL GREEN (2026-08-28)
 
-`run-all.js` reports **51/62 passing** (was 33/52). Nine suites repaired
-across 2026-08-27/28.
+`run-all.js` reports **62/62**. It has never been clean before.
 
-**Repaired:** `test-day-reference`, `test-form-delete`, `test-mail`,
-`test-mail-confirm`, `test-maplinks`, `test-snapshot`, `test-trip-export`,
-`test-ux-review-fixes`.
+Not one of the eleven final failures was an application bug. Every one
+was a suite that had fallen behind a deliberate change, which is worth
+recording because the same shapes will recur:
 
-`test-snapshot` was the one that mattered: it flagged a **real regression**
-(flight titles had lost the airline and number — fixed in v1.11.5) *and* a
-bug in the repair itself. A stub of `Transport.matchesDay` returning
-`false` silently removed the entire transport section from the snapshot, so
-an assertion about transport titles failed for a reason that had nothing to
-do with transport. Stubs that return plausible-but-wrong values are worse
-than missing globals, because the suite still runs.
+**Fixture passwords too short (2 suites).** `"hunter2"` is 7 characters;
+the policy requires 10. Registration failed silently, so every later
+request answered 401 and the diagnostics pointed at the wrong thing
+entirely. Five suites had been fixed for this earlier and these two were
+missed.
 
-**The lesson from doing it:** the rot was almost entirely sandboxes that had
-fallen behind the app — a module grew a reference to `DayReference`,
-`Phase`, `Transport`, `Flights` or `setInterval` and the mock was never
-told. But **stubbing a module the suite actually exercises is the wrong
-repair** — it makes the suite assert against the stub. `test-day-reference`
-was stubbing the very module it exists to test; `test-snapshot` and
-`test-trip-export` needed the real `MapLinks`/`Flights` loaded. Load the
-real module; stub only what's genuinely irrelevant.
+**No session at all (2 suites).** `test-editday` and `test-itinerary`
+predate the security work and called the API unauthenticated. Both now
+register the first user - which the server permits while it has none -
+and carry the cookie.
 
-**Still failing, and why each needs a judgement call rather than a patch:**
+**Looking in the old place (1 suite).** `test-auth` read `users.json`
+from `data/auth`, which is exactly where it must no longer be: that
+directory was moved outside the served root because the static file
+server was handing it to anyone who asked.
 
-| Suite | Symptom | The question to answer |
-|---|---|---|
-| `test-diagnose-accom` | `Planner.matchByDestination is not a function` | Confirm the replacement is `matchByDayRange` and that the suite's intent still holds. |
-| `test-dates` | "new flight: departure pre-fills day 1" | Date pre-fill behaviour may have changed with multi-leg flights. |
-| `test-budget` | `all.find is not a function` | Something the suite expects to be an array no longer is. |
-| `test-accom-multiday`, `test-hire-car-server`, `test-editday`, `test-itinerary`, `test-redirect`, `test-auth`, `test-currency`, `test-delete-project-live` | HTTP assertions / ECONNREFUSED | These spawn or expect a server on :8080. Check for port collisions when run in sequence, whether they need `GEOAPIFY_KEY`, and whether the out-of-root auth dir is prepared. |
+**A correct 401 read as a failure (1 suite).** `test-redirect` expected
+`/TOS/api/whoami` to return 200. It returns 401, correctly. The
+assertion now checks for 401 rather than 404 - which proves *more* than
+the original did, because it distinguishes "routed correctly under the
+prefix, then refused" from "the prefix broke routing", and routing is
+the thing that suite exists to test.
 
-**Do not** mass-update assertions to match current output. That converts a
-test into a change-detector that asserts nothing — and at least one of these
-(the flight title) may be flagging a genuine regression.
+**Exiting while handles were closing (1 suite).** `test-currency` passed
+every assertion and then aborted with a libuv assertion and exit code
+127, because `process.exit()` fired while the socket from its live
+Frankfurter call was mid-close. `process.exitCode` lets Node leave
+cleanly. Worth remembering: it presented as "no diagnostic".
 
-**Why it matters:** working suites have caught four real regressions in
-recent sessions — a duplicate object key that made a method dead code, a CSS
-rule scoped so it missed Budget, a `flatMap` that only failed on the
-production Node version, and a `FormGuard` change that broke an existing
-guard test. Every dead suite is a hole in that net.
+**Testing an API that no longer exists (2 suites).**
+`test-diagnose-accom` interrogated `Planner.matchByDestination`, removed
+on purpose because filtering on destination text hid bookings whose real
+town differed from the day's label. Rewritten as a regression guard on
+that decision. `test-budget` described the pre-Build-45 Budget in almost
+every assertion - including asserting the nights off-by-one that was
+overcharging every stay. Retired in place rather than deleted, now
+guarding that the old API stays gone; `test-budget-tiers` is its
+successor and already covers the current design.
+
+**A fixture that bypassed the code under test (1 suite).** `test-dates`
+hand-built `{ day: 1, departure: {} }` and expected a pre-filled date.
+The app builds a new flight through `blankItem()` → `blankLeg(day)`,
+which is what does the pre-filling, and renders from the `editingLegs`
+working copy. The pre-fill was never broken; the test simply never
+exercised it. This was the one Mick shelved as "not sure" - the answer
+is that nothing regressed.
+
+**Assuming a server that was never started (1 suite).**
+`test-delete-project-live` expected something already listening on 8080,
+so on every automated run it failed with ECONNREFUSED and tested
+nothing. It now starts its own, like the rest.
+
+**The recurring lesson**, across this repair and the earlier one:
+*stubbing a module the suite actually exercises is the wrong repair* -
+it makes the suite assert against the stub. A stub returning a
+plausible-but-wrong value is worse than a missing global, because the
+suite still runs and lies. Load the real module; stub only what is
+genuinely irrelevant.
+
+**Why it mattered:** working suites caught five real regressions during
+these sessions - a duplicate object key that made a method dead code, a
+CSS rule scoped so it missed Budget, a `flatMap` that only failed on the
+production Node version, a `FormGuard` change that broke an existing
+guard test, and flight titles that had silently lost the airline and
+number. The dead suites were holes in exactly that net.
 
 ### B2. Journal unsaved-changes guard — DONE (v1.11.4)
 
@@ -113,16 +141,23 @@ own re-renders, plus `data-guard-fields` on `FormGuard` so only the fields
 `save()` writes count as unsaved work — the live-saving widgets don't
 trigger it.
 
-### B3. The end-of-day journal flow doesn't exist — DONE (v1.16.0)
+### B3. End-of-day journal flow — DONE (v1.16.0)
 
-The mobile design handoff calls this "the one genuinely new flow, and the
-reason to build the app at all": on the evening of a travel day the journal
-opens on **Tonight** — "you took 47 photos today", a 3-column grid with
-three pre-selected by time and place, a free-text field with dictation, an
-optional toggle attaching the day's expenses, and a save that names the next
-day. Currently the journal is a plain entry form.
+The mobile design handoff called this "the one genuinely new flow, and the
+reason to build the app at all". Built as the **Tonight** tab: present only
+when a journey day is actually today, editing the SAME entry Entries does.
 
-Largest gap between what's built and what was designed.
+Three parts of the design were deliberately NOT built, each because it
+would only half-work, and there are tests asserting their absence:
+
+- **"You took 47 photos today"** - a browser cannot see the camera roll.
+  Replaced by a multi-select picker, which is honest about what it knows.
+- **Dictation** - every phone keyboard already has a mic key. The Web
+  Speech API would only add Android-Chrome support for something everyone
+  already has.
+- **Photos pre-selected by time and place** - needs EXIF GPS, which iOS
+  strips unless permission is granted per-picker. It would work some days
+  and silently not others.
 
 ### B4. Journal export — AUDITED (v1.14.1)
 
