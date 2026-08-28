@@ -427,6 +427,13 @@ async function handleJournalPhotoAdd(req, res, projectId, day) {
     const photo = {
       id: newId("PHT"),
       url: body.url,
+      // A second, print-quality copy of the same photo. The app never
+      // shows it - loading a dozen 3200px images on mobile data would be
+      // painful - it exists purely so an export has the pixels a printed
+      // page needs. Optional: a photo added before archives existed, or
+      // whose larger upload failed, simply has none, and the export falls
+      // back to the display copy.
+      archiveUrl: body.archiveUrl || "",
       caption: body.caption || "",
       addedBy: req.authUser || "",
     };

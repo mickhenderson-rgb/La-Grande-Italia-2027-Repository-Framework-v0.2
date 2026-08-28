@@ -179,7 +179,13 @@ const JournalExport = {
   },
 
   async renderExportPhoto(photo) {
-    const isUpload = String(photo.url || "").startsWith("data/projects/");
+    // The archive copy is the whole point of keeping one: an export is the
+    // only place the extra pixels matter. Photos added before archives
+    // existed have none, so fall back to the display copy rather than
+    // losing them.
+    const source = photo.archiveUrl || photo.url;
+
+    const isUpload = String(source || "").startsWith("data/projects/");
 
     const attribution = photo.addedBy
       ? `<p class="export-attribution">Added by ${this.esc(photo.addedBy)}</p>`
@@ -190,7 +196,7 @@ const JournalExport = {
 
 <div class="export-photo">
 
-    <a href="${this.esc(photo.url)}" target="_blank" rel="noopener">${this.esc(photo.caption) || "View Photo"}</a>
+    <a href="${this.esc(source)}" target="_blank" rel="noopener">${this.esc(photo.caption) || "View Photo"}</a>
 
     ${attribution}
 
@@ -200,7 +206,7 @@ const JournalExport = {
     }
 
     try {
-      const dataUrl = await this.toBase64(photo.url);
+      const dataUrl = await this.toBase64(source);
 
       return `
 

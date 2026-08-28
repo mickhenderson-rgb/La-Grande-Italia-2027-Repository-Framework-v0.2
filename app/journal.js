@@ -682,20 +682,38 @@ const Journal = {
     }
 
     try {
-      const resizedDataUrl = await this.resizeImage(file, 1600, 0.8);
+      const displayDataUrl = await this.resizeImage(file, this.DISPLAY_MAX_PX, this.DISPLAY_QUALITY);
 
       if (statusEl) {
         statusEl.textContent = "Uploading...";
       }
 
-      const url = await this.uploadPhoto(resizedDataUrl);
+      const url = await this.uploadPhoto(displayDataUrl);
+
+      // The print-quality copy. Uploaded second and separately: if it
+      // fails - a big file on a weak connection - the photo is still in
+      // the journal, just without an archive copy. Losing the archive is
+      // a smaller loss than losing the photo.
+      let archiveUrl = "";
+
+      try {
+        if (statusEl) {
+          statusEl.textContent = "Saving a print-quality copy...";
+        }
+
+        const archiveDataUrl = await this.resizeImage(file, this.ARCHIVE_MAX_PX, this.ARCHIVE_QUALITY);
+
+        archiveUrl = await this.uploadPhoto(archiveDataUrl);
+      } catch (error) {
+        console.warn("Could not save the print-quality copy:", error);
+      }
 
       const caption = this.autoCaption(file);
 
       const addResponse = await fetch(`${window.API_BASE}/api/journal/${Data.currentProjectFolder}/${dayNumber}/photo`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, caption }),
+        body: JSON.stringify({ url, caption, archiveUrl }),
       });
 
       if (!addResponse.ok) {
@@ -721,6 +739,29 @@ const Journal = {
       alert("Couldn't upload that photo. Check the connection and try again.");
     }
   },
+
+  // Two copies of every photo, for two different jobs.
+  //
+  // DISPLAY is what the app shows. It has to be small, because a journal
+  // day renders a dozen of them and you'll be opening it on Italian mobile
+  // data.
+  //
+  // ARCHIVE is what a print export uses. 3200px is ~300 DPI across a 270mm
+  // page, which covers any single page in a photo book plus room to crop.
+  // A full double-page spread wants nearer 4700px - that, and genuinely
+  // lossless originals, are a V2 problem needing real storage.
+  //
+  // The old single copy was 1600px, or about 200 DPI on a book page:
+  // visibly soft in print, and unrecoverable once the original is off the
+  // phone. Raising it without splitting the two would have traded a print
+  // problem for a browsing one.
+  DISPLAY_MAX_PX: 1600,
+
+  ARCHIVE_MAX_PX: 3200,
+
+  DISPLAY_QUALITY: 0.8,
+
+  ARCHIVE_QUALITY: 0.88,
 
   resizeImage(file, maxDimension, quality) {
     return new Promise((resolve, reject) => {

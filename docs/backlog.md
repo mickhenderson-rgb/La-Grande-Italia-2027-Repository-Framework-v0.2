@@ -29,6 +29,7 @@ The agreed order of work, as at 2026-08-28.
 | A9 | Audit the journal export (§B4) | DONE — v1.14.1 |
 | A10 | End-of-day journal flow (§B3) | OPEN — next, workshop first |
 | A11 | Photo book + web story exports (§B4) | OPEN — net-new builds, not repairs |
+| A12 | Tonight flow — the end-of-day journal (§B3) | IN PROGRESS — design agreed 2026-08-28 |
 
 Decisions taken 2026-08-28, recorded so they aren't re-litigated:
 
@@ -270,6 +271,27 @@ The day's quick-links row scrolls sideways with `scrollbar-width: none`, so
 "Accommodation" is cut to "Ac…" with nothing indicating the row moves.
 Putting Edit Day first (v1.11.3) fixed the worst case; the general problem
 stands. Same pattern is used for `.hero .quick-links` throughout.
+
+---
+
+## D2. Deferred to V2
+
+### V2-1. Lossless photo storage — OPEN
+
+Photos are stored as two derived JPEGs: a 1600px display copy and a 3200px
+archive copy (v1.15.0). Neither is the original. 3200px is ~300 DPI across
+a 270mm page, so it covers any single page in a photo book with room to
+crop, but a full-bleed double-page spread wants nearer 4700px, and nothing
+here is lossless.
+
+Doing better means real storage - object storage with a lifecycle policy,
+not a shared cPanel disk - which is a V2 conversation, not a V1 one.
+Raised by Mick 2026-08-28.
+
+Note the irreversibility: a photo is downsized in the browser before it
+ever leaves the phone, so raising the cap later does nothing for photos
+already added. That is why the cap went up before the Italy journal gets
+filled in rather than after.
 
 ---
 
