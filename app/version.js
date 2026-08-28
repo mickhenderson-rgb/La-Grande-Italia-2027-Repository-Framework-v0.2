@@ -18,4 +18,4 @@ Bump this alongside every shipped change.
 =========================================================
 */
 
-const APP_VERSION = "1.17.5";
+const APP_VERSION = "1.18.0";

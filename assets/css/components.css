@@ -1416,6 +1416,60 @@ button {
    does NOT - it falls back to its intrinsic size attribute, which made
    every airport field ~40px narrower than the airline and flight-number
    fields beside it, with the dropdown overhanging its own input. */
+/* Export progress, and the note under the journal Save button.
+   Both exist because the app was doing work silently: the export ran for
+   a minute with only a line of text changing, and a save reported itself
+   in the sidebar, which is across the page on a desktop and behind a
+   hamburger on a phone. */
+/* Photo book: the pre-print checklist. Deliberately a plain list - it is
+   read once, before printing, and then never again. */
+.pb-tips {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  line-height: 1.7;
+}
+
+.pb-tips li {
+  margin-bottom: 4px;
+}
+
+.exp-progress {
+  margin-top: 12px;
+}
+
+.exp-progress-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-rule, #ececec);
+  overflow: hidden;
+}
+
+.exp-progress-bar {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: var(--color-primary);
+  /* Eased so a jump from 20% to 60% reads as movement rather than a cut. */
+  transition: width 0.25s ease;
+}
+
+.jrn-save-note {
+  margin: 8px 0 0;
+  min-height: 1.2em;
+  font-size: 0.88em;
+  color: var(--color-muted);
+}
+
+.jrn-save-note.is-ok {
+  color: var(--color-success, #2e7d32);
+  font-weight: 600;
+}
+
+.jrn-save-note.is-bad {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
 .geo-input-wrap > input {
   width: 100%;
 }

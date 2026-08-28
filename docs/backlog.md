@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-28 (v1.17.5).
+Last reviewed: 2026-08-28 (v1.18.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -27,7 +27,8 @@ The agreed order of work, as at 2026-08-28.
 | A7 | Readiness button labels (§C6), button styles (§D11), scroll affordance (§D12) | DONE — v1.13.2 |
 | A8 | Weather: fetch seasonal data + sunrise/sunset (§D9) | DONE — v1.14.0 |
 | A9 | Audit the journal export (§B4) | DONE — v1.14.1 |
-| A11 | Photo book + web story exports (§B4) | OPEN — net-new builds, not repairs |
+| A11 | Photo book (§B4) | DONE — v1.18.0 |
+| A12 | Web story (§B4) | OPEN — the genuinely separate build |
 | A10 | Tonight flow — the end-of-day journal (§B3) | DONE — v1.16.0 |
 
 Decisions taken 2026-08-28, recorded so they aren't re-litigated:
@@ -480,6 +481,91 @@ combination.
 **Checked and NOT a bug:** the route legend appeared to be missing "by
 air" while the summary said "1 leg by air". Probed directly — the legend
 does emit it. A cropped screenshot, not a defect.
+
+### C18. Save Entry said nothing — DONE (v1.18.0)
+
+The confirmation existed. `Project.persist` writes "Saved" into
+`#save-status` — but `Journal.save()` fired the save and immediately
+re-rendered, and `Layout.render()` rebuilds the sidebar, so that element
+was replaced by a fresh "Ready" before the write landed.
+
+The same race swallowed **failures**: a save that never reached the server
+looked exactly like one that worked.
+
+`Project.update` now returns its promise and `persist` rethrows after
+reporting. The journal awaits it and says so next to the button that
+caused it. On failure it deliberately does **not** clear the draft or
+re-render — what was typed is the only copy that exists.
+
+### C19. The journal export appeared to hang — DONE (v1.18.0)
+
+Two things, one symptom.
+
+`download()` revoked the object URL in the same tick as `link.click()`.
+Browsers start a download asynchronously, so revoking that early cancels
+it — silently. The export ran to completion, reported no error, and no
+file appeared. Now revoked on a 60s timer.
+
+And the honest half: embedding photos IS slow, and a line of text changing
+every few seconds is indistinguishable from a locked page. There is a
+progress bar now, weighted (a photo counts 4× a day, because it is the
+slow part), the loop yields so the bar paints, the button disables while
+it runs, and a failure says so instead of leaving "Embedding photo 41…" on
+screen forever.
+
+`--color-success` added to both themes, paired with `--color-danger`,
+which was already themed. A green picked for a white card is 2.78:1 on a
+dark one.
+
+### A11 (first half). Photo book — DONE (v1.18.0)
+
+`app/photo-book.js`. Lays the journal out as book pages and opens the
+print dialog; Save as PDF gives a file a printer can use.
+
+**Not a PDF generator.** The browser has one, this project has no
+dependencies by design, and hand-rolling one would be weeks of work to
+produce something worse than Ctrl+P. What the browser cannot do alone is
+lay a book out, so that is all this does.
+
+Specifications taken from a supplier that publishes them
+(photobooks.pro), not guessed: 1/8 in bleed every edge, 3/4 in safe area
+inside the trim, 300 DPI preferred, single pages not spreads.
+
+**photobookshop.com.au — which prompted this — does NOT accept general PDF
+uploads.** Their support says to email business@photobookshop.com.au for
+the dimensions of a custom order. So nothing targets one supplier; the
+size list is one object at the top of the module.
+
+**This settles the 3200px question from batch 7.** Archive photos are
+3200px on the long edge = 10.67 in at 300 DPI:
+
+| Size | Full-bleed DPI | |
+|---|---|---|
+| 8 × 8 | 388 | above spec |
+| 10 × 10 | 312 | above spec |
+| 8.5 × 11 | 284 | slightly under, prints fine |
+| A4 | 268 | slightly under, prints fine |
+| 12 × 12 | 261 | print smaller |
+
+So **3200px is enough up to about 10 inches.** The DPI is shown on the
+size dropdown rather than discovered from the finished book.
+
+Verified in a real browser: at 8 × 8 the page measures 792 × 792 px
+(8.25 in at 96 DPI), the safe area insets 84 px (7/8 in = 3/4 safe + 1/8
+bleed), a full-bleed photo covers the page exactly, captions sit inside
+the safe area, and nothing overflows. Landscape 11 × 8.5 checked too.
+
+Guarded by `test-photo-book.js`, which does arithmetic on inches — print
+geometry is the one thing that cannot be checked by looking at it, because
+a page 2% too big looks identical on screen and comes back trimmed wrong.
+
+### A11 (second half). Web story — OPEN
+
+The genuinely separate build, and the agreed order was photo book first.
+A vertical, tap-through, phone-first telling of the trip. Nothing of it
+exists yet, and nothing claims it does — `test-journal-export.js` asserts
+that the words "web story" appear nowhere, precisely so it cannot be
+claimed before it is built.
 
 ## D. Data-model and design questions
 

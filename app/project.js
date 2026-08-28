@@ -80,13 +80,21 @@ const Project = {
 
     this.modified = true;
 
-    this.persist(dataset, value);
+    // RETURNED, not fired and forgotten. A caller that re-renders straight
+    // after saving was racing it: Layout.render() rebuilds the sidebar, so
+    // the "Saved" this eventually writes into #save-status landed on an
+    // element that had already been replaced by a fresh "Ready". Worse, a
+    // FAILED save was silent for the same reason - the journal said
+    // nothing and looked exactly like a save that had worked.
+    return this.persist(dataset, value);
   },
 
   async persist(dataset, value) {
     if (!this.persistenceEnabled || !this.projectFolder) {
       return;
     }
+
+    let failed = null;
 
     this.setSaveStatusEl("Saving…");
 
@@ -113,9 +121,21 @@ const Project = {
 
       this.setSaveStatusEl("Not saved - server offline?");
 
+      // Kept so it can be rethrown below. The status element alone is not
+      // enough: it lives in the sidebar, which is behind a hamburger on a
+      // phone and is rebuilt by the next render anyway.
+      failed = error;
+
       console.warn(
         `[Project] Could not save ${dataset}.json - is server.js running? Changes are only in memory until it is.`,
       );
+    }
+
+    // Thrown AFTER the status line is written, so callers that ignore the
+    // promise behave exactly as they always did, and callers that await it
+    // can tell the person in front of them.
+    if (failed) {
+      throw failed;
     }
   },
 

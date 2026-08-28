@@ -839,7 +839,7 @@ const Journal = {
 
     <div class="planner-buttons">
 
-        <button type="button" onclick="Journal.save(${day.day})">
+        <button type="button" id="jrn-save-btn" onclick="Journal.save(${day.day})">
 
             Save Entry
 
@@ -858,6 +858,11 @@ const Journal = {
         </button>
 
     </div>
+
+    <!-- Next to the button that caused it. The sidebar has a save
+         indicator, but it is across the page on a desktop and behind a
+         hamburger on a phone, so nobody ever saw it. -->
+    <p class="jrn-save-note" id="jrn-save-note" role="status" aria-live="polite"></p>
 
 </div>
 
@@ -1358,18 +1363,60 @@ const Journal = {
       address: document.getElementById("jrn-location-address").value.trim(),
     };
 
-    Project.update("journal", result.data);
+    const note = document.getElementById("jrn-save-note");
 
-    // Saved, so the stashed copy is stale and there's nothing unsaved left
-    // to warn about. Order matters: clear before the re-render, or
-    // renderEntry would prefer the draft over what was just written.
-    this.clearDraft();
+    const button = document.getElementById("jrn-save-btn");
 
-    if (typeof FormGuard !== "undefined") {
-      FormGuard.release();
+    const say = (text, ok) => {
+      if (note) {
+        note.textContent = text;
+
+        note.className = "jrn-save-note" + (ok === true ? " is-ok" : ok === false ? " is-bad" : "");
+      }
+    };
+
+    if (button) {
+      button.disabled = true;
     }
 
-    this.openDay(dayNumber);
+    say("Saving…");
+
+    // AWAITED. This used to fire the save and immediately re-render, which
+    // rebuilt the sidebar and wiped the only indicator there was - so a
+    // save that worked looked identical to a save that failed, and both
+    // looked like nothing had happened at all.
+    Project.update("journal", result.data)
+      .then(() => {
+        // Saved, so the stashed copy is stale and there is nothing unsaved
+        // left to warn about. Order matters: clear before the re-render, or
+        // renderEntry would prefer the draft over what was just written.
+        this.clearDraft();
+
+        if (typeof FormGuard !== "undefined") {
+          FormGuard.release();
+        }
+
+        this.openDay(dayNumber);
+
+        // After the re-render, because openDay() replaces the element the
+        // message lives in.
+        const fresh = document.getElementById("jrn-save-note");
+
+        if (fresh) {
+          fresh.textContent = "✓ Entry saved";
+
+          fresh.className = "jrn-save-note is-ok";
+        }
+      })
+      .catch(() => {
+        // The draft is deliberately KEPT and the page deliberately NOT
+        // re-rendered: what was typed is now the only copy that exists.
+        if (button) {
+          button.disabled = false;
+        }
+
+        say("Couldn't save - your writing is still here. Check the connection and try again.", false);
+      });
   },
 
   // Full escaping, not just quotes.

@@ -70,15 +70,31 @@ const JournalExport = {
             Skip days with no journal content
         </label>
 
-        <div id="exp-status" class="form-hint" style="margin-top: 12px;"></div>
+        <!-- A bar that MOVES, not just text that changes. Embedding a
+             hundred photos takes a while, and a line reading "Embedding
+             photo 41..." updating every few seconds is indistinguishable
+             from a page that has locked up. -->
+        <div class="exp-progress" id="exp-progress" hidden>
+            <div class="exp-progress-track">
+                <div class="exp-progress-bar" id="exp-progress-bar" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <div id="exp-status" class="form-hint" role="status" aria-live="polite" style="margin-top: 12px;"></div>
 
     </div>
 
     <div class="planner-buttons">
 
-        <button type="button" onclick="JournalExport.generate()">
+        <button type="button" id="exp-go" onclick="JournalExport.generate()">
 
             Generate &amp; Download
+
+        </button>
+
+        <button type="button" onclick="PhotoBook.open()">
+
+            Photo Book →
 
         </button>
 
@@ -120,62 +136,178 @@ const JournalExport = {
 
     let photoCount = 0;
 
-    for (const day of days) {
-      const entry = entries.find((e) => e.day === day.day) || {
-        notes: "",
-        checklist: [],
-        photos: [],
-      };
-
-      const hasContent =
-        (entry.notes && entry.notes.trim()) ||
-        entry.checklist.length > 0 ||
-        entry.photos.length > 0;
-
-      if (onlyWithContent && !hasContent) {
-        continue;
+    // Counted BEFORE the loop so the bar shows a real fraction. A bar that
+    // cannot say how far along it is may as well be a spinner.
+    const chosen = days.filter((day) => {
+      if (!onlyWithContent) {
+        return true;
       }
 
+      const entry = entries.find((e) => e.day === day.day);
+
+      return !!(
+        entry &&
+        ((entry.notes && entry.notes.trim()) ||
+          (entry.checklist && entry.checklist.length > 0) ||
+          (entry.photos && entry.photos.length > 0))
+      );
+    });
+
+    const totalPhotos = !includePhotos
+      ? 0
+      : chosen.reduce((n, day) => {
+          const entry = entries.find((e) => e.day === day.day);
+
+          return n + (entry && entry.photos ? entry.photos.length : 0);
+        }, 0);
+
+    // Days are quick; embedding a photo is the slow part. Weighting them
+    // equally would make the bar sprint to 20% and then appear to stop.
+    const totalWork = chosen.length + totalPhotos * 4;
+
+    let workDone = 0;
+
+    const progress = this.progressUI();
+
+    progress.start();
+
+    const step = (text) => {
       if (statusEl) {
-        statusEl.textContent = `Processing Day ${day.day}...`;
+        statusEl.textContent = text;
       }
 
-      let photosHtml = "";
+      progress.set(totalWork > 0 ? workDone / totalWork : 1);
+    };
 
-      if (includePhotos && entry.photos.length > 0) {
-        const photoParts = [];
+    try {
+      for (const day of days) {
+        const entry = entries.find((e) => e.day === day.day) || {
+          notes: "",
+          checklist: [],
+          photos: [],
+        };
 
-        for (const photo of entry.photos) {
-          photoCount++;
+        const hasContent =
+          (entry.notes && entry.notes.trim()) ||
+          entry.checklist.length > 0 ||
+          entry.photos.length > 0;
 
-          if (statusEl) {
-            statusEl.textContent = `Embedding photo ${photoCount}...`;
-          }
-
-          photoParts.push(await this.renderExportPhoto(photo));
+        if (onlyWithContent && !hasContent) {
+          continue;
         }
 
-        photosHtml = `<div class="export-photos">${photoParts.join("")}</div>`;
+        workDone += 1;
+
+        step(`Day ${day.day} of ${days[days.length - 1].day}…`);
+
+        // Yields to the browser so the bar actually paints. Without this the
+        // whole export can run inside one frame and the page looks frozen
+        // right up until the file appears.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        let photosHtml = "";
+
+        if (includePhotos && entry.photos.length > 0) {
+          const photoParts = [];
+
+          for (const photo of entry.photos) {
+            photoCount++;
+
+            workDone += 4;
+
+            step(`Embedding photo ${photoCount} of ${totalPhotos}…`);
+
+            photoParts.push(await this.renderExportPhoto(photo));
+          }
+
+          photosHtml = `<div class="export-photos">${photoParts.join("")}</div>`;
+        }
+
+        sections.push(this.renderExportDay(day, entry, {
+          includeNotes,
+          includeChecklist,
+          photosHtml,
+        }));
       }
 
-      sections.push(this.renderExportDay(day, entry, {
-        includeNotes,
-        includeChecklist,
-        photosHtml,
-      }));
+      workDone = totalWork;
+
+      step("Building the document…");
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      const html = this.buildDocument(projectData, sections);
+
+      this.download(html, this.filename(projectData));
+
+      if (statusEl) {
+        const size = Math.round(html.length / 1024);
+
+        statusEl.textContent =
+          `Done - ${sections.length} ${sections.length === 1 ? "day" : "days"}, ` +
+          `${photoCount} ${photoCount === 1 ? "photo" : "photos"}, ${size} KB. ` +
+          `Check your downloads.`;
+      }
+    } catch (error) {
+      // An export that dies halfway used to leave the last "Embedding
+      // photo 41..." on screen forever, which is indistinguishable from
+      // one still working.
+      console.error("Export failed:", error);
+
+      if (statusEl) {
+        statusEl.textContent = "The export stopped part way through. Nothing was saved - try again.";
+      }
+    } finally {
+      progress.done();
     }
+  },
 
-    if (statusEl) {
-      statusEl.textContent = "Building document...";
-    }
+  // The bar, the button and the cursor - all the things that should say
+  // "working" and then stop saying it, however the export ends.
+  progressUI() {
+    const wrap = document.getElementById("exp-progress");
 
-    const html = this.buildDocument(projectData, sections);
+    const bar = document.getElementById("exp-progress-bar");
 
-    this.download(html, this.filename(projectData));
+    const button = document.getElementById("exp-go");
 
-    if (statusEl) {
-      statusEl.textContent = `Done - ${sections.length} ${sections.length === 1 ? "day" : "days"}, ${photoCount} ${photoCount === 1 ? "photo" : "photos"} included.`;
-    }
+    return {
+      start() {
+        if (wrap) {
+          wrap.hidden = false;
+        }
+
+        if (bar) {
+          bar.style.width = "0%";
+        }
+
+        if (button) {
+          button.disabled = true;
+
+          button.textContent = "Working…";
+        }
+      },
+
+      set(fraction) {
+        if (bar) {
+          const pct = Math.max(0, Math.min(1, fraction)) * 100;
+
+          bar.style.width = pct.toFixed(1) + "%";
+        }
+      },
+
+      done() {
+        if (button) {
+          button.disabled = false;
+
+          button.textContent = "Generate & Download";
+        }
+
+        if (bar) {
+          bar.style.width = "100%";
+        }
+      },
+    };
   },
 
   async renderExportPhoto(photo) {
@@ -350,7 +482,16 @@ ${sections.join("\n")}
 
     document.body.removeChild(link);
 
-    URL.revokeObjectURL(url);
+    // NOT revoked in this tick. A browser starts the download
+    // asynchronously after the click, and revoking the object URL before
+    // it has begun cancels it - silently, with no error anywhere. The
+    // export ran to completion, said nothing was wrong, and no file
+    // appeared, which is what "it just seems to hang" looks like from the
+    // outside.
+    //
+    // A minute is far longer than any download needs to start, and the
+    // blob is released either way.
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   },
 
   filename(projectData) {

@@ -43,6 +43,9 @@ theme silently keeps the light value.
   --sidebar-muted-2: #9fb0c7;
 
   /* Danger */
+  /* Paired with --color-danger, and themed for the same reason it is: a
+     green picked for a white card is 2.78:1 on a dark one. */
+  --color-success: #2e7d32;
   --color-danger: #b3261e;
   --color-danger-bg: #fbeae9;
   --color-danger-border: #e6b4b0;
