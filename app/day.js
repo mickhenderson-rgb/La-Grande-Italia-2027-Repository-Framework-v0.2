@@ -133,7 +133,12 @@ const Day = {
     this.liveItemsFor("transport", dayNumber).forEach((item) => {
       const time = item.schedule && item.schedule.departTime;
 
-      if (time) {
+      // A 21-day hire car has one departure time, and it applies to the day
+      // it starts - not to all 21. Without this it showed up as a timed
+      // event every single day, ahead of things actually happening.
+      const spans = Array.isArray(item.dayRange) && item.dayRange.length >= 2 && item.dayRange[0] !== item.dayRange[1];
+
+      if (time && (!spans || item.dayRange[0] === dayNumber)) {
         const route = [item.from, item.to].filter(Boolean).join(" → ");
 
         out.push({ time, icon: "🚗", label: route ? `${item.mode || "Transport"}: ${route}` : item.mode || "Transport", action: `Transport.edit('${item.id}')` });

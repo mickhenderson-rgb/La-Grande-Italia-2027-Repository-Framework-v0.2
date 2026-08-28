@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-27 (v1.11.3).
+Last reviewed: 2026-08-28 (v1.13.1).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -14,25 +14,44 @@ Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, t
 
 ## A. Priority queue
 
-The agreed order of work as at 2026-08-27.
+The agreed order of work, as at 2026-08-28.
 
 | # | Item | Status |
 |---|---|---|
 | A1 | Journal unsaved-changes guard (§B2) | DONE — v1.11.4 |
-| A2 | Repair the dead test suites (§B1) | PARTLY DONE — 7 of 19 repaired, 12 remain |
-| A3 | Small copy/layout fixes (§C1, C2, C3, C6) | OPEN |
-| A4 | Shared money + date formatters (§C4, C5) | OPEN |
-| A5 | Transit nights in the data model (§D8) | OPEN |
-| A6 | End-of-day journal flow (§B3) | OPEN |
+| A2 | Repair the dead test suites (§B1) | PARTLY DONE — 46/57 passing, 11 remain |
+| A3 | Shared money/date/place formatters (§C4, C5, D7) | DONE — v1.12.0 |
+| A4 | Header wrap (§C1), "1 item(s)" (§C3) | DONE — v1.12.0 |
+| A5 | Transit nights (§D8) + countdown destination (§C2) | DONE — v1.13.0 |
+| A6 | Multi-day bookings quietened (§D10) | DONE — v1.13.1 |
+| A7 | Readiness button labels (§C6), button styles (§D11), scroll affordance (§D12) | OPEN — next |
+| A8 | Weather: fetch seasonal data + sunrise/sunset (§D9) | OPEN |
+| A9 | Verify journal export: photo book, then web story (§B4) | OPEN |
+| A10 | End-of-day journal flow (§B3) | OPEN — workshop first |
+
+Decisions taken 2026-08-28, recorded so they aren't re-litigated:
+
+- **Money**: thousands separators and two decimals everywhere.
+- **Dates**: short form with an ordinal, no year — `Fri 27th Aug`.
+- **Places**: title-cased on display, whatever was typed or imported.
+- **Flight titles**: route only while Research/Shortlisted; airline and
+  number added once Selected or beyond.
+- **Countdown**: first stay of 2+ nights past the origin, else the last
+  flight leg's destination, else where you end up. The "country with the
+  most time" rule could not be built — no country is stored anywhere.
+- **Multi-day bookings**: full card on the first and last day, one line
+  between.
+- **Transit nights**: an explicit flag, never inferred from free text.
+- **`ux_review_test`**: kept as the standing test account until v2.0.0.
 
 ---
 
 ## B. Structural gaps
 
-### B1. Dead test suites — PARTLY REPAIRED (12 remain)
+### B1. Dead test suites — PARTLY REPAIRED (11 remain)
 
-`run-all.js` reports **43/54 passing** (was 33/52). Eight suites repaired on
-2026-08-27.
+`run-all.js` reports **46/57 passing** (was 33/52). Nine suites repaired
+across 2026-08-27/28.
 
 **Repaired:** `test-day-reference`, `test-form-delete`, `test-mail`,
 `test-mail-confirm`, `test-maplinks`, `test-snapshot`, `test-trip-export`,
@@ -116,7 +135,7 @@ pass.
 
 ## C. Confirmed bugs (verified in code)
 
-### C1. Header breaks with a long trip name — OPEN
+### C1. Header breaks with a long trip name — DONE
 
 `.app-header` is `display: flex; justify-content: space-between`, but there
 is **no `.app-actions` rule** — `components.css:245` styles the buttons and
@@ -127,7 +146,7 @@ Reproduces with "TEST - Australian Road Trip"; "Italy 2027" is short enough
 to fit. Fix: `flex: none` (and likely `white-space: nowrap`) on
 `.app-actions`, plus `min-width: 0` on `.app-title` so the ellipsis works.
 
-### C2. "355 days until Sydney" — counting down to the origin — OPEN
+### C2. "355 days until Sydney" — counting down to the origin — DONE
 
 `dashboard.js:116` uses `days[0].location`, which is day 1's location — the
 city you leave FROM, not a destination. An Italy trip counts down to Sydney.
@@ -135,19 +154,19 @@ city you leave FROM, not a destination. An Italy trip counts down to Sydney.
 Options: say "days until departure", or use the first overnight that differs
 from the origin.
 
-### C3. "1 item(s)" — OPEN
+### C3. "1 item(s)" — DONE
 
 `day.js:90` and `day.js:110` ("1 photo(s), 0 checklist item(s)"), plus a
 delete confirmation at `planner.js:834`.
 
-### C4. Money formats differently per screen — OPEN
+### C4. Money formats differently per screen — DONE
 
 Budget shows `AUD 3,611` (thousands separator, no decimals); the day view
 shows `AUD 3611.15` (decimals, no separator) for the same car rental.
 
 Worth a shared formatter rather than patching each screen.
 
-### C5. Dates format differently per screen — OPEN
+### C5. Dates format differently per screen — DONE
 
 Three formats in use: planner day cards print raw ISO `2027-08-27`
 (`planner.js:99` renders `day.date` unformatted), the dashboard shows
@@ -165,7 +184,7 @@ v1.11.0.
 
 ## D. Data-model and design questions
 
-### D7. Day titles render lowercase next to title-cased locations — OPEN
+### D7. Day titles render lowercase next to title-cased locations — DONE
 
 A day card heading reads "vigano san martino → mezzana" directly above
 "📍 Vigano San Martino". The heading is `day.title` (user data, imported
@@ -175,7 +194,7 @@ Not our bug, but we could title-case titles on display. Same origin as
 **"palermo → palermo"** and **"mezzana → mezzana"** — the importer generates
 a from→to title even where you stay put in one place.
 
-### D8. No way to mark a night as "in transit" — OPEN
+### D8. No way to mark a night as "in transit" — DONE (v1.13.0)
 
 The app treats `overnight === "flight"` as a transit night. Nothing else
 qualifies. So a night on a ferry, recorded as "ferry from naples", can only
@@ -194,7 +213,7 @@ trip that far out, seasonal is the only useful one and it's empty.
 Separately, Canberra shows neither — probably a destination with no
 coordinates. Confirm now that days are editable on mobile (v1.11.3).
 
-### D10. A multi-day booking appears on every day it spans — OPEN
+### D10. A multi-day booking appears on every day it spans — DONE (v1.13.1)
 
 A 21-day car rental renders on all 21 day cards. Defensible — you do have
 the car — but it crowds out what's actually happening that day. Consider a

@@ -940,7 +940,7 @@ const Planner = {
         items: this.getItems(Project.get("transport")).filter((i) => Transport.matchesDay(i, day.day)),
         title: (it) => this.transportTitle(it),
         snippet: (it) => this.esc(this.transportTitle(it)),
-        detail: (it) => this.transportDetail(it),
+        detail: (it) => this.transportDetail(it, day.day),
       },
     ];
 
@@ -1304,6 +1304,12 @@ const Planner = {
   },
 
   accommodationDetail(it, dayNumber) {
+    // Mid-stay: you're not checking in or out, you're just here. The full
+    // card belongs on the days either end.
+    if (this.spanRole(it, dayNumber) === "middle") {
+      return this.snapLine("Staying here", `until Day ${it.dayRange[1]}`);
+    }
+
     const nights = Array.isArray(it.dayRange) ? it.dayRange[1] - it.dayRange[0] + 1 : 0;
 
     const extra = nights > 0 ? `(${nights} night${nights === 1 ? "" : "s"})` : "";
@@ -1361,7 +1367,44 @@ const Planner = {
     return route ? `${it.mode || "Transport"}: ${route}` : it.mode || "Transport";
   },
 
-  transportDetail(it) {
+  // Where a given day sits inside a multi-day booking.
+  //
+  // A 21-day car hire was rendering in full - price, schedule, provider,
+  // notes, map links - on all 21 day cards, crowding out what was actually
+  // happening that day. It's the same booking; only the first and last days
+  // are events.
+  spanRole(item, dayNumber) {
+    const range =
+      Array.isArray(item.dayRange) && item.dayRange.length >= 2
+        ? [item.dayRange[0], item.dayRange[item.dayRange.length - 1]]
+        : null;
+
+    if (!range || range[0] === range[1]) {
+      return "single";
+    }
+
+    if (dayNumber === range[0]) {
+      return "start";
+    }
+
+    if (dayNumber === range[1]) {
+      return "end";
+    }
+
+    return "middle";
+  },
+
+  transportDetail(it, dayNumber) {
+    // A day in the middle of a hire period isn't an event - it's a state.
+    // One line saying so, and nothing else.
+    if (this.spanRole(it, dayNumber) === "middle") {
+      const total = it.dayRange[1] - it.dayRange[0] + 1;
+
+      const nth = dayNumber - it.dayRange[0] + 1;
+
+      return this.snapLine("Ongoing", `day ${nth} of ${total} · until Day ${it.dayRange[1]}`);
+    }
+
     const dep = [it.schedule && it.schedule.date, it.schedule && it.schedule.departTime].filter(Boolean).join(" ");
 
     const arr = [it.schedule && it.schedule.arriveDate, it.schedule && it.schedule.arriveTime].filter(Boolean).join(" ");
