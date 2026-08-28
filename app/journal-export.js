@@ -174,7 +174,7 @@ const JournalExport = {
     this.download(html, this.filename(projectData));
 
     if (statusEl) {
-      statusEl.textContent = `Done - ${sections.length} day(s), ${photoCount} photo(s) included.`;
+      statusEl.textContent = `Done - ${sections.length} ${sections.length === 1 ? "day" : "days"}, ${photoCount} ${photoCount === 1 ? "photo" : "photos"} included.`;
     }
   },
 

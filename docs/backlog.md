@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-28 (v1.14.0).
+Last reviewed: 2026-08-28 (v1.14.1).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -26,8 +26,9 @@ The agreed order of work, as at 2026-08-28.
 | A6 | Multi-day bookings quietened (§D10) | DONE — v1.13.1 |
 | A7 | Readiness button labels (§C6), button styles (§D11), scroll affordance (§D12) | DONE — v1.13.2 |
 | A8 | Weather: fetch seasonal data + sunrise/sunset (§D9) | DONE — v1.14.0 |
-| A9 | Verify journal export: photo book, then web story (§B4) | OPEN — next |
-| A10 | End-of-day journal flow (§B3) | OPEN — workshop first |
+| A9 | Audit the journal export (§B4) | DONE — v1.14.1 |
+| A10 | End-of-day journal flow (§B3) | OPEN — next, workshop first |
+| A11 | Photo book + web story exports (§B4) | OPEN — net-new builds, not repairs |
 
 Decisions taken 2026-08-28, recorded so they aren't re-litigated:
 
@@ -55,7 +56,7 @@ Decisions taken 2026-08-28, recorded so they aren't re-litigated:
 
 ### B1. Dead test suites — PARTLY REPAIRED (11 remain)
 
-`run-all.js` reports **48/59 passing** (was 33/52). Nine suites repaired
+`run-all.js` reports **49/60 passing** (was 33/52). Nine suites repaired
 across 2026-08-27/28.
 
 **Repaired:** `test-day-reference`, `test-form-delete`, `test-mail`,
@@ -122,10 +123,42 @@ day. Currently the journal is a plain entry form.
 
 Largest gap between what's built and what was designed.
 
-### B4. `journal-export.js` promises four formats — OPEN
+### B4. Journal export — AUDITED (v1.14.1)
 
-Photo book, film, web story, archive. Unverified which actually work.
-Confirm before anyone relies on one.
+**This entry was wrong, and is corrected here.** It claimed the module
+"promises four formats - photo book, film, web story, archive". It does
+not, and never did. Those four come from the *design handoff*, which was
+describing intent; they were written into this backlog as though the code
+claimed them. A grep finds no trace of any of the four.
+
+What exists is ONE export, and the module says so plainly in its own
+header: a single self-contained HTML file, with switches for notes,
+checklists and photos. Nobody had ever verified it. It now is - 19
+assertions covering the document, the day sections, escaping, and the
+photo path.
+
+**It works, and it is better than expected.** Uploaded photos really are
+inlined as base64, so the file survives being emailed; remote photos
+degrade to a link rather than breaking the export; and it already carries
+a print stylesheet with `page-break-inside: avoid`.
+
+**That last point matters for A11.** Print-to-PDF from this export is most
+of a photo book already. The cheap path is a print-tuned variant of what
+exists, not a PDF generator. A web story is a genuinely separate build.
+
+One real bug found while auditing and fixed: the status line said
+"3 day(s), 7 photo(s)".
+
+Two faults in the AUDIT itself, both worth remembering because both
+looked like app bugs:
+
+- The fixture used `/data/projects/...` with a leading slash. Real uploads
+  have none (server.js writes `data/projects/...`), so the export
+  correctly treated it as a remote URL and the test wrongly read that as
+  a failure to embed.
+- The `FileReader` stub fired `onloadend`; `toBase64` resolves on
+  `onload`. The promise never settled, the suite hung after printing half
+  its results, and it looked like truncated output rather than a deadlock.
 
 ### B5. Nothing verified in a real browser at phone width — PARTLY ADDRESSED
 
