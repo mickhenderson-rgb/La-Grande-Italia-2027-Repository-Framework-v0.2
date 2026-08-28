@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-28 (v1.13.2).
+Last reviewed: 2026-08-28 (v1.14.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -25,8 +25,8 @@ The agreed order of work, as at 2026-08-28.
 | A5 | Transit nights (§D8) + countdown destination (§C2) | DONE — v1.13.0 |
 | A6 | Multi-day bookings quietened (§D10) | DONE — v1.13.1 |
 | A7 | Readiness button labels (§C6), button styles (§D11), scroll affordance (§D12) | DONE — v1.13.2 |
-| A8 | Weather: fetch seasonal data + sunrise/sunset (§D9) | OPEN — next |
-| A9 | Verify journal export: photo book, then web story (§B4) | OPEN |
+| A8 | Weather: fetch seasonal data + sunrise/sunset (§D9) | DONE — v1.14.0 |
+| A9 | Verify journal export: photo book, then web story (§B4) | OPEN — next |
 | A10 | End-of-day journal flow (§B3) | OPEN — workshop first |
 
 Decisions taken 2026-08-28, recorded so they aren't re-litigated:
@@ -43,6 +43,11 @@ Decisions taken 2026-08-28, recorded so they aren't re-litigated:
   between.
 - **Transit nights**: an explicit flag, never inferred from free text.
 - **`ux_review_test`**: kept as the standing test account until v2.0.0.
+- **Weather**: climate normals from Open-Meteo's ARCHIVE (observed ERA5),
+  averaged over ten years. NOT the Climate API - that returns CMIP6 model
+  projections and its own docs call it unsuitable for typical-weather-on-a-
+  date. Not Visual Crossing either: needs a key, and its documented
+  endpoint retires 31 Dec 2026.
 
 ---
 
@@ -50,7 +55,7 @@ Decisions taken 2026-08-28, recorded so they aren't re-litigated:
 
 ### B1. Dead test suites — PARTLY REPAIRED (11 remain)
 
-`run-all.js` reports **47/58 passing** (was 33/52). Nine suites repaired
+`run-all.js` reports **48/59 passing** (was 33/52). Nine suites repaired
 across 2026-08-27/28.
 
 **Repaired:** `test-day-reference`, `test-form-delete`, `test-mail`,
@@ -204,7 +209,7 @@ Readiness screen will count it as a night with nowhere to sleep.
 This is a genuine gap in the model, not a display problem. Needs a proper
 transit concept (a flag on the day, or a reserved set of values).
 
-### D9. Weather shows the useless half for a distant trip — OPEN
+### D9. Weather shows the useless half for a distant trip — DONE (v1.14.0)
 
 Italy 2027 is ~355 days out and the destination page shows a live 3-day
 forecast for *next week*, while "Seasonal Average" says no data saved. For a
