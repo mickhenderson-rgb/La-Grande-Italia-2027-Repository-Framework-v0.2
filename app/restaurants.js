@@ -218,7 +218,7 @@ Booked Restaurants
 
     <p>${this.esc(item.cuisine)}</p>
 
-    <p>${this.esc(item.reservation?.date)} ${this.esc(item.reservation?.time)}</p>
+    <p>${this.esc(Format.date(item.reservation?.date))} ${this.esc(item.reservation?.time)}</p>
 
 </div>
 

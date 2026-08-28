@@ -294,7 +294,7 @@ const Dashboard = {
 
     const seasonalLine = seasonal
       ? `${seasonal.average_low ?? "?"}–${seasonal.average_high ?? "?"}°C typical`
-      : "No seasonal data saved.";
+      : "Open the destination to see the typical weather for these dates.";
 
     return `
 
@@ -448,7 +448,7 @@ const Dashboard = {
     <div class="dash-locked-row">
         <div>
             <div class="dash-locked-time">${this.esc(dep.time || "")}</div>
-            <div class="dash-locked-place">${this.esc(dep.location || dep.date || "")}</div>
+            <div class="dash-locked-place">${this.esc(dep.location || Format.date(dep.date))}</div>
         </div>
         <div class="dash-locked-arrow">→</div>
         <div>

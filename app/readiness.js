@@ -123,7 +123,7 @@ const Readiness = {
         findings.push({
           level: "blocking",
           title: `Day ${day.day}: nowhere to sleep`,
-          detail: `${day.title || this.pretty(day.overnight) || "Untitled day"} has no accommodation selected or booked.`,
+          detail: `${this.pretty(day.title || day.overnight) || "Untitled day"} has no accommodation selected or booked.`,
           action: `Day.open(${day.day})`,
           actionLabel: "Open day",
         });

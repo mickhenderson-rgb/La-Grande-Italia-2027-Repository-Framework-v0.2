@@ -304,7 +304,7 @@ const Flights = {
     <strong>${this.routeSummary(item) || "Flight"}</strong>
     ${this.showAll ? `<span class="badge">Day ${item.day}</span>` : ""}
 
-    <p>${this.esc(dep.date)} ${this.esc(dep.time)}</p>
+    <p>${this.esc(Format.date(dep.date))} ${this.esc(dep.time)}</p>
 
 </div>
 
@@ -367,7 +367,7 @@ const Flights = {
   renderItem(item) {
     const amount =
       item.price && item.price.amount > 0
-        ? `${item.price.currency} ${item.price.amount}`
+        ? Format.money(item.price.amount, item.price.currency)
         : "Price not entered";
 
     const nextStage = this.nextStage(item.status);

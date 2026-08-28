@@ -1163,7 +1163,10 @@ const Planner = {
       return "";
     }
 
-    let value = `${String(p.currency || "").toUpperCase()} ${p.amount}`;
+    // The fourth money formatter found this session. This one renders
+    // every price on a planner day card, so "EUR 150" sat under Budget's
+    // "EUR 150.00" for the same booking.
+    let value = Format.money(p.amount, p.currency);
 
     if (p.per) {
       value += ` / ${p.per}`;
@@ -1257,7 +1260,7 @@ const Planner = {
   flightSnippet(it) {
     const dep = Flights.overallDeparture(it);
 
-    const when = [dep.date, dep.time].filter(Boolean).join(" ");
+    const when = [Format.date(dep.date), dep.time].filter(Boolean).join(" ");
 
     const title = this.flightTitle(it);
 

@@ -147,8 +147,11 @@ const Currency = {
     return amount * rate;
   },
 
+  // Was a third money formatter: "AUD $160.00", code AND symbol, sitting
+  // beside Budget's "AUD 160.00" for the very same figure. Delegates now,
+  // so a conversion reads the same as every other amount in the app.
   format(amount, currency) {
-    return `${String(currency).toUpperCase()} $${Number(amount).toFixed(2)}`;
+    return Format.money(amount, currency);
   },
 
   // <option> list for a currency <select>, with `selected` pre-chosen.

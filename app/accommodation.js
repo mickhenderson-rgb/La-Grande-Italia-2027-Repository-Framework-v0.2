@@ -220,7 +220,7 @@ Status: ${selected.status}
 
 <p>
 
-${selected.dates?.checkIn || "?"} → ${selected.dates?.checkOut || "?"}
+${Format.date(selected.dates?.checkIn) || "?"} → ${Format.date(selected.dates?.checkOut) || "?"}
 
 </p>
 
@@ -290,7 +290,7 @@ Research List
   renderItem(item) {
     const amount =
       item.price && item.price.amount > 0
-        ? `${item.price.currency} ${item.price.amount} / ${item.price.per || "night"}`
+        ? `${Format.money(item.price.amount, item.price.currency)} / ${item.price.per || "night"}`
         : "Price not entered";
 
     return `

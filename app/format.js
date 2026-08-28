@@ -54,7 +54,12 @@ const Format = {
 
     const safe = Number.isFinite(value) ? value : 0;
 
-    return `${currency || "EUR"} ${safe.toLocaleString("en-AU", {
+    // Uppercased: a currency code is a code. Currency.format used to do
+    // this and lost it when it delegated here, which is how "aud 150.00"
+    // briefly became possible.
+    const code = String(currency || "EUR").toUpperCase();
+
+    return `${code} ${safe.toLocaleString("en-AU", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;

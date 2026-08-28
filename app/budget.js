@@ -617,10 +617,7 @@ const Budget = {
 
     const sign = value < 0 ? "-" : "";
 
-    return `${sign}${String(currency).toUpperCase()} $${Math.abs(value).toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    return `${sign}${Format.money(Math.abs(value), currency)}`;
   },
 
   // Delegates to the shared formatter - see app/format.js.

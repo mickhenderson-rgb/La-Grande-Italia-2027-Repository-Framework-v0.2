@@ -238,7 +238,7 @@ Booked Transport
 
     <strong>${item.mode || "Transport"}: ${this.esc(item.from)} → ${this.esc(item.to)}</strong>
 
-    <p>${this.esc(item.schedule?.date)} ${this.esc(item.schedule?.departTime)}</p>
+    <p>${this.esc(Format.date(item.schedule?.date))} ${this.esc(item.schedule?.departTime)}</p>
 
 </div>
 
@@ -317,7 +317,7 @@ Research List
   renderItem(item) {
     const amount =
       item.price && item.price.amount > 0
-        ? `${item.price.currency} ${item.price.amount}`
+        ? Format.money(item.price.amount, item.price.currency)
         : "Price not entered";
 
     const nextStage = this.nextStage(item.status);
@@ -329,7 +329,7 @@ Research List
     <strong>
 
         ${item.mode || "Transport"}: ${this.esc(item.from)} → ${this.esc(item.to)}
-        ${this.showAll || this.currentDestinationFilter ? `<span class="badge">${this.dayLabel(item)}</span>` : ""}
+        ${(this.showAll || this.currentDestinationFilter) && !(Array.isArray(item.dayRange) && item.dayRange[1] !== item.dayRange[0]) ? `<span class="badge">${this.dayLabel(item)}</span>` : ""}
 
     </strong>
 

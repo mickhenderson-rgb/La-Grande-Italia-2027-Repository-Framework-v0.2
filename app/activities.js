@@ -207,7 +207,7 @@ Booked Activities
 
     <p>${this.esc(item.category)}</p>
 
-    <p>${this.esc(item.schedule?.date)} ${this.esc(item.schedule?.time)}</p>
+    <p>${this.esc(Format.date(item.schedule?.date))} ${this.esc(item.schedule?.time)}</p>
 
 </div>
 
@@ -286,7 +286,7 @@ Research List
   renderItem(item) {
     const amount =
       item.price && item.price.amount > 0
-        ? `${item.price.currency} ${item.price.amount} / ${item.price.per || "person"}`
+        ? `${Format.money(item.price.amount, item.price.currency)} / ${item.price.per || "person"}`
         : "Price not entered";
 
     const nextStage = this.nextStage(item.status);
