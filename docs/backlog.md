@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-28 (v1.18.0).
+Last reviewed: 2026-08-28 (v1.19.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -29,6 +29,7 @@ The agreed order of work, as at 2026-08-28.
 | A9 | Audit the journal export (§B4) | DONE — v1.14.1 |
 | A11 | Photo book (§B4) | DONE — v1.18.0 |
 | A12 | Web story (§B4) | OPEN — the genuinely separate build |
+| A13 | Export for production, zip (§B4) | DONE — v1.19.0 |
 | A10 | Tonight flow — the end-of-day journal (§B3) | DONE — v1.16.0 |
 
 Decisions taken 2026-08-28, recorded so they aren't re-litigated:
@@ -566,6 +567,41 @@ A vertical, tap-through, phone-first telling of the trip. Nothing of it
 exists yet, and nothing claims it does — `test-journal-export.js` asserts
 that the words "web story" appear nowhere, precisely so it cannot be
 claimed before it is built.
+
+### A13. Export for production (zip) — DONE (v1.19.0)
+
+`app/zip.js` + `app/production-export.js`. Photos as files, writing as
+plain text, in trip order, zipped — for dropping into a book app rather
+than into a PDF reader.
+
+The photo book decides the layout; every real book-making tool wants to
+decide that itself. This is the other half.
+
+**The zip is written by hand, in ~150 lines, because it does not
+compress.** A STORED entry is a completely ordinary zip that any OS opens
+by double-clicking, and the payload is JPEGs — already compressed, so
+deflating again buys about 1% while costing a DEFLATE implementation this
+project would own forever.
+
+Ordering is carried entirely by the filenames, zero-padded to four digits
+(`0001_day-01_arrive-in-milan.jpg`), because every one of those tools
+sorts by name on import and `1, 2, 10` puts 10 between 1 and 2. Each photo
+gets a `.txt` sidecar of the same basename; `captions.csv` carries the
+same for bulk importers; `journal.txt` is the trip as readable prose.
+
+Verified end to end: built a real archive and opened it with Windows'
+own `System.IO.Compression` — correct names, sizes and folders — then
+extracted it and confirmed the JPEG magic bytes and text survived intact.
+`test-production-export.js` checks the container bytes (local header
+signature, EOCD, central-directory offset and size, the UTF-8 filename
+flag, sizes in the local header rather than a data descriptor) rather than
+trusting them, since a subtly malformed zip opens in one tool and not the
+next. CRC-32 is checked against the standard `"123456789"` → `0xCBF43926`.
+
+**Known limit, stated on the page:** the archive is assembled in memory.
+A hundred photos at 1.5 MB is 150 MB — fine on a desktop, possibly not on
+a phone. The running total is shown as it builds, and an out-of-memory
+failure says so rather than dying silently.
 
 ## D. Data-model and design questions
 

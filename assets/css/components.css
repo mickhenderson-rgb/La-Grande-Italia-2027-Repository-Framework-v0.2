@@ -1423,6 +1423,21 @@ button {
    hamburger on a phone. */
 /* Photo book: the pre-print checklist. Deliberately a plain list - it is
    read once, before printing, and then never again. */
+/* The folder tree on the production export page. Monospace because it IS
+   a tree - proportional spacing turns the box-drawing characters into a
+   mess. */
+.px-tree {
+  margin: 0 0 10px;
+  padding: 12px 14px;
+  background: var(--color-rule, #f3f3f3);
+  border-radius: var(--radius-sm, 6px);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-x: auto;
+  white-space: pre;
+}
+
 .pb-tips {
   margin: 0 0 10px;
   padding-left: 20px;

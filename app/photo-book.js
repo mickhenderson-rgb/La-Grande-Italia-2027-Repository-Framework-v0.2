@@ -186,6 +186,12 @@ const PhotoBook = {
 
         </button>
 
+        <button type="button" onclick="ProductionExport.open()">
+
+            Export for Production →
+
+        </button>
+
         <button type="button" onclick="Journal.open()">
 
             ← Back to Journal
