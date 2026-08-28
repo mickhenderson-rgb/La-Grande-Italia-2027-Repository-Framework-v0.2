@@ -209,6 +209,286 @@ const Flights = {
     return waypoints.join(" → ");
   },
 
+  // --- Airport picker -------------------------------------------------
+  //
+  // A leg's from/to holds an IATA CODE once one is picked, and whatever was
+  // typed when one isn't. Codes are what a ticket, a boarding pass and an
+  // airline website all use, and "SYD → DOH → MXP" says more in eleven
+  // characters than the old free text did in sixty - it says WHICH Milan
+  // airport, which was the whole point.
+  //
+  // Free text still saves. A flight from a strip with no IATA code has to
+  // be recordable, and every leg saved before this existed holds a phrase
+  // like "Sydney Airport" that must keep working untouched.
+
+  _apResults: {},
+
+  _apActive: {},
+
+  apKey(index, side) {
+    return index + "-" + side;
+  },
+
+  // The grey line under the field: what the code you typed actually IS.
+  // Without it, "MXP" on screen is only a guess that you typed the one you
+  // meant - and MXP/MXL/MPX are all real airports on three continents.
+  airportHint(value) {
+    const text = String(value || "").trim();
+
+    if (!text) {
+      return "";
+    }
+
+    if (typeof Airports === "undefined") {
+      return "";
+    }
+
+    const airport = Airports.lookup(text);
+
+    if (!airport) {
+      return Airports.isCode(text)
+        ? "Not a code we recognise - it will be saved as typed."
+        : "";
+    }
+
+    return airport.n + " · " + (airport.m || airport.k);
+  },
+
+  setAirportHint(index, side) {
+    const input = document.getElementById("flt-leg-" + index + "-" + side);
+
+    const hint = document.getElementById("flt-leg-" + index + "-" + side + "-hint");
+
+    if (input && hint) {
+      hint.textContent = this.airportHint(input.value);
+    }
+  },
+
+  onAirportTyped(index, side, value) {
+    if (typeof Airports === "undefined") {
+      return;
+    }
+
+    this.setAirportHint(index, side);
+
+    // The list is fetched the first time a flight form is opened, not on
+    // page load - most sessions never touch a flight, and 391 KB is not
+    // worth spending on the ones that don't.
+    if (!Airports.ready()) {
+      Airports.load()
+        .then(() => this.onAirportTyped(index, side, value))
+        .catch(() => {
+          const hint = document.getElementById("flt-leg-" + index + "-" + side + "-hint");
+
+          if (hint) {
+            hint.textContent = "Airport list unavailable - type the airport name instead.";
+          }
+        });
+
+      return;
+    }
+
+    const matches = Airports.search(value, 8);
+
+    this.showAirportRows(index, side, matches, null);
+
+    // Text search alone cannot find Bergamo from "Milan" - see the note at
+    // the top of airports.js. So when the typed words find little, ask
+    // where that place IS and offer the airports around it.
+    //
+    // Gated deliberately: only when text has nearly nothing to say, and
+    // only for something long enough to be a place name rather than a
+    // half-typed code. Geocoding is a paid call, and "LHR" or "london"
+    // must never make one.
+    if (matches.length >= 3 || String(value || "").trim().length < 4) {
+      return;
+    }
+
+    Geo.onType(
+      value,
+      (results) => {
+        if (!results || results.length === 0) {
+          return;
+        }
+
+        const place = results[0];
+
+        const near = Airports.near(Number(place.lat), Number(place.lon), {
+          country: place.countryCode,
+        });
+
+        if (near.length === 0) {
+          return;
+        }
+
+        // Anything text already offered is not repeated underneath.
+        const seen = {};
+
+        matches.forEach((a) => {
+          seen[a.c] = true;
+        });
+
+        this.showAirportRows(
+          index,
+          side,
+          matches,
+          { place: Geo.shortLabel(place), list: near.filter((a) => !seen[a.c]) },
+        );
+      },
+      () => {
+        // No geocoder, no problem - the text matches are already shown.
+      },
+      { settlements: true },
+    );
+  },
+
+  showAirportRows(index, side, matches, nearby) {
+    const box = document.getElementById("flt-leg-" + index + "-" + side + "-sug");
+
+    if (!box) {
+      return;
+    }
+
+    const key = this.apKey(index, side);
+
+    const rows = matches.slice();
+
+    let html = matches.map((a, i) => this.airportRow(index, side, a, i)).join("");
+
+    if (nearby && nearby.list.length > 0) {
+      html +=
+        '<span class="geo-group">Near ' + Airports.esc(nearby.place) + "</span>";
+
+      nearby.list.forEach((a) => {
+        html += this.airportRow(index, side, a, rows.length);
+
+        rows.push(a);
+      });
+    }
+
+    this._apResults[key] = rows;
+
+    this._apActive[key] = -1;
+
+    if (rows.length === 0) {
+      box.innerHTML = "";
+
+      box.classList.remove("is-open");
+
+      return;
+    }
+
+    box.innerHTML = html;
+
+    box.classList.add("is-open");
+  },
+
+  airportRow(index, side, airport, i) {
+    const where = [airport.m, airport.k].filter(Boolean).join(", ");
+
+    const distance = airport.km == null ? "" : " · " + airport.km + " km";
+
+    // onmousedown preventDefault stops the input's blur closing the list
+    // before the click lands - the same trick the day-location picker uses.
+    return (
+      '<span class="geo-row" role="option" onmousedown="event.preventDefault()"' +
+      ' onclick="Flights.chooseAirport(' + index + ", '" + side + "', " + i + ')">' +
+      '<span class="geo-row-text">' +
+      '<span class="geo-row-main">' + Airports.esc(airport.c) + " - " + Airports.esc(airport.n) + "</span>" +
+      '<span class="geo-row-sub">' + Airports.esc(where) + Airports.esc(distance) + "</span>" +
+      "</span>" +
+      '<span class="geo-row-cc">' + Airports.esc(airport.c) + "</span>" +
+      "</span>"
+    );
+  },
+
+  chooseAirport(index, side, i) {
+    const key = this.apKey(index, side);
+
+    const airport = (this._apResults[key] || [])[i];
+
+    if (!airport) {
+      return;
+    }
+
+    if (typeof Geo !== "undefined") {
+      Geo.cancel();
+    }
+
+    const input = document.getElementById("flt-leg-" + index + "-" + side);
+
+    if (input) {
+      input.value = airport.c;
+    }
+
+    this.setAirportHint(index, side);
+
+    this.hideAirportSuggestions(index, side);
+  },
+
+  onAirportKey(event, index, side) {
+    const key = this.apKey(index, side);
+
+    const rows = this._apResults[key] || [];
+
+    if (rows.length === 0) {
+      return;
+    }
+
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+
+      const step = event.key === "ArrowDown" ? 1 : -1;
+
+      const next = (this._apActive[key] + step + rows.length) % rows.length;
+
+      this._apActive[key] = next;
+
+      this.highlightAirport(index, side);
+
+      return;
+    }
+
+    if (event.key === "Enter" && this._apActive[key] >= 0) {
+      event.preventDefault();
+
+      this.chooseAirport(index, side, this._apActive[key]);
+
+      return;
+    }
+
+    if (event.key === "Escape") {
+      this.hideAirportSuggestions(index, side);
+    }
+  },
+
+  highlightAirport(index, side) {
+    const box = document.getElementById("flt-leg-" + index + "-" + side + "-sug");
+
+    if (!box) {
+      return;
+    }
+
+    const active = this._apActive[this.apKey(index, side)];
+
+    // .geo-row only - the "Near <city>" header is a child of this box as
+    // well, and counting it would put the highlight on the wrong airport
+    // for every row below the group heading.
+    Array.from(box.querySelectorAll(".geo-row")).forEach((el, i) => {
+      el.classList.toggle("is-active", i === active);
+    });
+  },
+
+  hideAirportSuggestions(index, side) {
+    const box = document.getElementById("flt-leg-" + index + "-" + side + "-sug");
+
+    if (box) {
+      box.classList.remove("is-open");
+    }
+
+    this._apActive[this.apKey(index, side)] = -1;
+  },
+
   isDirect(item) {
     return this.getLegs(item).length <= 1;
   },
@@ -616,12 +896,30 @@ const Flights = {
 
         <label class="form-field">
             From
-            <input type="text" id="flt-leg-${i}-from" value="${this.esc(leg.from)}" placeholder="e.g. Sydney Airport">
+            <span class="geo-input-wrap">
+                <input type="text" id="flt-leg-${i}-from" value="${this.esc(leg.from)}" placeholder="Airport, city or code - e.g. SYD"
+                    autocomplete="off" spellcheck="false"
+                    oninput="Flights.onAirportTyped(${i}, 'from', this.value)"
+                    onfocus="Flights.onAirportTyped(${i}, 'from', this.value)"
+                    onkeydown="Flights.onAirportKey(event, ${i}, 'from')"
+                    onblur="Flights.hideAirportSuggestions(${i}, 'from')">
+                <span id="flt-leg-${i}-from-sug" class="geo-suggestions"></span>
+            </span>
+            <span class="form-hint" id="flt-leg-${i}-from-hint">${this.esc(this.airportHint(leg.from))}</span>
         </label>
 
         <label class="form-field">
             To
-            <input type="text" id="flt-leg-${i}-to" value="${this.esc(leg.to)}" placeholder="e.g. Doha Hamad International">
+            <span class="geo-input-wrap">
+                <input type="text" id="flt-leg-${i}-to" value="${this.esc(leg.to)}" placeholder="Airport, city or code - e.g. DOH"
+                    autocomplete="off" spellcheck="false"
+                    oninput="Flights.onAirportTyped(${i}, 'to', this.value)"
+                    onfocus="Flights.onAirportTyped(${i}, 'to', this.value)"
+                    onkeydown="Flights.onAirportKey(event, ${i}, 'to')"
+                    onblur="Flights.hideAirportSuggestions(${i}, 'to')">
+                <span id="flt-leg-${i}-to-sug" class="geo-suggestions"></span>
+            </span>
+            <span class="form-hint" id="flt-leg-${i}-to-hint">${this.esc(this.airportHint(leg.to))}</span>
         </label>
 
         <label class="form-field">

@@ -1120,7 +1120,7 @@ ${unplotted}
     const flightItems = flights && Array.isArray(flights.items) ? flights.items : [];
 
     const flownIt = flightItems.some(
-      (item) => this.itemSpansGap(item, lo, hi) && this.flightServesLeg(item, target),
+      (item) => this.itemSpansGap(item, lo, hi) && this.flightServesLeg(item, target, to),
     );
 
     if (flownIt) {
@@ -1161,11 +1161,27 @@ ${unplotted}
   // still counts towards a stop called "milan", because nothing better
   // claims it - guessing airport-to-city would fail far more often than
   // this does.
-  flightServesLeg(item, target) {
+  flightServesLeg(item, target, toStop) {
     const to = String(item.to || "").toLowerCase().trim();
 
     if (!to || to === target) {
       return true;
+    }
+
+    // Since v1.17.0 a leg records an IATA CODE, and a code never matches a
+    // stop by name - not even loosely. MXP is not called Milan, it is in a
+    // town called Ferno, and the stop is called "milan". Distance is the
+    // only honest test: an airport within reach of a stop belongs to that
+    // stop, whatever either of them is named.
+    if (typeof Airports !== "undefined") {
+      const coords = Airports.coordsOf(item.to);
+
+      if (coords && toStop && toStop.coords) {
+        return (
+          Airports.distanceKm(coords[0], coords[1], toStop.coords[0], toStop.coords[1]) <=
+          Airports.NEAR_KM
+        );
+      }
     }
 
     return !this.stops.some((stop) => String(stop.location || "").toLowerCase() === to);
@@ -1223,6 +1239,18 @@ ${unplotted}
     };
 
     setSummary("Working out the route…");
+
+    // Flight legs are recognised by which airport they land at, so the
+    // airport list has to be in hand before the legs are classified. It is
+    // cached by the service worker after the first time anything asks, so
+    // this is a fetch once per release, not once per map.
+    if (typeof Airports !== "undefined" && !Airports.ready()) {
+      try {
+        await Airports.load();
+      } catch (error) {
+        // Falls back to matching by name, which is what it did before.
+      }
+    }
 
     // Captured now; if the map is rebuilt mid-fetch the token moves on and
     // this (now stale) loop stops drawing onto the new map.

@@ -1484,6 +1484,21 @@ button {
 }
 
 /* Country code chip - the fastest way to tell Sydney AU from Sydney CA. */
+/* Group heading inside a suggestion list - "Near Milan" above the
+   airports that text search could not have found. Not selectable, so it
+   is deliberately not a .geo-row. */
+.geo-suggestions .geo-group {
+  display: block;
+  padding: 8px 12px 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  background: var(--color-bg, transparent);
+  border-top: 1px solid var(--color-rule, #ececec);
+}
+
 .geo-row-cc {
   flex: none;
   font-size: 10px;

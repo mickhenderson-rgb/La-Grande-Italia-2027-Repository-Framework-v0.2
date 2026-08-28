@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-28 (v1.16.3).
+Last reviewed: 2026-08-28 (v1.17.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -299,6 +299,46 @@ map to see whether the route appears.
 
 The route summary now says which pins to check rather than only naming
 the leg.
+
+### C10. Flights had no idea which airport they meant — DONE (v1.17.0)
+
+A leg from/to was free text. "Milan" does not say MXP or LIN, and a trip
+through Singapore could mean any of four fields. Legs now hold an IATA
+CODE picked from a bundled list of 4,007 airports (ourairports.com,
+public domain, filtered to a real 3-letter code plus scheduled service).
+
+Two searches, because one is not enough. TEXT finds what you can name.
+PROXIMITY finds what you cannot: typing "Milan" can never surface BGY,
+whose name commemorates a painter and whose town is Orio al Serio — yet
+it is where a great many people land for Milan. near() offers all three.
+
+Free text still saves, and every leg written before this keeps working
+untouched — Airports.label() returns an unknown value unchanged rather
+than blanking it.
+
+Guarded by `test-airports.js` (ranking against the real dataset, including
+the two ranking bugs found while building it) and `test-airports-served.js`,
+which asks a real server for the file — server.js serves static assets
+from an allowlist, so a new asset directory is unreachable by default.
+
+### C11. departure.location / arrival.location are now redundant — OPEN
+
+A leg carries from/to AND departure.location/arrival.location, which
+overlapped even as free text. Now that from/to name a specific airport,
+the location fields have no distinct job left.
+
+Not removed yet: existing trips have data in them, and deleting a field
+is a migration rather than an edit. Decide whether to drop them, or keep
+them for the terminal ("T1", "Concourse D"), which is the only thing they
+could usefully say that a code cannot.
+
+### C12. Old flights still hold free text — OPEN (housekeeping, not a bug)
+
+Legs saved before v1.17.0 keep phrases like "Sydney Airport". They
+display and match exactly as before, but they do not carry a code, so the
+map falls back to matching them by name. Reopening a flight and re-picking
+each airport from the list upgrades it. Nothing breaks if that never
+happens.
 
 ## D. Data-model and design questions
 
