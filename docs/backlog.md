@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-28 (v1.16.1).
+Last reviewed: 2026-08-28 (v1.16.3).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -255,6 +255,50 @@ Blocking findings say "Open day"; cost findings say "Open". Introduced in
 v1.11.0.
 
 ---
+
+### C7. Two dashed map lines that meant different things looked identical — DONE (v1.16.3)
+
+Reported as "the dotted flight line ends in Le Noirmont, not Milan". It
+did not. The flight line ended in Milan; a SECOND line — "we expected a
+road here and could not find one" — carried on to Le Noirmont, and the
+two composited over map tiles to `#adb4b2` and `#b0b5b8`. Three channels
+apart, so they read as one continuous line ending in the wrong city.
+
+The no-route line is now `--color-danger` red: it is a problem to fix, not
+a way of travelling, so it no longer looks like one. Guarded by
+`test-route-lines.js`, which composites every pair of line styles against
+the tile colour and fails below a distance of 60. The old pair measured 7.
+
+### C8. A flight claimed any leg that shared a day with it — DONE (v1.16.3)
+
+`legModeKey` asked only whether a flight OVERLAPPED the gap between two
+stops, never where it went. Land in Milan on day 3 and drive on to Le
+Noirmont the same day, and the arrival flight marked the DRIVE as flown —
+no road ever requested, the leg drawn as a dashed hop.
+
+`flightServesLeg` now rules a flight out only when it demonstrably belongs
+elsewhere: it names a destination, that destination is not this stop, and
+it IS another stop on the trip. A flight recorded to "Malpensa" still
+claims a stop called "milan", because nothing better wants it.
+
+Latent on the Italy trip rather than active — worth fixing before it is not.
+
+### C9. Milan → Le Noirmont has no road route — OPEN
+
+Both are ordinary drivable places, so this is almost certainly a bad
+coordinate rather than a genuine absence of road: Geoapify cannot snap a
+waypoint that sits off the network, which is the same failure the
+Dolomites centroid caused in v1.10.0. "le noirmont" is a plausible
+mis-geocode — there is a village in the Swiss Jura and a summit of nearly
+the same name.
+
+Not diagnosable from here: the trip data lives server-side only and the
+local `data/projects/` copy is stale (9 days, Rome→Bologna). Needs either
+the stored coordinates for those two stops, or a drag of the pins on the
+map to see whether the route appears.
+
+The route summary now says which pins to check rather than only naming
+the leg.
 
 ## D. Data-model and design questions
 

@@ -1076,9 +1076,17 @@ ${unplotted}
     unknown: { routeAs: "drive", verb: "driving", color: "#34495E", weight: 4, opacity: 0.75 },
   },
 
-  // The dashed line used when a leg we EXPECTED to drive turns out not to
-  // be drivable (an unroutable waypoint, or genuinely no road).
-  NO_ROUTE_STYLE: { color: "#34495E", weight: 3, opacity: 0.35, dashArray: "6 6" },
+  // The line used when a leg we EXPECTED to drive turns out not to be
+  // drivable (an unroutable waypoint, or genuinely no road).
+  //
+  // Deliberately RED, and not a faded version of the drive colour. It was
+  // #34495E at 35% opacity, which composites over map tiles to #b0b5b8 -
+  // and the flight line composites to #adb4b2. Three channels apart. On
+  // the Italy trip the doha -> milan flight and the FAILED milan -> le
+  // noirmont drive therefore read as one continuous dotted line ending in
+  // the wrong city. This is not a way of travelling, it is a problem to
+  // fix, so it is drawn like one.
+  NO_ROUTE_STYLE: { color: "#b3261e", weight: 3, opacity: 0.8, dashArray: "2 8" },
 
   // Transport.modes -> a LEG_STYLES key. Car Rental and Transfer are cars
   // on roads, so they route exactly like Drive.
@@ -1111,7 +1119,9 @@ ${unplotted}
 
     const flightItems = flights && Array.isArray(flights.items) ? flights.items : [];
 
-    const flownIt = flightItems.some((item) => this.itemSpansGap(item, lo, hi));
+    const flownIt = flightItems.some(
+      (item) => this.itemSpansGap(item, lo, hi) && this.flightServesLeg(item, target),
+    );
 
     if (flownIt) {
       return "flight";
@@ -1135,6 +1145,30 @@ ${unplotted}
     const chosen = (arriving.length > 0 ? arriving : items)[0];
 
     return this.TRANSPORT_MODE_KEYS[String(chosen.mode || "").toLowerCase()] || "unknown";
+  },
+
+  // Does this flight belong to THIS leg, or to a different one that merely
+  // shares a day with it?
+  //
+  // itemSpansGap only asks about dates, and dates overlap constantly: land
+  // in Milan on day 3, drive on to Le Noirmont the same day, and the
+  // ARRIVAL flight marks the drive as flown - so no road is ever requested
+  // and the leg is drawn as a grey dashed hop.
+  //
+  // A flight is only ruled out when it demonstrably belongs elsewhere: it
+  // names a destination, that destination is not this stop, and it IS
+  // another stop on the trip. A flight recorded as landing at "Malpensa"
+  // still counts towards a stop called "milan", because nothing better
+  // claims it - guessing airport-to-city would fail far more often than
+  // this does.
+  flightServesLeg(item, target) {
+    const to = String(item.to || "").toLowerCase().trim();
+
+    if (!to || to === target) {
+      return true;
+    }
+
+    return !this.stops.some((stop) => String(stop.location || "").toLowerCase() === to);
   },
 
   itemSpansGap(item, lo, hi) {
@@ -1361,7 +1395,15 @@ ${unplotted}
     }
 
     if (noRoute.length > 0) {
-      parts.push(`No road route found for: ${noRoute.join(", ")}`);
+      // Named legs plus what to DO about them. Every instance of this so
+      // far has been a pin dropped somewhere with no road - a mountain
+      // range centroid, or a place name that geocoded to the wrong thing -
+      // rather than two towns with genuinely no road between them.
+      const which = noRoute.length === 1 ? "this leg" : "these legs";
+
+      parts.push(
+        `No road route found for: ${noRoute.join(", ")} - check the pins on ${which}, one of them is probably not on a road`,
+      );
     }
 
     return parts.length > 0 ? parts.join(". ") + "." : "Nothing to route yet.";
