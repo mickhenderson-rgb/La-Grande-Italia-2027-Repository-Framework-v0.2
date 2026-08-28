@@ -357,7 +357,7 @@ const Day = {
 
     ${day.location ? `<p>📍 ${this.pretty(day.location)}</p>` : `<p class="subtitle">No destination set yet</p>`}
 
-    ${day.overnight ? `<p>🛏 Overnight ${this.pretty(day.overnight)}</p>` : ""}
+    ${JourneyEditor.isTransit(day) ? `<p>🌙 In transit overnight</p>` : day.overnight ? `<p>🛏 Overnight ${this.pretty(day.overnight)}</p>` : ""}
 
     <div class="quick-links">
 

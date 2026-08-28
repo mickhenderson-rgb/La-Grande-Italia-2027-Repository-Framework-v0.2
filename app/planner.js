@@ -107,7 +107,7 @@ const Planner = {
 
     ${day.location ? `<p>📍 ${this.pretty(day.location)}</p>` : `<p style="color: var(--color-muted);">No destination set yet</p>`}
 
-    ${day.overnight ? `<p>🛏 Overnight: ${this.pretty(day.overnight)}</p>` : ""}
+    ${JourneyEditor.isTransit(day) ? `<p>🌙 In transit overnight</p>` : day.overnight ? `<p>🛏 Overnight: ${this.pretty(day.overnight)}</p>` : ""}
 
     ${this.renderDayItemsSnapshot(day)}
 
@@ -527,7 +527,15 @@ const Planner = {
 
                 <label class="form-field">
                     Overnight
-                    <input type="text" id="pln-edit-overnight" value="${this.esc(day.overnight)}" placeholder="Defaults to Location if left blank">
+                    <input type="text" id="pln-edit-overnight" value="${this.esc(day.overnight)}" placeholder="Defaults to Location if left blank" ${JourneyEditor.isTransit(day) ? "disabled" : ""}>
+                </label>
+
+                <label class="form-field form-field-wide">
+                    <span class="form-check">
+                        <input type="checkbox" id="pln-edit-transit" onchange="Planner.onTransitToggled()" ${JourneyEditor.isTransit(day) ? "checked" : ""}>
+                        In transit overnight - no bed needed
+                    </span>
+                    <span class="form-hint">For a red-eye flight, an overnight ferry or a sleeper train. The map skips this night and Readiness won't ask where you're sleeping.</span>
                 </label>
 
             </div>
@@ -743,6 +751,25 @@ const Planner = {
     }
   },
 
+  // Greys out Overnight the moment "in transit" is ticked, so the form
+  // can't be left saying both "you're sleeping in Naples" and "you're on a
+  // ferry all night".
+  onTransitToggled() {
+    const box = document.getElementById("pln-edit-transit");
+
+    const overnight = document.getElementById("pln-edit-overnight");
+
+    if (!box || !overnight) {
+      return;
+    }
+
+    overnight.disabled = box.checked;
+
+    if (box.checked) {
+      overnight.value = "";
+    }
+  },
+
   saveEditedDay(event, dayNumber) {
     if (event) {
       event.preventDefault();
@@ -767,6 +794,10 @@ const Planner = {
 
     const overnight = document.getElementById("pln-edit-overnight").value.trim().toLowerCase();
 
+    const transitBox = document.getElementById("pln-edit-transit");
+
+    const transit = Boolean(transitBox && transitBox.checked);
+
     if (!title || !location) {
       alert("Please enter at least a title and location before saving.");
 
@@ -777,7 +808,12 @@ const Planner = {
 
     day.location = location;
 
-    day.overnight = overnight || location;
+    // A transit night isn't a place, so nothing is stored in overnight -
+    // that's what made "ferry from naples" look like a town the map
+    // couldn't find.
+    day.transit = transit;
+
+    day.overnight = transit ? "" : overnight || location;
 
     // Coordinates are optional - a blank pair clears them rather than
     // storing NaN, so TripMap falls back to its own resolution tiers.

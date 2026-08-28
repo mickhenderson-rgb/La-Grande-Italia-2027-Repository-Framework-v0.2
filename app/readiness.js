@@ -104,6 +104,12 @@ const Readiness = {
 
     // The last day is a departure day, not a night.
     days.slice(0, -1).forEach((day) => {
+      // A night on a ferry or a red-eye needs no bed, so asking where
+      // you're sleeping would be a permanent false alarm.
+      if (JourneyEditor.isTransit(day)) {
+        return;
+      }
+
       const covered = stays.some((stay) => {
         if (!Array.isArray(stay.dayRange) || stay.dayRange.length < 2) {
           return this.spansDay(stay, day.day);
@@ -140,7 +146,7 @@ const Readiness = {
     days.forEach((day) => {
       const overnight = String(day.overnight || "").toLowerCase();
 
-      if (!overnight || overnight === "flight") {
+      if (!overnight || JourneyEditor.isTransit(day)) {
         return;
       }
 

@@ -20,6 +20,31 @@ Accommodation, Activities and Restaurants.
 */
 
 const JourneyEditor = {
+  // A night spent travelling rather than staying anywhere: a red-eye
+  // flight, an overnight ferry, a sleeper train.
+  //
+  // Before this the only way to say it was to type the literal word
+  // "flight" into Overnight, which three separate modules then
+  // string-matched. Anything else - "ferry from naples" was the real
+  // case - was treated as a place, so the map flagged it NO LOCATION
+  // because no such town exists, and Readiness was about to call it a
+  // night with nowhere to sleep. Both were right about the data and
+  // wrong about the trip.
+  //
+  // day.transit is the fact. The old "flight" spelling still counts, so
+  // journeys written before this keep working without a migration.
+  isTransit(day) {
+    if (!day) {
+      return false;
+    }
+
+    if (day.transit === true) {
+      return true;
+    }
+
+    return String(day.overnight || "").trim().toLowerCase() === "flight";
+  },
+
   blankDay(dayNumber) {
     return {
       day: dayNumber,
@@ -27,6 +52,7 @@ const JourneyEditor = {
       title: "New Day",
       location: "",
       overnight: "",
+      transit: false,
       locked: false,
       items: [],
     };

@@ -11,7 +11,7 @@ Build 48 - Step 1 (data + stop rail, no map surface yet)
 
 Computes overnight stops from the real journey.days schema
 (grouping consecutive nights at the same overnight location,
-skipping transit days where overnight === "flight"), aggregates
+skipping transit nights - see JourneyEditor.isTransit), aggregates
 a booked / selected / research status per stop from the live
 research collections, and renders an accessible, clickable stop
 rail with a per-stop detail panel. The Leaflet map surface is
@@ -148,7 +148,10 @@ const TripMap = {
       const overnight = String(day.overnight || "").toLowerCase();
 
       // Transit / no-stay day: close any open stop and emit nothing.
-      if (!overnight || overnight === "flight") {
+      // JourneyEditor.isTransit covers the explicit flag AND the old
+      // literal "flight" spelling, so an overnight ferry or sleeper train
+      // no longer arrives here as an unplottable "place".
+      if (!overnight || JourneyEditor.isTransit(day)) {
         if (current) {
           stops.push(current);
 

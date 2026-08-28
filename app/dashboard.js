@@ -105,6 +105,106 @@ const Dashboard = {
 `;
   },
 
+  // Where you're counting down TO.
+  //
+  // This used to be days[0].location, which is where the trip STARTS -
+  // so an Italy trip departing Sydney read "355 days until Sydney".
+  //
+  // The rule, in order:
+  //   1. the first place you actually STAY, past the origin - a real
+  //      stopover, meaning two nights or more. One night in Doha is a
+  //      layover, not a destination.
+  //   2. failing that, where the last flight leg lands - if the whole
+  //      journey is flights and short hops, that's the destination.
+  //   3. failing that, just "departure", which is always true.
+  //
+  // The country you'd spend longest in was the intended third rule, but
+  // no country is recorded anywhere - locations are free text - so it
+  // can't be answered without geocoding every day. Noted rather than
+  // faked.
+  MIN_STOPOVER_NIGHTS: 2,
+
+  countdownDestination() {
+    const stops = this.computeStops();
+
+    // stops[0] is where you begin, so skip it.
+    const onward = stops.slice(1);
+
+    const realStop = onward.filter((stop) => this.stopNights(stop) >= this.MIN_STOPOVER_NIGHTS)[0];
+
+    if (realStop) {
+      return this.pretty(realStop.location);
+    }
+
+    const flownTo = this.finalFlightDestination();
+
+    if (flownTo) {
+      return this.pretty(flownTo);
+    }
+
+    // A single onward stop of one night still beats saying nothing.
+    if (onward.length > 0) {
+      return this.pretty(onward[0].location);
+    }
+
+    // Nothing grouped into a stop at all - which happens on a journey whose
+    // days carry a location but no overnight (an import that never set one,
+    // or a single-city trip). Where you END UP is the honest answer, and it
+    // can't reintroduce the original bug: a trip that actually goes
+    // somewhere was already answered by rule 1.
+    const lastPlace = this.lastNamedPlace();
+
+    if (lastPlace) {
+      return this.pretty(lastPlace);
+    }
+
+    return "departure";
+  },
+
+  lastNamedPlace() {
+    const days = this.journeyDays();
+
+    for (let i = days.length - 1; i >= 0; i--) {
+      if (JourneyEditor.isTransit(days[i])) {
+        continue;
+      }
+
+      const place = days[i].overnight || days[i].location;
+
+      if (place) {
+        return place;
+      }
+    }
+
+    return "";
+  },
+
+  stopNights(stop) {
+    if (!stop || !Array.isArray(stop.dayRange)) {
+      return 0;
+    }
+
+    return stop.dayRange[1] - stop.dayRange[0] + 1;
+  },
+
+  // The last leg of the last flight of the trip - i.e. where the flying
+  // ends, which for a trip built around one long haul is the answer.
+  finalFlightDestination() {
+    const flights = this.allItems("flights")
+      .slice()
+      .sort((a, b) => (a.day || 0) - (b.day || 0));
+
+    for (let i = flights.length - 1; i >= 0; i--) {
+      const to = Flights.overallTo(flights[i]);
+
+      if (to) {
+        return to;
+      }
+    }
+
+    return "";
+  },
+
   countdown(trip, phase, days) {
     if (!trip.departureDate) {
       return { number: "–", label: "no departure date set" };
@@ -113,9 +213,7 @@ const Dashboard = {
     if (phase === "Planning") {
       const diffDays = this.daysBetween(this.todayISO(), trip.departureDate);
 
-      const firstCity = days.length > 0 ? this.pretty(days[0].location || days[0].overnight) : "your trip";
-
-      return { number: String(Math.max(diffDays, 0)), label: `days until ${firstCity}` };
+      return { number: String(Math.max(diffDays, 0)), label: `days until ${this.countdownDestination()}` };
     }
 
     if (phase === "Travel") {
@@ -483,7 +581,7 @@ const Dashboard = {
     this.journeyDays().forEach((day) => {
       const overnight = String(day.overnight || "").toLowerCase();
 
-      if (!overnight || overnight === "flight") {
+      if (!overnight || JourneyEditor.isTransit(day)) {
         if (current) {
           stops.push(current);
 
