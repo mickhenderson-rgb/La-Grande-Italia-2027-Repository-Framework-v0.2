@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-28 (v1.17.0).
+Last reviewed: 2026-08-28 (v1.17.2).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -321,16 +321,54 @@ the two ranking bugs found while building it) and `test-airports-served.js`,
 which asks a real server for the file — server.js serves static assets
 from an allowlist, so a new asset directory is unreachable by default.
 
-### C11. departure.location / arrival.location are now redundant — OPEN
+### C11. departure.location / arrival.location — DONE (v1.17.1)
 
-A leg carries from/to AND departure.location/arrival.location, which
-overlapped even as free text. Now that from/to name a specific airport,
-the location fields have no distinct job left.
+Relabelled as **Departure Terminal** / **Arrival Terminal** and stored as
+`.terminal`. A terminal is the one thing about where a flight touches
+down that an airport code genuinely cannot say; a place was something the
+record already knew.
 
-Not removed yet: existing trips have data in them, and deleting a field
-is a migration rather than an edit. Decide whether to drop them, or keep
-them for the terminal ("T1", "Concourse D"), which is the only thing they
-could usefully say that a code cannot.
+Old `.location` values are still read (`Flights.legTerminal`), because the
+few trips carrying anything in there are more likely to have written
+"Terminal 3" than a city.
+
+The two dashboard screens that read those fields now take the airport
+from the leg instead. The "Locked in" card used to print
+`arrival.location` as the destination — blank on almost every trip, so
+half the card rendered empty. With the field meaning "T1" it would have
+gone from empty to wrong.
+
+Caught on the way: `test-part3-dashboard.js` STUBBED Flights, and the stub
+silently lacked `overallFrom` the moment the dashboard started calling it.
+The stub is gone and the real module is loaded — the same lesson as the
+snapshot suite, relearned.
+
+### C13. The picker called every saved code unrecognised — DONE (v1.17.2)
+
+Found by driving the real form in a real browser, which is the only place
+it existed. airportHint() runs on RENDER; the 391 KB list arrives after.
+Airports.lookup("SYD") returned null — not because SYD is unknown but
+because nothing had been looked up yet — and isCode("SYD") was true, so
+every saved flight opened with "Not a code we recognise" under a
+perfectly good code.
+
+Nothing is unrecognised until the list is in hand. primeAirports() now
+fetches on add()/edit() and fills the hints in when it lands.
+
+### C14. Airport fields were narrower than their neighbours — DONE (v1.17.2)
+
+`.form-field` is a flex column, so an input placed directly in one
+stretches to the field width. Wrapping the input in `.geo-input-wrap` — 
+needed to position the dropdown — stopped that: the input fell back to its
+intrinsic size, ~40px narrower than the airline field beside it, with the
+dropdown overhanging its own input by the difference.
+
+`.geo-input-wrap > input { width: 100% }`. Also fixes the day-location
+field in the planner, which had the same wrapper and the same problem.
+
+Both are pinned by `test-airport-picker-render.js`, which asserts the
+UNLOADED state — every other suite tests the picker after load, which is
+exactly why neither showed up.
 
 ### C12. Old flights still hold free text — OPEN (housekeeping, not a bug)
 

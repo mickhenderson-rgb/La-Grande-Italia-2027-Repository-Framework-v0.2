@@ -158,8 +158,8 @@ const Flights = {
       flightNumber: "",
       from: "",
       to: "",
-      departure: { date: (day && day.date) || "", time: "", location: "" },
-      arrival: { date: "", time: "", location: "" },
+      departure: { date: (day && day.date) || "", time: "", terminal: "" },
+      arrival: { date: "", time: "", terminal: "" },
     };
   },
 
@@ -175,8 +175,8 @@ const Flights = {
         flightNumber: item.flightNumber || "",
         from: item.from || "",
         to: item.to || "",
-        departure: item.departure || { date: "", time: "", location: "" },
-        arrival: item.arrival || { date: "", time: "", location: "" },
+        departure: item.departure || { date: "", time: "", terminal: "" },
+        arrival: item.arrival || { date: "", time: "", terminal: "" },
       },
     ];
   },
@@ -207,6 +207,23 @@ const Flights = {
     const waypoints = [legs[0].from, ...legs.map((leg) => leg.to)].filter(Boolean);
 
     return waypoints.join(" → ");
+  },
+
+  // A leg once carried departure.location and arrival.location as free
+  // text, from before from/to had any structure. They asked you to type a
+  // place the record already named, so almost nobody filled them in - and
+  // the one screen reading them showed a blank half a card as a result.
+  //
+  // They are TERMINALS now: the one thing about where a flight touches
+  // down that an airport code genuinely cannot say. Old values are still
+  // read, because the few trips with anything in there are more likely to
+  // have written "Terminal 3" than a city.
+  legTerminal(part) {
+    if (!part) {
+      return "";
+    }
+
+    return part.terminal || part.location || "";
   },
 
   // --- Airport picker -------------------------------------------------
@@ -243,6 +260,15 @@ const Flights = {
       return "";
     }
 
+    // Nothing is unrecognised until the list is actually in hand. The form
+    // renders before the fetch resolves, so this used to open every saved
+    // flight with "SYD - not a code we recognise" against a perfectly good
+    // code. Silence now, and primeAirports() fills the hints in when the
+    // list lands.
+    if (!Airports.ready()) {
+      return "";
+    }
+
     const airport = Airports.lookup(text);
 
     if (!airport) {
@@ -252,6 +278,27 @@ const Flights = {
     }
 
     return airport.n + " · " + (airport.m || airport.k);
+  },
+
+  // Fetches the airport list as soon as a flight form opens, then fills in
+  // every hint the first render could not. Without this the hints under
+  // saved codes stay blank until you happen to type in the field.
+  primeAirports() {
+    if (typeof Airports === "undefined" || Airports.ready()) {
+      return;
+    }
+
+    Airports.load()
+      .then(() => {
+        this.editingLegs.forEach((leg, i) => {
+          this.setAirportHint(i, "from");
+
+          this.setAirportHint(i, "to");
+        });
+      })
+      .catch(() => {
+        // Leave the hints blank - the fields still work as free text.
+      });
   },
 
   setAirportHint(index, side) {
@@ -795,6 +842,8 @@ const Flights = {
     this.editingLegs = [this.blankLeg(this.currentDay)];
 
     Render.show(Layout.render(this.renderForm(this.blankItem())));
+
+    this.primeAirports();
   },
 
   edit(id) {
@@ -815,6 +864,8 @@ const Flights = {
     this.editingLegs = this.getLegs(item).map((leg) => JSON.parse(JSON.stringify(leg)));
 
     Render.show(Layout.render(this.renderForm(item)));
+
+    this.primeAirports();
   },
 
   remove(id) {
@@ -933,8 +984,9 @@ const Flights = {
         </label>
 
         <label class="form-field">
-            Departure Location
-            <input type="text" id="flt-leg-${i}-dep-loc" value="${this.esc(leg.departure && leg.departure.location)}">
+            Departure Terminal
+            <input type="text" id="flt-leg-${i}-dep-term" value="${this.esc(this.legTerminal(leg.departure))}"
+                placeholder="e.g. T1">
         </label>
 
         <label class="form-field">
@@ -949,8 +1001,9 @@ const Flights = {
         </label>
 
         <label class="form-field">
-            Arrival Location
-            <input type="text" id="flt-leg-${i}-arr-loc" value="${this.esc(leg.arrival && leg.arrival.location)}">
+            Arrival Terminal
+            <input type="text" id="flt-leg-${i}-arr-term" value="${this.esc(this.legTerminal(leg.arrival))}"
+                placeholder="e.g. Concourse D">
         </label>
 
     </div>
@@ -980,12 +1033,12 @@ const Flights = {
         departure: {
           date: val(`flt-leg-${i}-dep-date`),
           time: val(`flt-leg-${i}-dep-time`),
-          location: val(`flt-leg-${i}-dep-loc`).trim(),
+          terminal: val(`flt-leg-${i}-dep-term`).trim(),
         },
         arrival: {
           date: val(`flt-leg-${i}-arr-date`),
           time: val(`flt-leg-${i}-arr-time`),
-          location: val(`flt-leg-${i}-arr-loc`).trim(),
+          terminal: val(`flt-leg-${i}-arr-term`).trim(),
         },
       };
     });

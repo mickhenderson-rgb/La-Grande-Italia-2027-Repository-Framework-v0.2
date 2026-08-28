@@ -1411,6 +1411,15 @@ button {
   display: block;
 }
 
+/* .form-field is a flex column, so an input placed directly in one
+   stretches to the full field width. An input nested inside the wrapper
+   does NOT - it falls back to its intrinsic size attribute, which made
+   every airport field ~40px narrower than the airline and flight-number
+   fields beside it, with the dropdown overhanging its own input. */
+.geo-input-wrap > input {
+  width: 100%;
+}
+
 .geo-suggestions {
   display: none;
   position: absolute;

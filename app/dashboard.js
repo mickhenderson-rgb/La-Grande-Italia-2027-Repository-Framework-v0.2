@@ -248,7 +248,9 @@ const Dashboard = {
       const arrival = Flights.overallArrival(firstFlight);
 
       if (arrival.time) {
-        const where = arrival.location ? ` ${arrival.location}` : "";
+        const airport = Flights.overallTo(firstFlight);
+
+        const where = airport ? ` ${airport}` : "";
 
         return `${dateLabel} · lands${where} ${arrival.time}`;
       }
@@ -439,6 +441,22 @@ const Dashboard = {
 
     const arr = next.kind === "flight" ? Flights.overallArrival(next.item) : {};
 
+    // Where it leaves from and lands, which is the leg itself - not
+    // departure.location, which is a TERMINAL now and was blank on almost
+    // every trip before that. The right half of this card used to render
+    // empty for exactly that reason.
+    const depPlace = next.kind === "flight" ? Flights.overallFrom(next.item) : next.item.from || "";
+
+    const arrPlace = next.kind === "flight" ? Flights.overallTo(next.item) : next.item.to || "";
+
+    // A terminal earns its place here - it is what you need at the airport
+    // and the one thing the code cannot tell you.
+    const withTerminal = (place, part) => {
+      const terminal = next.kind === "flight" ? Flights.legTerminal(part) : "";
+
+      return terminal ? `${place} · ${terminal}` : place;
+    };
+
     return `
 
 <div class="manager-card dash-locked-in">
@@ -448,12 +466,12 @@ const Dashboard = {
     <div class="dash-locked-row">
         <div>
             <div class="dash-locked-time">${this.esc(dep.time || "")}</div>
-            <div class="dash-locked-place">${this.esc(dep.location || Format.date(dep.date))}</div>
+            <div class="dash-locked-place">${this.esc(withTerminal(depPlace, dep) || Format.date(dep.date))}</div>
         </div>
         <div class="dash-locked-arrow">→</div>
         <div>
             <div class="dash-locked-time">${this.esc(arr.time || "")}</div>
-            <div class="dash-locked-place">${this.esc(arr.location || "")}</div>
+            <div class="dash-locked-place">${this.esc(withTerminal(arrPlace, arr))}</div>
         </div>
     </div>
 
