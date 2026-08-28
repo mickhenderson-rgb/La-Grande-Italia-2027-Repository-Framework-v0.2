@@ -91,6 +91,29 @@ listed in the handoff README under "Markup changes".
 
   .hero .quick-links::-webkit-scrollbar { display: none; }
 
+  /* Tells you the row keeps going.
+     
+     Nothing indicated it before - "Accommodation" simply appeared clipped
+     to "Ac…" and looked like a rendering fault rather than an invitation to
+     swipe, which is how Edit Day stayed unfindable on a phone.
+     
+     This is the background-attachment: local trick, not a plain gradient
+     overlay. The two "cover" layers are attached to the CONTENT, so they
+     scroll away from the edge as you move; the two shadow layers are
+     attached to the SCROLLPORT and stay put. The result is a shadow that
+     appears only on the side that still has something hidden, and no
+     shadow at all when the row already fits - which a fixed gradient can't
+     do, and which matters because most heroes have few enough buttons to
+     fit. The cover colour has to be the HERO's background, not the page's,
+     or it smears a pale band across the navy. */
+  .hero .quick-links {
+    background:
+      linear-gradient(to right, var(--color-primary), transparent) left center / 28px 100% no-repeat local,
+      linear-gradient(to left, var(--color-primary), transparent) right center / 28px 100% no-repeat local,
+      linear-gradient(to right, rgba(0, 0, 0, 0.28), transparent) left center / 18px 100% no-repeat scroll,
+      linear-gradient(to left, rgba(0, 0, 0, 0.28), transparent) right center / 18px 100% no-repeat scroll;
+  }
+
   .hero .quick-links button {
     flex: none;
     min-height: 44px;

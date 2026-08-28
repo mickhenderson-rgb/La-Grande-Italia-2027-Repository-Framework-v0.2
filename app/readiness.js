@@ -182,7 +182,7 @@ const Readiness = {
           title: `${this.pretty(move.from.location)} → ${this.pretty(move.to.location)}: no way to get there`,
           detail: `Nothing booked between Day ${lo} and Day ${hi}.`,
           action: `Router.navigate('transport')`,
-          actionLabel: "Transport",
+          actionLabel: "Open transport",
         });
       }
     });
@@ -216,7 +216,7 @@ const Readiness = {
         title: `${pending.length} ${c.label.toLowerCase()} ${pending.length === 1 ? "choice" : "choices"} not booked yet`,
         detail: `Decided but not reserved, and departure is ${daysOut === 0 ? "today" : `in ${daysOut} day${daysOut === 1 ? "" : "s"}`}.`,
         action: `Router.navigate('${c.nav}')`,
-        actionLabel: c.label,
+        actionLabel: `Open ${c.label.toLowerCase()}`,
       });
     });
   },
@@ -227,11 +227,11 @@ const Readiness = {
     // with no price", and accommodation/transport don't pluralise the way
     // the others do, so a rule wouldn't have worked anyway.
     const collections = [
-      { key: "flights", one: "flight", many: "flights", nav: "flights" },
-      { key: "accommodation", one: "place to stay", many: "places to stay", nav: "accommodation" },
-      { key: "transport", one: "transport booking", many: "transport bookings", nav: "transport" },
-      { key: "activities", one: "activity", many: "activities", nav: "dashboard" },
-      { key: "restaurants", one: "restaurant", many: "restaurants", nav: "dashboard" },
+      { key: "flights", one: "flight", many: "flights", nav: "flights", opens: "Open flights" },
+      { key: "accommodation", one: "place to stay", many: "places to stay", nav: "accommodation", opens: "Open accommodation" },
+      { key: "transport", one: "transport booking", many: "transport bookings", nav: "transport", opens: "Open transport" },
+      { key: "activities", one: "activity", many: "activities", nav: "dashboard", opens: "Open activities" },
+      { key: "restaurants", one: "restaurant", many: "restaurants", nav: "dashboard", opens: "Open restaurants" },
     ];
 
     collections.forEach((c) => {
@@ -250,7 +250,9 @@ const Readiness = {
         title: `${unpriced.length} ${unpriced.length === 1 ? c.one : c.many} with no price`,
         detail: "Chosen, but the budget can't include them until they have an amount.",
         action: `Router.navigate('${c.nav}')`,
-        actionLabel: "Open",
+        // Name the destination. A bare "Open" makes you read the finding
+        // again to work out what you're opening, and every row said it.
+        actionLabel: c.opens,
       });
     });
   },
@@ -274,7 +276,7 @@ const Readiness = {
       title: `${untitled.length} ${untitled.length === 1 ? "day has" : "days have"} no title`,
       detail: `Day ${untitled.map((d) => d.day).join(", ")}.`,
       action: `Router.navigate('planner')`,
-      actionLabel: "Planner",
+      actionLabel: "Open planner",
     });
   },
 

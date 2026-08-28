@@ -449,7 +449,14 @@ body {
 
 .snap-item-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
-.snap-item-title { font-weight: 600; color: var(--color-primary-deep); cursor: pointer; text-decoration: underline dotted; }
+/* Not underlined. It opens the item, but an underline in a card that
+   also contains a real external link made the title read as one - and it
+   isn't, it's an in-app action. The pointer cursor and the hover colour
+   carry it. */
+.snap-item-title { font-weight: 600; color: var(--color-primary-deep); cursor: pointer; }
+
+.snap-item-title:hover,
+.snap-item-title:focus-visible { color: var(--color-primary); text-decoration: underline; }
 
 .snap-line { font-size: 0.85em; color: var(--color-text-2); margin: 2px 0; }
 
@@ -459,7 +466,30 @@ body {
 
 .snap-actions button { font-size: 0.8em; padding: 3px 10px; }
 
-.snap-link { font-size: 0.8em; color: var(--color-secondary); font-weight: 600; }
+/* The one thing in this row that genuinely LEAVES the app stays a link -
+   underlined, in the accent colour - so it reads differently from the
+   buttons beside it on purpose. Before, the row had three styles for three
+   controls with no rule behind which was which: bare gold text, a grey
+   button and a red outline. Now: links look like links, actions look like
+   buttons, and only the destructive one is red. */
+.snap-link {
+  font-size: 0.8em;
+  color: var(--color-secondary);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.snap-link::after {
+  /* Says it opens elsewhere, without needing a legend. */
+  content: " ↗";
+  text-decoration: none;
+}
+
+/* Map links sit with the buttons and behave like them. */
+.snap-actions .map-btn {
+  font-size: 0.8em;
+  padding: 3px 10px;
+}
 
 .snap-more { display: none; }
 

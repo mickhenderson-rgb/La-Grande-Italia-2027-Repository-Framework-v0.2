@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-28 (v1.13.1).
+Last reviewed: 2026-08-28 (v1.13.2).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -24,8 +24,8 @@ The agreed order of work, as at 2026-08-28.
 | A4 | Header wrap (§C1), "1 item(s)" (§C3) | DONE — v1.12.0 |
 | A5 | Transit nights (§D8) + countdown destination (§C2) | DONE — v1.13.0 |
 | A6 | Multi-day bookings quietened (§D10) | DONE — v1.13.1 |
-| A7 | Readiness button labels (§C6), button styles (§D11), scroll affordance (§D12) | OPEN — next |
-| A8 | Weather: fetch seasonal data + sunrise/sunset (§D9) | OPEN |
+| A7 | Readiness button labels (§C6), button styles (§D11), scroll affordance (§D12) | DONE — v1.13.2 |
+| A8 | Weather: fetch seasonal data + sunrise/sunset (§D9) | OPEN — next |
 | A9 | Verify journal export: photo book, then web story (§B4) | OPEN |
 | A10 | End-of-day journal flow (§B3) | OPEN — workshop first |
 
@@ -50,7 +50,7 @@ Decisions taken 2026-08-28, recorded so they aren't re-litigated:
 
 ### B1. Dead test suites — PARTLY REPAIRED (11 remain)
 
-`run-all.js` reports **46/57 passing** (was 33/52). Nine suites repaired
+`run-all.js` reports **47/58 passing** (was 33/52). Nine suites repaired
 across 2026-08-27/28.
 
 **Repaired:** `test-day-reference`, `test-form-delete`, `test-mail`,
@@ -175,7 +175,7 @@ Three formats in use: planner day cards print raw ISO `2027-08-27`
 `dates.js` has `addDays` / `getDayDate` / `findArrivalDate` /
 `recalculateJourney` but **no display formatter** — that's the gap.
 
-### C6. Readiness button labels inconsistent — OPEN
+### C6. Readiness button labels inconsistent — DONE (v1.13.2)
 
 Blocking findings say "Open day"; cost findings say "Open". Introduced in
 v1.11.0.
@@ -220,13 +220,13 @@ the car — but it crowds out what's actually happening that day. Consider a
 quieter treatment for a booking that merely spans a day versus one that
 starts or ends on it.
 
-### D11. Three button styles in one row — OPEN
+### D11. Three button styles in one row — DONE (v1.13.2)
 
 On a transport card: "Booking Site" as gold underlined text, "Open Details"
 as a grey button, "Delete" as a red outline. The card title is also
 underlined in gold, which makes it read as a link.
 
-### D12. Horizontally scrolling rows have no affordance — OPEN
+### D12. Horizontally scrolling rows have no affordance — DONE (v1.13.2)
 
 The day's quick-links row scrolls sideways with `scrollbar-width: none`, so
 "Accommodation" is cut to "Ac…" with nothing indicating the row moves.
