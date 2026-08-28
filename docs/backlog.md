@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-28 (v1.14.1).
+Last reviewed: 2026-08-28 (v1.16.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -29,7 +29,7 @@ The agreed order of work, as at 2026-08-28.
 | A9 | Audit the journal export (§B4) | DONE — v1.14.1 |
 | A10 | End-of-day journal flow (§B3) | OPEN — next, workshop first |
 | A11 | Photo book + web story exports (§B4) | OPEN — net-new builds, not repairs |
-| A12 | Tonight flow — the end-of-day journal (§B3) | IN PROGRESS — design agreed 2026-08-28 |
+| A12 | Tonight flow — the end-of-day journal (§B3) | DONE — v1.16.0 |
 
 Decisions taken 2026-08-28, recorded so they aren't re-litigated:
 
@@ -57,7 +57,7 @@ Decisions taken 2026-08-28, recorded so they aren't re-litigated:
 
 ### B1. Dead test suites — PARTLY REPAIRED (11 remain)
 
-`run-all.js` reports **49/60 passing** (was 33/52). Nine suites repaired
+`run-all.js` reports **51/62 passing** (was 33/52). Nine suites repaired
 across 2026-08-27/28.
 
 **Repaired:** `test-day-reference`, `test-form-delete`, `test-mail`,
@@ -113,7 +113,7 @@ own re-renders, plus `data-guard-fields` on `FormGuard` so only the fields
 `save()` writes count as unsaved work — the live-saving widgets don't
 trigger it.
 
-### B3. The end-of-day journal flow doesn't exist — OPEN
+### B3. The end-of-day journal flow doesn't exist — DONE (v1.16.0)
 
 The mobile design handoff calls this "the one genuinely new flow, and the
 reason to build the app at all": on the evening of a travel day the journal

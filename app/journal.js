@@ -9,11 +9,33 @@ Version 1.0.0
 
 Build 16
 
-One entry per day. Can be written before the trip (planning
-notes), during, and after (reflections) - the same entry
-just evolves over time. Photos are stored as links/captions
-(facts) since this is a static local app with no file
-upload/storage backend.
+One entry per day. Written before the trip (planning
+notes), during it, and after (reflections) - the same entry
+evolves rather than being replaced.
+
+TWO WAYS IN, ONE ENTRY. "Tonight" is a fast path for the
+evening of a travel day: pick today's photos, write what
+happened, log what you spent, move on. "Entries" is the
+full list, unchanged. Both edit the SAME entry - Tonight is
+a shortcut, not a second copy, because two places holding
+the same day's writing is how you end up with two halves of
+it.
+
+Tonight only appears when it can mean something: you're
+travelling, and one of the journey's days is actually
+today. Otherwise the tab isn't there.
+
+EXPENSES ARE NOT COPIED HERE. You can add one from Tonight
+because that's when you remember it, but Expenses owns
+them and is where you read them back. Copying the figures
+into the note text would leave the note wrong the moment an
+expense was edited.
+
+OFFLINE: not supported, and not pretended. Photos need the
+connection. Text is cached in this browser as you type and
+restored if you come back, so a failed save costs you
+nothing - most places you'll stay have wifi, which is when
+you'd be writing anyway.
 
 =========================================================
 */
@@ -21,8 +43,443 @@ upload/storage backend.
 const Journal = {
   currentDay: null,
 
-  open() {
-    Render.show(Layout.render(this.renderList()));
+  // Which tab is showing. Not persisted: arriving at the Journal should
+  // land you where the trip is up to, not where you were last time.
+  tab: null,
+
+  open(tab) {
+    this.tab = tab || (this.todayDay() ? "tonight" : "entries");
+
+    Render.show(Layout.render(this.renderTabs()));
+
+    if (this.tab === "tonight") {
+      this.restoreCachedText();
+    }
+  },
+
+  // The journey day that is actually today, or null. Tonight hangs off
+  // this: no such day, no tab.
+  todayDay() {
+    const journey = Project.get("journey");
+
+    const days = journey && Array.isArray(journey.days) ? journey.days : [];
+
+    const today = typeof Phase !== "undefined" ? Phase.todayISO() : new Date().toISOString().slice(0, 10);
+
+    return days.find((d) => d.date === today) || null;
+  },
+
+  renderTabs() {
+    const today = this.todayDay();
+
+    const tab = (id, label) =>
+      `<button type="button" class="jrn-tab ${this.tab === id ? "is-active" : ""}" onclick="Journal.open('${id}')">${label}</button>`;
+
+    const body =
+      this.tab === "tonight" && today
+        ? this.renderTonight(today)
+        : this.tab === "export"
+          ? ""
+          : this.renderList();
+
+    if (this.tab === "export") {
+      // Export is its own screen rather than a panel - it has its own
+      // options and its own status line.
+      JournalExport.open();
+
+      return "";
+    }
+
+    return `
+
+<div class="manager">
+
+    <div class="jrn-tabs">
+        ${today ? tab("tonight", "Tonight") : ""}
+        ${tab("entries", "Entries")}
+        ${tab("export", "Export")}
+    </div>
+
+    ${body}
+
+</div>
+
+`;
+  },
+
+  // ---------------------------------------------------------- Tonight
+
+  renderTonight(day) {
+    const entry = this.getEntry(day.day);
+
+    const cached = this.cachedText(day.day);
+
+    const text = cached !== null ? cached : entry.notes;
+
+    const spend = this.spendFor(day.day);
+
+    return `
+
+<section class="hero">
+
+    <h1>${this.esc(this.weekday(day.date))}</h1>
+
+    <h2>${this.esc(Format.place(day.overnight || day.location) || day.title)}</h2>
+
+    <p>${this.esc(Format.date(day.date))}</p>
+
+</section>
+
+<div class="manager-card" id="jrn-tonight-photos">
+
+    <h2>Today's photos</h2>
+
+    <p class="form-hint">${entry.photos.length ? `${entry.photos.length} added so far.` : "Nothing added yet."}</p>
+
+    <div class="planner-buttons">
+
+        <button type="button" class="btn-primary" onclick="document.getElementById('jrn-tonight-files').click()">
+            Add today's photos
+        </button>
+
+        <input type="file" id="jrn-tonight-files" accept="image/*" multiple style="display:none"
+               onchange="Journal.handleFilesSelected(${day.day}, this)">
+
+    </div>
+
+    <p class="form-hint" id="jrn-tonight-photo-status"></p>
+
+</div>
+
+<div class="manager-card form-card"
+     data-guard="journal-tonight:${day.day}"
+     data-guard-fields="jrn-tonight-notes">
+
+    <h2>What happened today</h2>
+
+    <label class="form-field form-field-wide">
+        <textarea id="jrn-tonight-notes" rows="10" oninput="Journal.cacheText(${day.day})"
+                  placeholder="Where you went, who you met, what it smelled like. The keyboard's microphone works here.">${this.esc(text)}</textarea>
+    </label>
+
+    <p class="form-hint" id="jrn-tonight-cache-note"></p>
+
+</div>
+
+<div class="manager-card">
+
+    <h2>Today's spending</h2>
+
+    <p>${spend.summary}</p>
+
+    <p class="form-hint">Logged in Expenses, which is where you read it back - this is just a quicker way in while you remember.</p>
+
+    <div class="form-grid">
+
+        <label class="form-field">
+            Amount
+            <input type="number" id="jrn-spend-amount" min="0" step="0.01" placeholder="0.00">
+        </label>
+
+        <label class="form-field">
+            Currency
+            <select id="jrn-spend-currency">${Currency.currencyOptions(this.defaultCurrency())}</select>
+        </label>
+
+        <label class="form-field">
+            Category
+            <select id="jrn-spend-category">${Expenses.categoryOptions("Food")}</select>
+        </label>
+
+        <label class="form-field">
+            What was it?
+            <input type="text" id="jrn-spend-description" placeholder="e.g. Lunch in Sorrento">
+        </label>
+
+    </div>
+
+    <div class="planner-buttons">
+        <button type="button" onclick="Journal.logSpend(${day.day})">Log it</button>
+        <button type="button" onclick="Router.navigate('dashboard'); Expenses.openAll();">Open Expenses</button>
+    </div>
+
+    <p class="form-hint" id="jrn-spend-status"></p>
+
+</div>
+
+<div class="planner-buttons">
+
+    <button type="button" class="btn-primary" onclick="Journal.saveTonight(${day.day})">
+        Save tonight
+    </button>
+
+    <button type="button" onclick="Journal.open('entries')">All entries</button>
+
+</div>
+
+`;
+  },
+
+  weekday(iso) {
+    const date = Format.parseISO(iso);
+
+    if (!date) {
+      return "Tonight";
+    }
+
+    return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][date.getDay()];
+  },
+
+  defaultCurrency() {
+    const project = (Project.get("project") || {}).project || {};
+
+    return project.currency || "EUR";
+  },
+
+  // A count and a total, per currency - never added across currencies, for
+  // the same reason Expenses itself doesn't.
+  spendFor(dayNumber) {
+    const data = Project.get("expenses");
+
+    const items = (data && Array.isArray(data.items) ? data.items : []).filter((i) => i.day === dayNumber);
+
+    if (items.length === 0) {
+      return { count: 0, summary: "Nothing logged today." };
+    }
+
+    const totals = {};
+
+    items.forEach((i) => {
+      const code = i.currency || "EUR";
+
+      totals[code] = (totals[code] || 0) + (Number(i.amount) || 0);
+    });
+
+    const money = Object.keys(totals)
+      .sort()
+      .map((code) => Format.money(totals[code], code))
+      .join(" + ");
+
+    return {
+      count: items.length,
+      summary: `${money} across ${items.length} ${items.length === 1 ? "thing" : "things"}.`,
+    };
+  },
+
+  // ------------------------------------------- text cached in this browser
+
+  cacheKey(dayNumber) {
+    return `compass-journal-${Data.currentProjectFolder}-${dayNumber}`;
+  },
+
+  cacheText(dayNumber) {
+    const el = document.getElementById("jrn-tonight-notes");
+
+    if (!el) {
+      return;
+    }
+
+    try {
+      localStorage.setItem(this.cacheKey(dayNumber), el.value);
+    } catch (error) {
+      // Private browsing, or storage full. The text is still on screen;
+      // there's simply no safety net, and saying so would be noise on
+      // every keystroke.
+    }
+  },
+
+  cachedText(dayNumber) {
+    try {
+      return localStorage.getItem(this.cacheKey(dayNumber));
+    } catch (error) {
+      return null;
+    }
+  },
+
+  clearCachedText(dayNumber) {
+    try {
+      localStorage.removeItem(this.cacheKey(dayNumber));
+    } catch (error) {
+      // Nothing to clean up if it was never stored.
+    }
+  },
+
+  // Says so when what's on screen came from this browser rather than the
+  // server - otherwise a restored draft looks identical to a saved one.
+  restoreCachedText() {
+    const day = this.todayDay();
+
+    if (!day) {
+      return;
+    }
+
+    const note = document.getElementById("jrn-tonight-cache-note");
+
+    if (!note) {
+      return;
+    }
+
+    const cached = this.cachedText(day.day);
+
+    const saved = this.getEntry(day.day).notes || "";
+
+    if (cached !== null && cached !== saved) {
+      note.textContent = "This is a draft held on this device - it hasn't been saved to the trip yet.";
+    }
+  },
+
+  // --------------------------------------------------------- the actions
+
+  // Several photos at once. The picker allows multi-select now; before
+  // this, adding an evening's photos meant repeating the whole flow per
+  // photo.
+  //
+  // Uploaded one at a time on purpose: each photo is two uploads (display
+  // and archive), and firing twenty of those at a hotel wifi connection is
+  // how you get half of them.
+  async handleFilesSelected(dayNumber, input) {
+    const files = input && input.files ? Array.prototype.slice.call(input.files) : [];
+
+    if (files.length === 0) {
+      return;
+    }
+
+    const status = document.getElementById("jrn-tonight-photo-status");
+
+    let done = 0;
+
+    let failed = 0;
+
+    for (let i = 0; i < files.length; i++) {
+      if (status) {
+        status.textContent = `Uploading photo ${i + 1} of ${files.length}…`;
+      }
+
+      try {
+        await this.processPhotoFile(dayNumber, files[i]);
+
+        done++;
+      } catch (error) {
+        console.warn("Photo failed:", error);
+
+        failed++;
+      }
+    }
+
+    input.value = "";
+
+    if (status) {
+      status.textContent = failed
+        ? `Added ${done} of ${files.length}. ${failed} didn't upload - check the connection and try those again.`
+        : `Added ${done} ${done === 1 ? "photo" : "photos"}.`;
+    }
+  },
+
+  async logSpend(dayNumber) {
+    const amount = parseFloat(document.getElementById("jrn-spend-amount").value);
+
+    const description = document.getElementById("jrn-spend-description").value.trim();
+
+    const status = document.getElementById("jrn-spend-status");
+
+    if (!(amount > 0)) {
+      if (status) {
+        status.textContent = "Enter an amount first.";
+      }
+
+      return;
+    }
+
+    const item = {
+      day: dayNumber,
+      addedBy: Project.currentUser || "",
+      category: document.getElementById("jrn-spend-category").value,
+      description: description,
+      amount: amount,
+      currency: document.getElementById("jrn-spend-currency").value,
+      date: (this.todayDay() || {}).date || "",
+      notes: "",
+    };
+
+    try {
+      const response = await fetch(`${window.API_BASE}/api/items/${Data.currentProjectFolder}/expenses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item),
+      });
+
+      if (!response.ok) {
+        throw new Error("Save failed with status " + response.status);
+      }
+
+      const result = await response.json();
+
+      const data = Project.get("expenses");
+
+      if (data && Array.isArray(data.items)) {
+        data.items.push(result.item);
+      }
+
+      // Confirmation, not a second view of the data: you need to know it
+      // landed, but Expenses is where it's read back.
+      if (status) {
+        status.textContent = `Logged ${Format.money(item.amount, item.currency)} - ${item.description || item.category}.`;
+      }
+
+      document.getElementById("jrn-spend-amount").value = "";
+
+      document.getElementById("jrn-spend-description").value = "";
+    } catch (error) {
+      if (status) {
+        status.textContent = "Couldn't save that - check the connection. Nothing was logged.";
+      }
+    }
+  },
+
+  async saveTonight(dayNumber) {
+    const el = document.getElementById("jrn-tonight-notes");
+
+    if (!el) {
+      return;
+    }
+
+    const result = this.ensureEntry(dayNumber);
+
+    if (!result) {
+      return;
+    }
+
+    const newNotes = el.value.trim();
+
+    if (newNotes !== result.entry.notes) {
+      result.entry.notesAuthor = Project.currentUser || result.entry.notesAuthor || "";
+    }
+
+    result.entry.notes = newNotes;
+
+    Project.update("journal", result.data);
+
+    this.clearCachedText(dayNumber);
+
+    if (typeof FormGuard !== "undefined") {
+      FormGuard.release();
+    }
+
+    // Tomorrow, if there is one. Writing tonight is the moment you're most
+    // likely to want to glance at what's next.
+    const journey = Project.get("journey");
+
+    const days = journey && Array.isArray(journey.days) ? journey.days : [];
+
+    const tomorrow = days.find((d) => d.day === dayNumber + 1);
+
+    if (tomorrow) {
+      Day.open(tomorrow.day);
+
+      return;
+    }
+
+    this.open("entries");
   },
 
   renderList() {
@@ -666,6 +1123,8 @@ const Journal = {
     document.getElementById("jrn-library-input").click();
   },
 
+  // The single-photo button. Reads one file off the input, uploads it,
+  // then rebuilds the entry page so the new photo appears.
   async handleFileSelected(dayNumber, inputEl) {
     const file = inputEl.files && inputEl.files[0];
 
@@ -677,67 +1136,77 @@ const Journal = {
 
     const statusEl = document.getElementById("jrn-upload-status");
 
-    if (statusEl) {
-      statusEl.textContent = "Processing photo...";
-    }
+    const say = (text) => {
+      if (statusEl) {
+        statusEl.textContent = text;
+      }
+    };
 
     try {
-      const displayDataUrl = await this.resizeImage(file, this.DISPLAY_MAX_PX, this.DISPLAY_QUALITY);
+      await this.processPhotoFile(dayNumber, file, say);
 
-      if (statusEl) {
-        statusEl.textContent = "Uploading...";
-      }
-
-      const url = await this.uploadPhoto(displayDataUrl);
-
-      // The print-quality copy. Uploaded second and separately: if it
-      // fails - a big file on a weak connection - the photo is still in
-      // the journal, just without an archive copy. Losing the archive is
-      // a smaller loss than losing the photo.
-      let archiveUrl = "";
-
-      try {
-        if (statusEl) {
-          statusEl.textContent = "Saving a print-quality copy...";
-        }
-
-        const archiveDataUrl = await this.resizeImage(file, this.ARCHIVE_MAX_PX, this.ARCHIVE_QUALITY);
-
-        archiveUrl = await this.uploadPhoto(archiveDataUrl);
-      } catch (error) {
-        console.warn("Could not save the print-quality copy:", error);
-      }
-
-      const caption = this.autoCaption(file);
-
-      const addResponse = await fetch(`${window.API_BASE}/api/journal/${Data.currentProjectFolder}/${dayNumber}/photo`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, caption, archiveUrl }),
-      });
-
-      if (!addResponse.ok) {
-        throw new Error(`Save failed with status ${addResponse.status}`);
-      }
-
-      const result = await addResponse.json();
-
-      this.syncEntryLocally(dayNumber, result.entry);
-
-      if (statusEl) {
-        statusEl.textContent = "";
-      }
+      say("");
 
       this.openDay(dayNumber);
     } catch (error) {
       console.error("Photo upload failed:", error);
 
-      if (statusEl) {
-        statusEl.textContent = "Upload failed - is the server running?";
-      }
+      say("Upload failed - check the connection.");
 
       alert("Couldn't upload that photo. Check the connection and try again.");
     }
+  },
+
+  // Uploads ONE photo as two copies and attaches it to the day.
+  //
+  // Deliberately does not re-render: Tonight uploads a batch and rebuilds
+  // once at the end, and a re-render per photo would throw away whatever
+  // was being typed between uploads.
+  //
+  // `say` reports progress; callers own where that text goes.
+  async processPhotoFile(dayNumber, file, say) {
+    const report = say || (() => {});
+
+    report("Processing photo…");
+
+    const displayDataUrl = await this.resizeImage(file, this.DISPLAY_MAX_PX, this.DISPLAY_QUALITY);
+
+    report("Uploading…");
+
+    const url = await this.uploadPhoto(displayDataUrl);
+
+    // The print-quality copy, second and separately: if it fails on a weak
+    // connection the photo is still added, just without an archive. Losing
+    // the archive is a smaller loss than losing the photo.
+    let archiveUrl = "";
+
+    try {
+      report("Saving a print-quality copy…");
+
+      const archiveDataUrl = await this.resizeImage(file, this.ARCHIVE_MAX_PX, this.ARCHIVE_QUALITY);
+
+      archiveUrl = await this.uploadPhoto(archiveDataUrl);
+    } catch (error) {
+      console.warn("Could not save the print-quality copy:", error);
+    }
+
+    const caption = this.autoCaption(file);
+
+    const addResponse = await fetch(`${window.API_BASE}/api/journal/${Data.currentProjectFolder}/${dayNumber}/photo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, caption, archiveUrl }),
+    });
+
+    if (!addResponse.ok) {
+      throw new Error(`Save failed with status ${addResponse.status}`);
+    }
+
+    const result = await addResponse.json();
+
+    this.syncEntryLocally(dayNumber, result.entry);
+
+    return result;
   },
 
   // Two copies of every photo, for two different jobs.
