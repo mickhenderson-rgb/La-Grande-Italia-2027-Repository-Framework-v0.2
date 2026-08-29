@@ -41,6 +41,9 @@ document.addEventListener(
 
     Repository.setStatus("Application Ready");
 
-    Landing.open();
+    // Not Landing.open() unconditionally any more: the URL may name a trip
+    // and a section, and refreshing three screens deep used to drop you
+    // back at the trip list.
+    await Router.start();
   },
 );

@@ -24,6 +24,16 @@ const Landing = {
     // No trip is loaded on the selection screen, so show the app name.
     document.title = "COMPASS-TOS";
 
+    // The trip list is a URL too. Without this, leaving a trip left the
+    // hash pointing at the trip you just left, and Back went nowhere
+    // useful - or worse, straight back into it.
+    //
+    // Skipped when the browser is already here, which is the case when
+    // this was called BY a Back press: pushing then would undo it.
+    if (typeof Router !== "undefined" && !Router._popping) {
+      Router.clearUrl();
+    }
+
     Render.show(this.renderLoading());
 
     try {
@@ -337,6 +347,7 @@ ${
 
     Dates.recalculateJourney();
 
+    // After loadProject, so Router.hashFor() can read which trip it is.
     Router.navigate("dashboard");
   },
 

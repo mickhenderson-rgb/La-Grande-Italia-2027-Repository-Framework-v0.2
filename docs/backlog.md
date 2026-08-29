@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-29 (v1.22.0).
+Last reviewed: 2026-08-29 (v1.23.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -824,6 +824,56 @@ every surface in both themes, rather than checking a token is present. It
 exists because this is the **third** time the same category error has been
 made — C17's map pill, the Booked pin glyph, and now this: a colour that
 works as a background does not automatically work as text.
+
+### BUG-003. Back, Forward and refresh — DONE (v1.23.0)
+
+Every screen lived at the same URL. Back skipped the whole in-app session
+and landed wherever the tab had been before it; refreshing dropped you at
+the trip list however deep you were; and no section could be bookmarked or
+linked to.
+
+**The hash, not the History API's path form.** The app is served from
+`/TOS/` on shared LiteSpeed hosting with no rewrite rules, so a real path
+like `/TOS/budget` would 404 on refresh — the exact moment this work exists
+to fix. A hash never reaches the server.
+
+**The trip is in the URL too.** `#budget` alone cannot survive a reload,
+because nothing remembers which trip was open — `Data.loadProject` is
+called once, from the trip list, and that is it. So:
+
+```
+#                                    the trip list
+#/la-grande-italia-2027              that trip's dashboard
+#/la-grande-italia-2027/budget       a section
+```
+
+which also gives the review what it asked for: a link to "the Budget page
+for this trip" that another person can open.
+
+**FormGuard was the awkward part**, exactly as the review predicted. By the
+time `popstate` fires the browser has ALREADY moved, so declining to leave
+an unsaved form cannot simply not navigate — it has to push the old URL
+back. `Router._url` exists for that and nothing else.
+
+Re-navigating to the screen you are already on **replaces** rather than
+pushes, or leaving a screen you merely re-rendered would take several
+presses of Back. `Landing.open()` clears the URL to `#`, except when Back
+is what brought you there — pushing then would undo the press, which is
+what `Router._popping` guards.
+
+Degrades rather than throwing: a webview that refuses `pushState` still
+navigates, it just forgets.
+
+**Verified in a real browser, not only in the harness:** deep link on load
+→ Budget; navigate → Journal → Map; real `history.back()` → Journal →
+Budget; `forward()` → Journal. Declining an unsaved-changes prompt on Back
+left both the screen AND the address bar on Readiness, and allowing it then
+moved. A genuine `location.reload()` on `#/italy-2027/settings` came back
+on Settings with the trip loaded from the URL.
+
+**This closes the UX review** apart from two things that are not code:
+UX-005 (directory listing — a cPanel setting) and C12 (re-picking airports
+on an existing flight, which is trip data).
 
 ## D. Data-model and design questions
 
