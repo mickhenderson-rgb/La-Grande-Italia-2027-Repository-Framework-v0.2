@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-29 (v1.24.0).
+Last reviewed: 2026-08-29 (v1.25.1).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -999,6 +999,86 @@ Putting Edit Day first (v1.11.3) fixed the worst case; the general problem
 stands. Same pattern is used for `.hero .quick-links` throughout.
 
 ---
+
+### D13. One accommodation option per stay in the Budget — DONE (v1.25.0)
+
+Three hotels shortlisted for the same three nights in Milan added **all
+three** to the Budget. Early-planning totals were therefore roughly triple
+what the trip would cost, and the tier worst affected was **Estimated** —
+the one you look at while deciding.
+
+They are options for one bed. Only one can happen, so only one counts.
+
+**The rule.** Group by destination + check-in day + check-out day, exactly
+equal. Within a group, the one **furthest along the workflow** wins;
+level pegging goes to the **dearest**.
+
+Furthest-along first, because the moment you prefer one the others stop
+being candidates. Dearest as the tie-break, because a budget that guesses
+low is the one that hurts.
+
+They stay in Accommodation untouched. This changes what Budget adds up and
+nothing else.
+
+**Two things needed more care than the rule itself:**
+
+*Currencies are converted before they are compared.* 200 EUR beats 300 AUD
+once converted, but loses on the numerals alone — comparing raw amounts
+picks the wrong hotel. Falls back to the raw amount when no rate is known,
+which is right often enough: options for one city are almost always priced
+in one currency.
+
+*Per-night prices are compared on the total.* 100/night for 3 nights beats
+250 flat, though its sticker price is smaller.
+
+**What is deliberately NOT merged**, because dropping a real second
+booking loses money silently — far worse than counting an option twice:
+
+- consecutive stays in the same city (Rome days 1–3, then 3–6)
+- the same nights in different cities
+- **overlapping but unequal windows** (days 1–4 and 2–5) — guessing there
+  would be guessing at money
+- anything with no destination or no day range, which is not comparable to
+  anything
+
+The winner's line says what was left out — *"2 other options for these
+nights not counted"* — because a total that quietly disagrees with what
+you entered is worse than one that is too big.
+
+**That known edge is now handled.** Two rooms genuinely Booked for the
+same nights would have counted as one, the dearer, and the rule cannot
+tell that from two competing options both marked Booked by mistake. So
+the Budget does not guess and Readiness asks instead - see D14.
+
+### D14. Readiness asks about two bookings for the same nights — DONE (v1.25.1)
+
+The other half of D13. The Budget counts one option per stay, which is
+right for options and wrong for two rooms genuinely booked — and it cannot
+tell the difference. So the Budget does not guess, and Readiness asks.
+
+> **2 bookings for the same nights in Milan**
+> Day 1 to 4 (3 nights): Hotel A, Hotel B. The Budget counts only the
+> dearest, on the assumption these are alternatives. If both are real —
+> two rooms, say — the budget is short by the other one.
+
+It says what the app **did** about it, not merely that it noticed.
+Otherwise the reader has to go and work out for themselves whether the
+total is wrong.
+
+**Booked and beyond only** (via the shared `isBooked`, so Travel and
+Review count too). Three Shortlisted options for the same nights raise
+nothing — that is what shortlisting is.
+
+**The assertion that matters most** is that Readiness and Budget group
+**identically**. If Readiness ever grouped more loosely, it would warn
+that the total is short about a stay the Budget never merged — a warning
+about nothing, which is worse than silence because it gets believed. The
+suite runs five cases (same nights, consecutive stays, overlapping-but-
+unequal, different cities, no destination) through **both modules** and
+asserts they agree case for case.
+
+It is a `money`-level finding, so the existing guest filter hides it —
+a guest never sees costs.
 
 ## D2. Deferred to V2
 

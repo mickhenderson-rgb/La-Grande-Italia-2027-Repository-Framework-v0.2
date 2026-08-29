@@ -222,6 +222,74 @@ const Readiness = {
   },
 
   // The budget can only count what has a number on it.
+  // Two places BOOKED for the same nights in the same town.
+  //
+  // The Budget counts one option per stay (v1.25.0), which is right for
+  // options and wrong for two rooms genuinely booked - and it cannot tell
+  // the difference. Rather than have the Budget guess, this asks.
+  //
+  // Grouped exactly as the Budget groups: destination plus BOTH days. If
+  // the two ever disagreed about what "the same stay" means, this would
+  // warn about something the Budget had not actually merged.
+  //
+  // Booked and beyond only. Two Shortlisted options for the same nights
+  // is not a problem - it is what shortlisting is.
+  checkDoubleBooked(findings) {
+    const groups = {};
+
+    this.items("accommodation").forEach((item) => {
+      if (!this.isBooked(item)) {
+        return;
+      }
+
+      const where = String(item.destination || "").trim().toLowerCase();
+
+      const from = item.dayRange && item.dayRange[0];
+
+      const to = item.dayRange && item.dayRange[1];
+
+      // Not comparable, so not counted - the same rule the Budget uses.
+      if (!where || typeof from !== "number" || typeof to !== "number") {
+        return;
+      }
+
+      const key = where + "|" + from + "|" + to;
+
+      groups[key] = groups[key] || { where: where, from: from, to: to, items: [] };
+
+      groups[key].items.push(item);
+    });
+
+    Object.keys(groups).forEach((key) => {
+      const group = groups[key];
+
+      if (group.items.length < 2) {
+        return;
+      }
+
+      const names = group.items.map((i) => i.name || "Unnamed").join(", ");
+
+      const nights = Math.max(group.to - group.from, 1);
+
+      findings.push({
+        level: "money",
+        title:
+          group.items.length +
+          " bookings for the same nights in " +
+          this.pretty(group.where),
+        // Says what the app has DONE about it, not merely that it noticed -
+        // otherwise the reader has to go and work out for themselves
+        // whether the budget is wrong.
+        detail:
+          `Day ${group.from} to ${group.to} (${nights} ${nights === 1 ? "night" : "nights"}): ${names}. ` +
+          "The Budget counts only the dearest, on the assumption these are alternatives. " +
+          "If both are real - two rooms, say - the budget is short by the other one.",
+        action: "Router.navigate('accommodation')",
+        actionLabel: "Open accommodation",
+      });
+    });
+  },
+
   checkMissingPrices(findings) {
     // Both forms spelled out. A single plural label produced "1 activities
     // with no price", and accommodation/transport don't pluralise the way
@@ -292,6 +360,7 @@ const Readiness = {
       this.checkTravelBetweenStops,
       this.checkUnbooked,
       this.checkMissingPrices,
+      this.checkDoubleBooked,
       this.checkUntitledDays,
     ];
 

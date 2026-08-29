@@ -147,6 +147,107 @@ const Budget = {
     return labels[key] || key;
   },
 
+  // The workflow, in order, so "further along" is a number.
+  STATUS_ORDER: ["Research", "Shortlisted", "Selected", "Booked", "Travel", "Review"],
+
+  statusRank(status) {
+    const i = this.STATUS_ORDER.indexOf(status);
+
+    return i < 0 ? -1 : i;
+  },
+
+  // What a stay actually costs, per-night maths included, converted to the
+  // display currency where a rate is available.
+  //
+  // The conversion matters: comparing 150 AUD against 120 EUR by their
+  // numerals picks the wrong hotel. Where no rate is known it falls back to
+  // the raw amount, which is right often enough - options for the same
+  // city are almost always priced in the same currency.
+  stayCost(item) {
+    const base = Number(item.price && item.price.amount) || 0;
+
+    const perNight = String(item.price && item.price.per).toLowerCase() === "night";
+
+    const total = perNight ? base * this.calculateNights(item) : base;
+
+    const from = String((item.price && item.price.currency) || "").toUpperCase();
+
+    const to = this.displayCurrency;
+
+    if (!from || !to || from === to) {
+      return total;
+    }
+
+    const converted = this.convertAmount(total, from, to);
+
+    return converted === null ? total : converted;
+  },
+
+  // Several options for the same nights are OPTIONS, not a bill for all of
+  // them - only one can happen. So only one counts here. They stay in
+  // Accommodation untouched; this changes what Budget adds up, nothing else.
+  //
+  // Furthest along the workflow wins, because the moment you prefer one the
+  // others stop being candidates. Level pegging goes to the dearest, since
+  // a budget that guesses low is the one that hurts.
+  //
+  // Grouped on destination AND both days, exactly equal. Overlapping-but-
+  // different windows are deliberately NOT merged: two nights in Rome
+  // followed by three more is a real second booking, not a duplicate, and
+  // guessing at that would silently lose real money from the total.
+  //
+  // Returns [{ item, dropped }] so the caller can say what it left out.
+  chooseOnePerStay(items) {
+    const groups = {};
+
+    const ungrouped = [];
+
+    items.forEach((item) => {
+      const where = String(item.destination || "").trim().toLowerCase();
+
+      const from = item.dayRange && item.dayRange[0];
+
+      const to = item.dayRange && item.dayRange[1];
+
+      // Only grouped when we genuinely know it is the same stay. Something
+      // with no destination or no dates is not comparable to anything, and
+      // dropping it would lose money nobody asked to lose.
+      if (!where || typeof from !== "number" || typeof to !== "number") {
+        ungrouped.push({ item: item, dropped: 0 });
+
+        return;
+      }
+
+      const key = where + "|" + from + "|" + to;
+
+      groups[key] = groups[key] || [];
+
+      groups[key].push(item);
+    });
+
+    const chosen = Object.keys(groups).map((key) => {
+      const group = groups[key];
+
+      if (group.length === 1) {
+        return { item: group[0], dropped: 0 };
+      }
+
+      const ranked = group.slice().sort((a, b) => {
+        const byStatus = this.statusRank(b.status) - this.statusRank(a.status);
+
+        if (byStatus !== 0) {
+          return byStatus;
+        }
+
+        return this.stayCost(b) - this.stayCost(a);
+      });
+
+      return { item: ranked[0], dropped: group.length - 1 };
+    });
+
+    return ungrouped.concat(chosen);
+  },
+
   collectEntries() {
     const entries = [];
 
@@ -176,7 +277,11 @@ const Budget = {
       }
     });
 
-    this.getItems(Project.get("accommodation")).forEach((it) => {
+    // ONE option per stay - see chooseOnePerStay. Three hotels for the
+    // same three nights in Milan is three ideas, not three bills.
+    this.chooseOnePerStay(this.getItems(Project.get("accommodation"))).forEach((choice) => {
+      const it = choice.item;
+
       const tier = this.getTier(it.status);
 
       if (!tier) {
@@ -191,12 +296,21 @@ const Budget = {
 
       const total = perNight ? base * nights : base;
 
-      const detail =
-        perNight && nights > 1
-          ? `${this.money(base, it.price.currency)}/night × ${nights} = ${this.money(total, it.price.currency)}`
-          : "";
+      const parts = [];
 
-      add(tier, "accommodation", it.name || "Accommodation", total, it.price && it.price.currency, detail, it.status);
+      if (perNight && nights > 1) {
+        parts.push(`${this.money(base, it.price.currency)}/night × ${nights} = ${this.money(total, it.price.currency)}`);
+      }
+
+      // Said out loud, because a total that quietly disagrees with what you
+      // entered is worse than one that is too big.
+      if (choice.dropped > 0) {
+        parts.push(
+          `${choice.dropped} other ${choice.dropped === 1 ? "option" : "options"} for these nights not counted`,
+        );
+      }
+
+      add(tier, "accommodation", it.name || "Accommodation", total, it.price && it.price.currency, parts.join(" · "), it.status);
     });
 
     this.getItems(Project.get("activities")).forEach((it) => {
