@@ -500,7 +500,7 @@ const Budget = {
     });
 
     const convertedCell = complete
-      ? this.formatConverted(convertedTotal, this.displayCurrency)
+      ? this.money(convertedTotal, this.displayCurrency)
       : this.rateError
         ? "Rate unavailable"
         : "…";
@@ -535,7 +535,7 @@ const Budget = {
   renderSummary(estimated, allocated, actual) {
     const display = this.displayCurrency;
 
-    const fmt = (tier) => (tier.complete ? this.formatConverted(tier.converted, display) : "Rates unavailable");
+    const fmt = (tier) => (tier.complete ? this.money(tier.converted, display) : "Rates unavailable");
 
     const cap = this.getBudgetCap();
 
@@ -571,17 +571,18 @@ const Budget = {
 
         const colour = over ? "#b3261e" : "#2e7d4f";
 
-        const verdict = over
-          ? `✗ (OVER BUDGET by ${this.formatConverted(Math.abs(remaining), display)})`
-          : "✓ (under budget)";
+        // The signed figure beside this already says how much. Repeating
+        // it here produced "-AUD 156.75 ✗ (OVER BUDGET by AUD 156.75)" -
+        // the same number twice, once negated.
+        const verdict = over ? "✗ over budget" : "✓ under budget";
 
         capRows = `
 
-<tr><td>Trip Budget Cap</td><td style="text-align: right;">${this.formatConverted(capDisplay, display)}</td></tr>
+<tr><td>Trip Budget Cap</td><td style="text-align: right;">${this.money(capDisplay, display)}</td></tr>
 
-<tr><td>Actual Spend</td><td style="text-align: right;">${this.formatConverted(actual.converted, display)}</td></tr>
+<tr><td>Actual Spend</td><td style="text-align: right;">${this.money(actual.converted, display)}</td></tr>
 
-<tr><td><strong>Remaining</strong></td><td style="text-align: right; color: ${colour};"><strong>${this.formatConverted(remaining, display)} ${verdict}</strong></td></tr>
+<tr><td><strong>Remaining</strong></td><td style="text-align: right; color: ${colour};"><strong>${this.money(remaining, display)} ${verdict}</strong></td></tr>
 
 `;
       }
@@ -610,14 +611,6 @@ const Budget = {
 </div>
 
 `;
-  },
-
-  formatConverted(amount, currency) {
-    const value = Number(amount) || 0;
-
-    const sign = value < 0 ? "-" : "";
-
-    return `${sign}${Format.money(Math.abs(value), currency)}`;
   },
 
   // Delegates to the shared formatter - see app/format.js.

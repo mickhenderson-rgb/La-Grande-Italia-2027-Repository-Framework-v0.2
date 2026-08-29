@@ -174,11 +174,11 @@ ${
 
     <div class="planner-buttons" style="justify-content: center; gap: 8px;">
 
-        <button type="button" onclick="Sharing.open('${project.id}', '${this.jsArg(project.name)}')" style="font-size: 0.8em; padding: 5px 14px;">Share</button>
+        <button type="button" class="btn-secondary btn-sm" onclick="Sharing.open('${project.id}', '${this.jsArg(project.name)}')">Share</button>
 
-        <button type="button" onclick="Landing.setArchived('${project.id}', ${!project.archived})" style="font-size: 0.8em; padding: 5px 14px;">${project.archived ? "Unarchive" : "Archive"}</button>
+        <button type="button" class="btn-secondary btn-sm" onclick="Landing.setArchived('${project.id}', ${!project.archived})">${project.archived ? "Unarchive" : "Archive"}</button>
 
-        <button type="button" onclick="Landing.confirmDelete('${project.id}', '${this.jsArg(project.name)}')" style="font-size: 0.8em; padding: 5px 14px;">Delete</button>
+        <button type="button" class="btn-danger btn-sm" onclick="Landing.confirmDelete('${project.id}', '${this.jsArg(project.name)}')">Delete</button>
 
     </div>
 
@@ -187,7 +187,7 @@ ${
 
     <div class="planner-buttons" style="justify-content: center; gap: 8px;">
 
-        <button type="button" onclick="Landing.leaveTrip('${project.id}', '${this.jsArg(project.name)}')" style="font-size: 0.8em; padding: 5px 14px;">Leave Trip</button>
+        <button type="button" class="btn-danger btn-sm" onclick="Landing.leaveTrip('${project.id}', '${this.jsArg(project.name)}')">Leave Trip</button>
 
     </div>
 
@@ -205,7 +205,7 @@ ${
 
     ${roleBadge}
 
-    <button type="button" onclick="Landing.selectTrip('${project.id}')" style="display: block; width: 100%; margin: 14px 0 12px; padding: 14px 24px; font-size: 1.15em; font-weight: 700; background: #34495E; color: #ffffff; border: none; border-radius: var(--radius, 8px); cursor: pointer;">
+    <button type="button" class="btn-primary landing-open" onclick="Landing.selectTrip('${project.id}')">
 
         Open Trip
 

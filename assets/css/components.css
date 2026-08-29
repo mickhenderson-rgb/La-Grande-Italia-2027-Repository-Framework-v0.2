@@ -419,7 +419,7 @@ body {
 
 .snap-icon { font-size: 1.1em; }
 
-.snap-label { font-weight: 700; color: var(--color-primary); }
+.snap-label { font-weight: 700; color: var(--color-primary-text); }
 
 .snap-counts { margin-left: auto; font-size: 0.8em; color: var(--color-muted); }
 
@@ -456,7 +456,7 @@ body {
 .snap-item-title { font-weight: 600; color: var(--color-primary-deep); cursor: pointer; }
 
 .snap-item-title:hover,
-.snap-item-title:focus-visible { color: var(--color-primary); text-decoration: underline; }
+.snap-item-title:focus-visible { color: var(--color-primary-text); text-decoration: underline; }
 
 .snap-line { font-size: 0.85em; color: var(--color-text-2); margin: 2px 0; }
 
@@ -549,7 +549,7 @@ body {
   margin-top: 15px;
 }
 
-.timeline-buttons button {
+.timeline-buttons button:not(.btn-primary):not(.btn-secondary):not(.btn-danger) {
   border: none;
 
   background: var(--color-primary);
@@ -620,7 +620,7 @@ body {
   margin-top: 20px;
 }
 
-.planner-buttons button {
+.planner-buttons button:not(.btn-primary):not(.btn-secondary):not(.btn-danger) {
   background: var(--color-primary);
 
   color: var(--color-on-primary);
@@ -716,7 +716,7 @@ body {
   margin-bottom: 15px;
 }
 
-.workspace-panel button {
+.workspace-panel button:not(.btn-primary):not(.btn-secondary):not(.btn-danger) {
   margin-top: 20px;
 
   border: none;
@@ -773,8 +773,8 @@ button {
 }
 
 .btn,
-.manager-card button,
-.research-actions button {
+.manager-card button:not(.btn-primary):not(.btn-secondary):not(.btn-danger),
+.research-actions button:not(.btn-primary):not(.btn-secondary):not(.btn-danger) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -810,7 +810,7 @@ button {
 
 .btn-secondary {
   background: var(--color-surface);
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   border-color: var(--color-border-strong);
 }
 
@@ -1015,7 +1015,7 @@ button {
 
   font-weight: 600;
 
-  color: var(--color-primary);
+  color: var(--color-primary-text);
 
   list-style: none;
 }
@@ -1089,7 +1089,7 @@ button {
 
   background: var(--color-surface);
 
-  color: var(--color-primary);
+  color: var(--color-primary-text);
 
   cursor: pointer;
 
@@ -1322,7 +1322,7 @@ button {
 
   .mnav-icon { font-size: 20px; line-height: 1; }
 
-  .mnav-tab.is-active { color: var(--color-primary); }
+  .mnav-tab.is-active { color: var(--color-primary-text); }
 
   .mnav-tab.is-active .mnav-icon {
     position: relative;
@@ -1365,7 +1365,7 @@ button {
   .more-title {
     font-size: 17px;
     font-weight: 700;
-    color: var(--color-primary);
+    color: var(--color-primary-text);
     padding: 4px 20px 6px;
   }
 
@@ -1416,6 +1416,18 @@ button {
    does NOT - it falls back to its intrinsic size attribute, which made
    every airport field ~40px narrower than the airline and flight-number
    fields beside it, with the dropdown overhanging its own input. */
+/* The trip card primary action. Full width and larger, so it reads as the
+   obvious thing to do; the colour comes from .btn-primary rather than from
+   a literal, which is what kept it light-theme navy on a dark card. */
+.landing-open {
+  display: block;
+  width: 100%;
+  margin: 14px 0 12px;
+  padding: 14px 24px;
+  font-size: 1.15em;
+  font-weight: 700;
+}
+
 /* =========================================================
    Guide. "Start here" is a live checklist of the trip in front of you,
    so it reads as a list of things to do rather than as prose.
@@ -1516,7 +1528,7 @@ button {
 
 .guide-hint:hover {
   border-color: var(--color-primary);
-  color: var(--color-primary);
+  color: var(--color-primary-text);
 }
 
 /* =========================================================
@@ -2010,9 +2022,9 @@ button {
 
 .day-now-title { font-size: 15px; margin-top: 4px; }
 
-.day-now-card .planner-buttons button {
+.day-now-card .planner-buttons button:not(.btn-primary):not(.btn-secondary):not(.btn-danger) {
   background: var(--color-on-primary);
-  color: var(--color-primary);
+  color: var(--color-primary-text);
 }
 
 .day-later { margin: 14px 0; }
@@ -2135,6 +2147,6 @@ button {
 }
 
 .jrn-tab.is-active {
-  color: var(--color-primary);
+  color: var(--color-primary-text);
   border-bottom-color: var(--color-secondary);
 }

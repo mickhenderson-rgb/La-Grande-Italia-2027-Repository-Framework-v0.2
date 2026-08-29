@@ -30,7 +30,10 @@ theme silently keeps the light value.
   --color-secondary: #C79C5D;
   --color-text: #2C3E50;
   --color-text-2: #444444;           /* form labels, snapshot detail lines */
-  --color-muted: #6b7280;
+  /* A shade darker than it looks like it needs to be: the old #6b7280
+     was 4.19:1 on a tinted strip (--color-bg-tint), against the 4.5:1
+     body text needs. Imperceptibly different, measurably readable. */
+  --color-muted: #626a75;
   --color-surface: #ffffff;
   --color-border: #e2e5ea;
   --color-border-strong: #cbd2da;    /* mini buttons, sheet handle */
@@ -51,7 +54,7 @@ theme silently keeps the light value.
      needs. A colour that works behind white text does not automatically
      work as text - the same mistake that made the map pill unreadable. */
   --color-primary-text: #34495E;
-  --color-success: #2e7d32;
+  --color-success: #2b752f;
   --color-danger: #b3261e;
   --color-danger-bg: #fbeae9;
   --color-danger-border: #e6b4b0;

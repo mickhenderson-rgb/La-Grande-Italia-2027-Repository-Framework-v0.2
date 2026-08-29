@@ -593,7 +593,10 @@ async function handleJournalChecklistRemove(req, res, projectId, day, itemId) {
 // through this entry.
 const PUBLIC_FILES = new Set(["/index.html", "/manifest.webmanifest", "/service-worker.js"]);
 
-const PUBLIC_DIRS = ["/app/", "/core/", "/assets/", "/components/", "/data/projects/"];
+// /components/ removed with the directory itself in v1.22.0 - it and the
+// 14 files in assets/js/ were the pre-app/ implementation, last touched in
+// July and loaded by nothing since.
+const PUBLIC_DIRS = ["/app/", "/core/", "/assets/", "/data/projects/"];
 
 function isPubliclyServable(urlPath) {
   if (PUBLIC_FILES.has(urlPath)) {

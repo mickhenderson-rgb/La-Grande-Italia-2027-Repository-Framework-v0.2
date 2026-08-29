@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-28 (v1.21.0).
+Last reviewed: 2026-08-29 (v1.22.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -713,7 +713,7 @@ the check-out rule is asserted to be the *same sentence* as
 `accommodation.js`, and the permission levels come from `sharing.js`. Add
 a seventh status and the guide starts lying — and the suite says so.
 
-### C20. `--color-primary` is unreadable as text in dark mode — PARTLY DONE (v1.21.0)
+### C20. `--color-primary` is unreadable as text in dark mode — superseded, see below
 
 Found while checking the guide in a browser. In dark mode
 `--color-primary` is `#4a6fa1`, and as **text** on a `#262b31` card that
@@ -731,6 +731,99 @@ enough for the 3:1 threshold, some sit on a different background, and some
 are borders rather than text. A blanket swap would be wrong. Worth a pass
 with a contrast harness like `test-map-ink-contrast.js`, which measures
 rather than greps.
+
+### BUG-004. A Delete looked like a Save — DONE (v1.22.0), and it was app-wide
+
+The review found this on the trip card at 375px and reasonably guessed the
+mobile stylesheet was overriding the desktop sizing. It was not — inline
+styles beat a media query, so `font-size` and `padding` survived.
+
+What did not survive was everything the inline styles did **not** set. Six
+container rules give every button inside them a solid primary fill:
+
+```css
+.planner-buttons button {          /* specificity 0,1,1 */
+  background: var(--color-primary);
+  border: none;                    /* ← also kills the danger outline */
+}
+```
+
+`.btn-danger` is `(0,1,0)`. The container wins. So **every `.btn-danger` in
+the app rendered as a navy pill identical to the Save button beside it** —
+Accommodation, Activities, Flights, Restaurants, Transport all put their
+Delete inside `.planner-buttons`. Never a mobile problem, and never only
+the trip card.
+
+The container rules now say what was always meant: a button gets the
+default look **unless it has asked for a specific one**
+(`:not(.btn-primary):not(.btn-secondary):not(.btn-danger)`). Sizing rules
+are untouched — 44px touch targets should apply to every button.
+
+The trip card also stopped hand-rolling its colours: `background: #34495E`
+was the light-theme navy written as a literal, so it stayed light-theme
+navy on a dark card.
+
+Verified in a browser at 375px — **Open Trip** navy/white 61px,
+**Share/Archive** white with a grey border, **Delete** white with red text
+`#b3261e` and a red border. Dark: 5.15 / 6.36 / 6.36 / 5.65, all above 4.5.
+
+### BUG-006. Budget sign and a number printed twice — DONE (v1.22.0)
+
+`Format.money` was **already right** — `toLocaleString` puts the sign next
+to the numeral, so `money(-156.75, "AUD")` returns `AUD -156.75`.
+`formatConverted` went out of its way to undo it: `Math.abs()` the value,
+then prepend its own `-`. The whole bug was the wrapper, so the wrapper is
+deleted rather than the formatter changed.
+
+That made `formatConverted` identical to `Budget.money`, so it is gone too
+— two names for one behaviour is how v1.16.2's four rival money formatters
+happened.
+
+The Remaining row read `-AUD 156.75 ✗ (OVER BUDGET by AUD 156.75)` — the
+same figure twice, once negated. The signed number carries it; the verdict
+now only names the state.
+
+`test-budget-sign.js` had **pinned the wrong behaviour**, commented "sign
+moves in front of currency". Updated deliberately: the deciding argument is
+that every other screen shows `AUD -156.75`, and Budget differing is the
+exact inconsistency v1.16.2 existed to remove.
+
+### BUG-007. Dead code — DONE (v1.22.0), and it was bigger than reported
+
+The review found `app/planning-item.js` and `components/`. Checking before
+deleting turned up the rest: **`assets/js/` — 14 files** that nothing
+loads, and which were the *only* thing referencing `components/`. Both
+were the pre-`app/` implementation, last touched **5 July** while `app/`
+was touched the same day as this cleanup.
+
+31 files, 18 KB, removed. `planning-item.js` was the only one actually
+fetched — `index.html` loaded it on every visit and `PlanningItem` is
+referenced nowhere. `/components/` also dropped from `server.js`'s
+static allowlist.
+
+### C20. `--color-primary` as text — DONE (v1.22.0)
+
+Ten rules set text to `--color-primary`, which is `#4a6fa1` in dark mode:
+**2.77:1** on a card, against 4.5:1.
+
+All ten now use `--color-primary-text`. The swap is provably safe because
+in light mode the two tokens are **byte-identical** (`#34495E`), so light
+cannot regress; dark goes 2.77 → **6.36**.
+
+`border-color` and `background` deliberately still use `--color-primary` —
+a border has no text threshold, and a fill behind white text must stay
+dark enough for it (it is 5.15:1, which is its real job).
+
+Two more marginal failures fell out of measuring the whole palette:
+`--color-muted` was 4.19:1 on a tinted strip and `--color-success` 4.44:1.
+Both nudged a shade darker — imperceptible, and now every ink clears 4.5:1
+on every surface either theme offers.
+
+`test-theme-contrast.js` measures real WCAG ratios for every ink against
+every surface in both themes, rather than checking a token is present. It
+exists because this is the **third** time the same category error has been
+made — C17's map pill, the Booked pin glyph, and now this: a colour that
+works as a background does not automatically work as text.
 
 ## D. Data-model and design questions
 
