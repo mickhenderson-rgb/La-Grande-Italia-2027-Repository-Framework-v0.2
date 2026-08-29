@@ -591,7 +591,7 @@ const Budget = {
 
 <div class="manager-card" style="border-top: 3px solid #34495E;">
 
-    <h2>Summary</h2>
+    <h2>Summary ${typeof Guide !== "undefined" ? Guide.hint("statuses", "How an item's status decides which budget tier it lands in") : ""}</h2>
 
     <table style="width: 100%;">
 

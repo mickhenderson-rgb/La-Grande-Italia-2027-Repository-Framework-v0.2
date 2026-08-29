@@ -45,6 +45,12 @@ theme silently keeps the light value.
   /* Danger */
   /* Paired with --color-danger, and themed for the same reason it is: a
      green picked for a white card is 2.78:1 on a dark one. */
+  /* The primary colour when it is TEXT rather than a background.
+     Identical in light mode; in dark it has to be lightened, because
+     #4a6fa1 on a #262b31 card is 2.77:1 against the 4.5:1 body text
+     needs. A colour that works behind white text does not automatically
+     work as text - the same mistake that made the map pill unreadable. */
+  --color-primary-text: #34495E;
   --color-success: #2e7d32;
   --color-danger: #b3261e;
   --color-danger-bg: #fbeae9;

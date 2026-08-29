@@ -87,7 +87,9 @@ const Sidebar = {
     {
       id: "guide",
       icon: "📖",
-      title: "Travel Guide",
+      // Renamed. It sits under "App" beside Settings, and always has -
+      // it is help for using this app, not a guide to anywhere.
+      title: "Guide",
     },
 
     {

@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-28 (v1.20.0).
+Last reviewed: 2026-08-28 (v1.21.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -668,6 +668,69 @@ trip-card hierarchy), BUG-005 (Travel Guide), BUG-006 (budget sign, and
 the number printed twice), BUG-007 (dead code — `planning-item.js` is
 loaded by index.html and never referenced; `components/` is 16 unloaded
 files), UX-005 (directory listing — a cPanel setting, not code).
+
+### BUG-005 / A14. The Guide — DONE (v1.21.0)
+
+`app/guide.js`. The "Travel Guide" sidebar entry had rendered *"isn't
+built yet — check back in a future update"* since it was added. This is
+what it was for, and the placeholder route is deleted rather than left
+renamed.
+
+**Not a guide to travelling.** The sidebar has always grouped it under
+**App**, beside Settings, rather than under **Plan** with Destinations —
+so it was an app-level thing from the start. Renamed to **Guide**.
+
+**Start Here is live, and that is the point.** Static help answers "how
+does this work"; it cannot answer *"what do I do now"*, which is the
+question someone actually has facing a new trip and fifteen empty
+sections. It reads the trip in front of you and reports which of five
+steps are done, which is next, and links straight to it — dates → days →
+overnight locations → book something → Readiness. Readiness is marked
+`always`, so it is never ticked off: it is a habit, not a step.
+
+On a part-finished trip it says things like *"2 of 3 days have one"*
+rather than just "incomplete".
+
+The reference half is searchable (every word must match, so two words
+narrow rather than widen) and explains what the screens cannot:
+
+- accommodation and transport are keyed to **day numbers**, and Check-out
+  Day is the day you **leave**
+- an item's status is not decoration — it decides which Budget tier the
+  money lands in
+- Destinations, Trip Map and Readiness have no Add button because they are
+  derived from Planner days
+
+`Guide.hint(topic, label)` returns a **"?"** that opens the guide at the
+paragraph explaining a field. Two are placed: Accommodation's Check-out
+Day, and Budget's Summary. `test-guide.js` asserts every one points at a
+topic that exists — a "?" that scrolls nowhere looks broken.
+
+**A guide that is wrong is worse than none, because it is believed.** So
+the suite checks the guide's claims against the code that owns them: the
+six statuses come from `flights.js`, the tier mapping from `budget.js`,
+the check-out rule is asserted to be the *same sentence* as
+`accommodation.js`, and the permission levels come from `sharing.js`. Add
+a seventh status and the guide starts lying — and the suite says so.
+
+### C20. `--color-primary` is unreadable as text in dark mode — PARTLY DONE (v1.21.0)
+
+Found while checking the guide in a browser. In dark mode
+`--color-primary` is `#4a6fa1`, and as **text** on a `#262b31` card that
+is **2.77:1** — against the 4.5:1 body text needs.
+
+The same category error as the map pill (C17): a colour that works as a
+**background** behind white text does not automatically work **as** text.
+
+`--color-primary-text` added to both themes — `#34495E` light (9.29:1),
+`#8bb0de` dark (6.36:1). The guide uses it.
+
+**Still open:** `components.css` uses `color: var(--color-primary)` in
+**19 places**. Each needs looking at individually — some are large or bold
+enough for the 3:1 threshold, some sit on a different background, and some
+are borders rather than text. A blanket swap would be wrong. Worth a pass
+with a contrast harness like `test-map-ink-contrast.js`, which measures
+rather than greps.
 
 ## D. Data-model and design questions
 
