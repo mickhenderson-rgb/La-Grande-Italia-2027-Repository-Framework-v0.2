@@ -329,12 +329,16 @@ ${rows}
   },
 
   remove(id) {
-    const answer = confirm("Remove this expense?");
+    UI.confirm({
+      title: "Remove this expense?",
+      body: "This cannot be undone.",
+      confirmLabel: "Remove",
+      tone: "danger",
+      onConfirm: () => this.removeConfirmed(id),
+    });
+  },
 
-    if (!answer) {
-      return;
-    }
-
+  removeConfirmed(id) {
     fetch(`${window.API_BASE}/api/items/${Data.currentProjectFolder}/expenses/${id}`, {
       method: "DELETE",
     })
@@ -354,7 +358,7 @@ ${rows}
       .catch((error) => {
         console.error("Could not remove expense:", error);
 
-        alert("Couldn't remove that item. Check the connection and try again.");
+        UI.fail("Couldn't remove that item. Check the connection and try again.");
       });
   },
 
@@ -473,14 +477,14 @@ ${rows}
     const description = document.getElementById("exp-description").value.trim();
 
     if (!description) {
-      alert("Please enter a description before saving.");
+      UI.warn("Please enter a description before saving.");
       return;
     }
 
     const dayNumber = parseInt(document.getElementById("exp-day").value, 10);
 
     if (!dayNumber || dayNumber < 1) {
-      alert("Please enter a valid day number before saving.");
+      UI.warn("Please enter a valid day number before saving.");
       return;
     }
 
@@ -546,7 +550,7 @@ ${rows}
       .catch((error) => {
         console.error("Could not save expense:", error);
 
-        alert("Couldn't save that item. Check the connection and try again.");
+        UI.fail("Couldn't save that item. Check the connection and try again.");
       });
   },
 

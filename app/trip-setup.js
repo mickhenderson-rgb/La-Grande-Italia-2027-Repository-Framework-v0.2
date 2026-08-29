@@ -194,12 +194,12 @@ const TripSetup = {
     const statusEl = document.getElementById("setup-status");
 
     if (!name) {
-      alert("Please enter a trip name.");
+      UI.warn("Please enter a trip name.", { slot: "setup-status", focus: "setup-name" });
       return;
     }
 
     if (!startDate || !endDate) {
-      alert("Please set both a start date and an end date.");
+      UI.warn("Please set both a start date and an end date.", { slot: "setup-status", focus: "setup-start-date" });
       return;
     }
 

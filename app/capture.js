@@ -274,7 +274,7 @@ const Capture = {
       .catch((error) => {
         console.error("Could not save expense:", error);
 
-        alert("Couldn't save that expense. Check the connection and try again.");
+        UI.fail("Couldn't save that expense. Check the connection and try again.");
       });
   },
 
@@ -318,7 +318,7 @@ const Capture = {
     } catch (error) {
       console.error("Capture photo upload failed:", error);
 
-      alert("Couldn't upload that photo. Check the connection and try again.");
+      UI.fail("Couldn't upload that photo. Check the connection and try again.");
 
       this.close();
     }

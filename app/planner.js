@@ -454,7 +454,7 @@ const Planner = {
     const overnight = document.getElementById("pln-new-overnight").value.trim().toLowerCase();
 
     if (!title || !location) {
-      alert("Please enter at least a title and location before saving.");
+      UI.warn("Please enter at least a title and location before saving.");
       return;
     }
 
@@ -472,7 +472,7 @@ const Planner = {
         : null;
 
     if (!day) {
-      alert("That day could not be found.");
+      UI.warn("That day could not be found.");
 
       return;
     }
@@ -783,7 +783,7 @@ const Planner = {
         : null;
 
     if (!day) {
-      alert("That day could not be found.");
+      UI.warn("That day could not be found.");
 
       return;
     }
@@ -799,7 +799,7 @@ const Planner = {
     const transit = Boolean(transitBox && transitBox.checked);
 
     if (!title || !location) {
-      alert("Please enter at least a title and location before saving.");
+      UI.warn("Please enter at least a title and location before saving.");
 
       return;
     }
@@ -828,13 +828,13 @@ const Planner = {
     const bothPresent = latRaw !== "" && lngRaw !== "";
 
     if (bothPresent && (Number.isNaN(lat) || Number.isNaN(lng))) {
-      alert("Latitude and longitude must both be numbers, or both left blank.");
+      UI.warn("Latitude and longitude must both be numbers, or both left blank.");
 
       return;
     }
 
     if (bothPresent && (lat < -90 || lat > 90 || lng < -180 || lng > 180)) {
-      alert("Latitude must be between -90 and 90, and longitude between -180 and 180.");
+      UI.warn("Latitude must be between -90 and 90, and longitude between -180 and 180.");
 
       return;
     }
@@ -848,7 +848,7 @@ const Planner = {
 
       delete day.lng;
     } else {
-      alert("Enter both latitude and longitude, or leave both blank.");
+      UI.warn("Enter both latitude and longitude, or leave both blank.");
 
       return;
     }
@@ -865,20 +865,25 @@ const Planner = {
   confirmDeleteDay(dayNumber) {
     const linked = JourneyEditor.countLinkedItems(dayNumber);
 
-    const message =
+    // The linked-items count is the whole reason this question is worth
+    // asking, so it goes in the body where it can be read properly rather
+    // than being crammed into a one-line title.
+    const body =
       linked > 0
-        ? `Day ${dayNumber} has ${linked} linked ${linked === 1 ? "item" : "items"} (transport, expenses or journal entries). Deleting this day will delete those too, and every later day will be renumbered. Continue?`
-        : `Delete Day ${dayNumber}? Every later day will be renumbered.`;
+        ? `This day has ${linked} linked ${linked === 1 ? "item" : "items"} (transport, expenses or journal entries). Deleting the day deletes those too, and every later day is renumbered.`
+        : "Every later day will be renumbered.";
 
-    const answer = confirm(message);
+    UI.confirm({
+      title: `Delete Day ${dayNumber}?`,
+      body: body,
+      confirmLabel: "Delete day",
+      tone: "danger",
+      onConfirm: () => {
+        JourneyEditor.deleteDay(dayNumber);
 
-    if (!answer) {
-      return;
-    }
-
-    JourneyEditor.deleteDay(dayNumber);
-
-    Router.navigate("planner");
+        Router.navigate("planner");
+      },
+    });
   },
 
   // =========================================================
@@ -1073,12 +1078,16 @@ const Planner = {
   // idea" case, without leaving the Planner (unlike each module's own
   // remove(), which navigates into that module's own list view).
   deleteSnapItem(collection, itemId, label) {
-    const confirmed = confirm(`Delete "${label}"? This can't be undone.`);
+    UI.confirm({
+      title: `Delete "${label}"?`,
+      body: "This cannot be undone.",
+      confirmLabel: "Delete",
+      tone: "danger",
+      onConfirm: () => this.deleteSnapItemConfirmed(collection, itemId),
+    });
+  },
 
-    if (!confirmed) {
-      return;
-    }
-
+  deleteSnapItemConfirmed(collection, itemId) {
     fetch(`${window.API_BASE}/api/items/${Data.currentProjectFolder}/${collection}/${itemId}`, {
       method: "DELETE",
     })
@@ -1098,7 +1107,7 @@ const Planner = {
       .catch((error) => {
         console.error("Could not delete item:", error);
 
-        alert("Couldn't delete that item. Check the connection and try again.");
+        UI.fail("Couldn't delete that item. Check the connection and try again.");
       });
   },
 

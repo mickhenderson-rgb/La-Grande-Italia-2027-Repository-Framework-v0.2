@@ -1416,6 +1416,152 @@ button {
    does NOT - it falls back to its intrinsic size attribute, which made
    every airport field ~40px narrower than the airline and flight-number
    fields beside it, with the dropdown overhanging its own input. */
+/* =========================================================
+   Messages and questions - the replacements for alert() and
+   confirm().
+
+   Everything here is themed, because "cannot be styled for dark mode"
+   was half the reason the native dialogs had to go. The other half was
+   that they can be suppressed entirely; that is fixed by these being
+   ordinary DOM.
+   ========================================================= */
+
+.ui-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 2000;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 13px 14px 13px 16px;
+  border-radius: var(--radius, 8px);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.22);
+  font-size: 0.95em;
+  line-height: 1.45;
+}
+
+/* Above the mobile bottom bar, not behind it. */
+@media (max-width: 767px) {
+  .ui-toast {
+    bottom: 88px;
+    left: 16px;
+    right: 16px;
+    transform: none;
+    max-width: none;
+  }
+}
+
+.ui-toast[hidden] { display: none; }
+
+.ui-toast-text { flex: 1 1 auto; }
+
+.ui-toast-close {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.65;
+}
+
+.ui-toast-close:hover { opacity: 1; }
+
+/* A 4px edge carries the meaning without colouring the whole box, which
+   at this size reads as shouting. */
+.ui-toast.is-ok { border-left: 4px solid var(--color-success); }
+.ui-toast.is-warn { border-left: 4px solid var(--color-secondary); }
+.ui-toast.is-fail { border-left: 4px solid var(--color-danger); }
+
+/* Inline form message - the preferred home for a validation problem,
+   because it sits next to the field that caused it. */
+.ui-msg {
+  margin: 8px 0 0;
+  padding: 8px 11px;
+  border-radius: var(--radius-sm, 6px);
+  font-size: 0.9em;
+  line-height: 1.45;
+}
+
+.ui-msg[hidden] { display: none; }
+
+.ui-msg.is-warn {
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-border);
+  color: var(--color-danger);
+}
+
+.ui-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.ui-modal {
+  width: min(440px, 100%);
+  padding: 22px 24px 20px;
+  border-radius: var(--radius, 8px);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.32);
+  border-top: 4px solid var(--color-primary);
+}
+
+.ui-modal.is-danger { border-top-color: var(--color-danger); }
+
+.ui-modal-title { margin: 0 0 8px; font-size: 1.15em; }
+
+.ui-modal-body { margin: 0 0 18px; color: var(--color-text-2, inherit); line-height: 1.55; }
+
+.ui-modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+
+.ui-modal-actions button {
+  min-height: 44px;
+  padding: 10px 20px;
+  border-radius: var(--radius-pill, 999px);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ui-modal-cancel {
+  border: 1px solid var(--color-border-strong, var(--color-border));
+  background: transparent;
+  color: var(--color-text);
+}
+
+.ui-modal-go {
+  border: 1px solid var(--color-primary);
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.ui-modal-go.is-danger {
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+}
+
+.ui-modal-actions button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 /* Export progress, and the note under the journal Save button.
    Both exist because the app was doing work silently: the export ran for
    a minute with only a line of text changing, and a save reported itself

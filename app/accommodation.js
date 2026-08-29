@@ -508,7 +508,7 @@ ${selected ? selected.planning.notes : ""}
       .catch((error) => {
         console.error("Could not select accommodation:", error);
 
-        alert("Couldn't save that selection. Check the connection and try again.");
+        UI.fail("Couldn't save that selection. Check the connection and try again.");
       });
   },
 
@@ -550,12 +550,16 @@ ${selected ? selected.planning.notes : ""}
   },
 
   remove(id) {
-    const answer = confirm("Remove this accommodation option?");
+    UI.confirm({
+      title: "Remove this accommodation option?",
+      body: "This cannot be undone.",
+      confirmLabel: "Remove",
+      tone: "danger",
+      onConfirm: () => this.removeConfirmed(id),
+    });
+  },
 
-    if (!answer) {
-      return;
-    }
-
+  removeConfirmed(id) {
     fetch(`${window.API_BASE}/api/items/${Data.currentProjectFolder}/accommodation/${id}`, {
       method: "DELETE",
     })
@@ -575,7 +579,7 @@ ${selected ? selected.planning.notes : ""}
       .catch((error) => {
         console.error("Could not remove accommodation:", error);
 
-        alert("Couldn't remove that item. Check the connection and try again.");
+        UI.fail("Couldn't remove that item. Check the connection and try again.");
       });
   },
 
@@ -849,14 +853,14 @@ ${selected ? selected.planning.notes : ""}
     const name = document.getElementById("acc-name").value.trim();
 
     if (!name) {
-      alert("Please enter a name before saving.");
+      UI.warn("Please enter a name before saving.");
       return;
     }
 
     const destination = document.getElementById("acc-destination").value.trim().toLowerCase();
 
     if (!destination) {
-      alert("Please enter a destination before saving.");
+      UI.warn("Please enter a destination before saving.");
       return;
     }
 
@@ -880,7 +884,7 @@ ${selected ? selected.planning.notes : ""}
     const dayStart = parseInt(document.getElementById("acc-day-start").value, 10);
 
     if (!dayStart || dayStart < 1) {
-      alert("Please enter a valid Check-in Day before saving.");
+      UI.warn("Please enter a valid Check-in Day before saving.");
       return;
     }
 
@@ -889,7 +893,7 @@ ${selected ? selected.planning.notes : ""}
     const dayEnd = dayEndRaw && dayEndRaw >= dayStart ? dayEndRaw : dayStart;
 
     if (dayEndRaw && dayEndRaw < dayStart) {
-      alert("Check-out Day can't be before Check-in Day - saving as a single-night stay on the Check-in Day instead.");
+      UI.warn("Check-out Day can't be before Check-in Day - saving as a single-night stay on the Check-in Day instead.");
     }
 
     const isNew = !id;
@@ -1007,7 +1011,7 @@ ${selected ? selected.planning.notes : ""}
 
         console.error("Could not save accommodation:", error);
 
-        alert("Couldn't save that item. Check the connection and try again.");
+        UI.fail("Couldn't save that item. Check the connection and try again.");
       });
   },
 

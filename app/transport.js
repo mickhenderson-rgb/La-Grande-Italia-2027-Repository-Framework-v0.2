@@ -492,7 +492,7 @@ ${rows}
       .catch((error) => {
         console.error("Could not advance transport status:", error);
 
-        alert("Couldn't save that change. Check the connection and try again.");
+        UI.fail("Couldn't save that change. Check the connection and try again.");
       });
   },
 
@@ -533,12 +533,16 @@ ${rows}
   },
 
   remove(id) {
-    const answer = confirm("Remove this transport item?");
+    UI.confirm({
+      title: "Remove this transport item?",
+      body: "This cannot be undone.",
+      confirmLabel: "Remove",
+      tone: "danger",
+      onConfirm: () => this.removeConfirmed(id),
+    });
+  },
 
-    if (!answer) {
-      return;
-    }
-
+  removeConfirmed(id) {
     fetch(`${window.API_BASE}/api/items/${Data.currentProjectFolder}/transport/${id}`, {
       method: "DELETE",
     })
@@ -558,7 +562,7 @@ ${rows}
       .catch((error) => {
         console.error("Could not remove transport item:", error);
 
-        alert("Couldn't remove that item. Check the connection and try again.");
+        UI.fail("Couldn't remove that item. Check the connection and try again.");
       });
   },
 
@@ -869,7 +873,7 @@ ${rows}
     } catch (error) {
       console.error("Could not upload reference screenshot:", error);
 
-      alert("Couldn't upload that image. Check the connection and try again.");
+      UI.fail("Couldn't upload that image. Check the connection and try again.");
     }
 
     if (area) {
@@ -1086,14 +1090,14 @@ ${rows}
     const to = document.getElementById("trn-to").value.trim();
 
     if (!from || !to) {
-      alert("Please enter both a From and To location before saving.");
+      UI.warn("Please enter both a From and To location before saving.");
       return;
     }
 
     const dayNumber = parseInt(document.getElementById("trn-day").value, 10);
 
     if (!dayNumber || dayNumber < 1) {
-      alert("Please enter a valid start day before saving.");
+      UI.warn("Please enter a valid start day before saving.");
       return;
     }
 
@@ -1102,7 +1106,7 @@ ${rows}
     const endDay = endDayRaw && endDayRaw >= dayNumber ? endDayRaw : dayNumber;
 
     if (endDayRaw && endDayRaw < dayNumber) {
-      alert("End Day can't be before Start Day - saving it as a single-day item on the Start Day instead.");
+      UI.warn("End Day can't be before Start Day - saving it as a single-day item on the Start Day instead.");
     }
 
     const isNew = !id;
@@ -1207,7 +1211,7 @@ ${rows}
 
         console.error("Could not save transport item:", error);
 
-        alert("Couldn't save that item. Check the connection and try again.");
+        UI.fail("Couldn't save that item. Check the connection and try again.");
       });
   },
 

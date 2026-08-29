@@ -2229,7 +2229,7 @@ ${hint}
       .catch((error) => {
         console.warn("[trip-map] item location save failed:", error);
 
-        alert("Pin placed on screen, but saving it to the server failed. Check the connection and try again.");
+        UI.fail("Pin placed on screen, but saving it to the server failed. Check the connection and try again.");
       });
   },
 

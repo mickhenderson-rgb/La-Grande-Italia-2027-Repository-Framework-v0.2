@@ -235,12 +235,16 @@ ${
       return;
     }
 
-    const confirmed = confirm(`Leave "${name}"? You'll lose access to it unless the owner shares it with you again.`);
+    UI.confirm({
+      title: `Leave "${name}"?`,
+      body: "You'll lose access to it unless the owner shares it with you again.",
+      confirmLabel: "Leave trip",
+      tone: "danger",
+      onConfirm: () => this.leaveTripConfirmed(id),
+    });
+  },
 
-    if (!confirmed) {
-      return;
-    }
-
+  async leaveTripConfirmed(id) {
     try {
       const response = await fetch(`${window.API_BASE}/api/trips/${id}/share/${Auth.currentUser.id}`, { method: "DELETE" });
 
@@ -252,7 +256,7 @@ ${
     } catch (error) {
       console.error("Could not leave trip:", error);
 
-      alert("Couldn't leave that trip. Check the connection and try again.");
+      UI.fail("Couldn't leave that trip. Check the connection and try again.");
     }
   },
 
@@ -272,7 +276,7 @@ ${
     } catch (error) {
       console.error("Could not update trip:", error);
 
-      alert("Couldn't update that trip. Check the connection and try again.");
+      UI.fail("Couldn't update that trip. Check the connection and try again.");
     }
   },
 
@@ -313,7 +317,7 @@ ${
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
 
-        alert(data.error || "Couldn't delete that trip.");
+        UI.fail(data.error || "Couldn't delete that trip.");
 
         return;
       }
@@ -322,7 +326,7 @@ ${
     } catch (error) {
       console.error("Could not delete trip:", error);
 
-      alert("Couldn't delete that trip. Check the connection and try again.");
+      UI.fail("Couldn't delete that trip. Check the connection and try again.");
     }
   },
 

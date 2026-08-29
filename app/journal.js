@@ -981,7 +981,7 @@ const Journal = {
       .catch((error) => {
         console.error("Could not add checklist item:", error);
 
-        alert("Couldn't save that checklist item. Check the connection and try again.");
+        UI.fail("Couldn't save that checklist item. Check the connection and try again.");
 
         input.disabled = false;
       });
@@ -1018,7 +1018,7 @@ const Journal = {
       .catch((error) => {
         console.error("Could not update checklist item:", error);
 
-        alert("Couldn't save that change. Check the connection and try again.");
+        UI.fail("Couldn't save that change. Check the connection and try again.");
 
         this.openDay(dayNumber);
       });
@@ -1028,10 +1028,15 @@ const Journal = {
     // Stash the typed entry first - this re-renders from stored data.
     this.captureDraft();
 
-    if (!confirm("Remove this checklist item?")) {
-      return;
-    }
+    UI.confirm({
+      title: "Remove this checklist item?",
+      confirmLabel: "Remove",
+      tone: "danger",
+      onConfirm: () => this.removeChecklistItemConfirmed(id),
+    });
+  },
 
+  removeChecklistItemConfirmed(id) {
     const dayNumber = this.currentDay.day;
 
     fetch(`${window.API_BASE}/api/journal/${Data.currentProjectFolder}/${dayNumber}/checklist/${id}`, {
@@ -1055,7 +1060,7 @@ const Journal = {
       .catch((error) => {
         console.error("Could not remove checklist item:", error);
 
-        alert("Couldn't remove that item. Check the connection and try again.");
+        UI.fail("Couldn't remove that item. Check the connection and try again.");
       });
   },
 
@@ -1069,7 +1074,7 @@ const Journal = {
     const caption = document.getElementById("jrn-new-photo-caption").value.trim();
 
     if (!url) {
-      alert("Please enter a photo link before adding.");
+      UI.warn("Please enter a photo link before adding.");
       return;
     }
 
@@ -1093,7 +1098,7 @@ const Journal = {
       .catch((error) => {
         console.error("Could not add photo link:", error);
 
-        alert("Couldn't save that photo link. Check the connection and try again.");
+        UI.fail("Couldn't save that photo link. Check the connection and try again.");
       });
   },
 
@@ -1158,7 +1163,7 @@ const Journal = {
 
       say("Upload failed - check the connection.");
 
-      alert("Couldn't upload that photo. Check the connection and try again.");
+      UI.fail("Couldn't upload that photo. Check the connection and try again.");
     }
   },
 
@@ -1312,10 +1317,16 @@ const Journal = {
     // Stash the typed entry first - this re-renders from stored data.
     this.captureDraft();
 
-    if (!confirm("Remove this photo?")) {
-      return;
-    }
+    UI.confirm({
+      title: "Remove this photo?",
+      body: "This cannot be undone.",
+      confirmLabel: "Remove",
+      tone: "danger",
+      onConfirm: () => this.removePhotoConfirmed(id),
+    });
+  },
 
+  removePhotoConfirmed(id) {
     const dayNumber = this.currentDay.day;
 
     fetch(`${window.API_BASE}/api/journal/${Data.currentProjectFolder}/${dayNumber}/photo/${id}`, {
@@ -1339,7 +1350,7 @@ const Journal = {
       .catch((error) => {
         console.error("Could not remove photo:", error);
 
-        alert("Couldn't remove that photo. Check the connection and try again.");
+        UI.fail("Couldn't remove that photo. Check the connection and try again.");
       });
   },
 

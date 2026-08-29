@@ -744,11 +744,23 @@ const ItineraryImport = {
     if (warnings.length > 0) {
       const text = warnings.map((w) => `Day ${w.row}: ${w.message}`).join("\n");
 
-      if (!confirm(`Warnings (not critical):\n\n${text}\n\nCreate the itinerary anyway?`)) {
-        return;
-      }
+      UI.confirm({
+        title: "Create the itinerary anyway?",
+        body: "These are not critical:\n\n" + text,
+        confirmLabel: "Create anyway",
+        cancelLabel: "Go back and fix them",
+        onConfirm: () => this.applyItinerary(rows),
+      });
+
+      return;
     }
 
+    this.applyItinerary(rows);
+  },
+
+  // Everything past the warnings question. Split out because the question
+  // cannot block the way confirm() did.
+  applyItinerary(rows) {
     const journey = Project.get("journey") || { version: "1.0", days: [] };
 
     const existing = Array.isArray(journey.days) ? journey.days : [];
@@ -772,12 +784,32 @@ const ItineraryImport = {
         if (!currentStart) {
           projectData.project.departureDate = firstIso;
         } else if (currentStart !== firstIso) {
-          if (confirm(`Current trip start date is ${currentStart}.\nYour itinerary starts ${firstIso}.\n\nUpdate the trip start date to ${firstIso}?`)) {
-            projectData.project.departureDate = firstIso;
-          }
+          // Asked, then BOTH answers carry on with the import - the
+          // difference is only whether the trip's start date moves. As a
+          // confirm(), "Cancel" looked like it abandoned the whole import.
+          UI.confirm({
+            title: `Update the trip start date to ${firstIso}?`,
+            body: `The trip currently starts ${currentStart}, and this itinerary starts ${firstIso}.`,
+            confirmLabel: `Use ${firstIso}`,
+            cancelLabel: `Keep ${currentStart}`,
+            onConfirm: () => {
+              projectData.project.departureDate = firstIso;
+
+              this.commitItinerary(rows, finalDays, journey, projectData);
+            },
+            onCancel: () => this.commitItinerary(rows, finalDays, journey, projectData),
+          });
+
+          return;
         }
       }
     }
+
+    this.commitItinerary(rows, finalDays, journey, projectData);
+  },
+
+  // Everything past the start-date question.
+  commitItinerary(rows, finalDays, journey, projectData) {
 
     journey.version = journey.version || "1.0";
 

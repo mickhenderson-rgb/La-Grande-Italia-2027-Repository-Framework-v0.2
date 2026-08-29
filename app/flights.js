@@ -834,7 +834,7 @@ const Flights = {
       .catch((error) => {
         console.error("Could not advance flight status:", error);
 
-        alert("Couldn't save that change. Check the connection and try again.");
+        UI.fail("Couldn't save that change. Check the connection and try again.");
       });
   },
 
@@ -869,12 +869,16 @@ const Flights = {
   },
 
   remove(id) {
-    const answer = confirm("Remove this flight?");
+    UI.confirm({
+      title: "Remove this flight?",
+      body: "This cannot be undone.",
+      confirmLabel: "Remove",
+      tone: "danger",
+      onConfirm: () => this.removeConfirmed(id),
+    });
+  },
 
-    if (!answer) {
-      return;
-    }
-
+  removeConfirmed(id) {
     fetch(`${window.API_BASE}/api/items/${Data.currentProjectFolder}/flights/${id}`, {
       method: "DELETE",
     })
@@ -894,7 +898,7 @@ const Flights = {
       .catch((error) => {
         console.error("Could not remove flight:", error);
 
-        alert("Couldn't remove that item. Check the connection and try again.");
+        UI.fail("Couldn't remove that item. Check the connection and try again.");
       });
   },
 
@@ -1220,14 +1224,14 @@ const Flights = {
     const invalidLeg = this.editingLegs.find((leg) => !leg.from || !leg.to);
 
     if (invalidLeg) {
-      alert("Please enter both a From and To location for every leg before saving.");
+      UI.warn("Please enter both a From and To location for every leg before saving.");
       return;
     }
 
     const dayNumber = parseInt(document.getElementById("flt-day").value, 10);
 
     if (!dayNumber || dayNumber < 1) {
-      alert("Please enter a valid day number before saving.");
+      UI.warn("Please enter a valid day number before saving.");
       return;
     }
 
@@ -1320,7 +1324,7 @@ const Flights = {
 
         console.error("Could not save flight:", error);
 
-        alert("Couldn't save that item. Check the connection and try again.");
+        UI.fail("Couldn't save that item. Check the connection and try again.");
       });
   },
 

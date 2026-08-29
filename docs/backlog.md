@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-28 (v1.19.0).
+Last reviewed: 2026-08-28 (v1.20.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -602,6 +602,72 @@ next. CRC-32 is checked against the standard `"123456789"` → `0xCBF43926`.
 A hundred photos at 1.5 MB is 150 MB — fine on a desktop, possibly not on
 a phone. The running total is shown as it builds, and an out-of-memory
 failure says so rather than dying silently.
+
+### BUG-001 / BUG-002. Native dialogs replaced — DONE (v1.20.0)
+
+`app/ui.js`. **60 `alert()` calls across 13 files and 13 `confirm()` calls
+across 10 are gone.**
+
+The review did not just count them, it **proved the failure mode**: its
+browser suppresses JS dialogs — as managed corporate browsers, in-app
+webviews and every automation tool do — and submitting a form with a
+required field blank produced *nothing at all*. No message, no focus
+change. The console said "Page dialog suppressed (alert)" and the person
+saw a screen that had ignored them.
+
+Three things rather than one, because the 60 were doing three jobs:
+
+| | for | where it appears |
+|---|---|---|
+| `UI.warn` | you typed something wrong | inline, next to the field, and focus goes back to it |
+| `UI.fail` | we tried something and it did not work | a toast — by then the form may be gone |
+| `UI.ok` | it worked and the screen does not show it | a toast |
+
+`UI.warn` **falls back to a toast when a form has no message slot**, which
+is what made migrating 26 validation call sites safe before any form had
+one: never worse than what it replaced, better once a slot is added.
+`trip-setup` and `settings` have slots now; the rest can be added one at a
+time.
+
+`UI.confirm` replaces `confirm()` — callback rather than return value,
+since a real dialog cannot block a thread. The six identical `remove(id)`
+methods were split into `remove`/`removeConfirmed` rather than having
+their fetch chains wrapped in a closure. `itinerary-import` needed a
+genuine restructure into `loadItinerary` → `applyItinerary` →
+`commitItinerary`, one split per question — and its start-date question
+gained an answer it never had: a real **"Keep 2027-08-17"** button, where
+`confirm()`'s Cancel read as "abandon the whole import".
+
+`form-guard.js` **keeps** its native `confirm`, asserted as the single
+deliberate exception: it also has to run from `beforeunload`, where
+nothing else does.
+
+Accessibility, which was the review's other point: `role="alert"` for a
+failure and `role="status"` for anything else, `role="dialog"` +
+`aria-modal` + `aria-labelledby`, focus opens on the **safe** button,
+Escape cancels, Tab is trapped, and focus returns where it came from.
+
+**Verified in a real browser**, since "it can be invisible" was the whole
+complaint: the inline warning renders with the danger tokens and returns
+focus to the field; the toast is visible at z-index 2000 with a dismiss
+button; the dialog covers the page, opens focus on Cancel, and Escape
+cancels. At 375px the toast clears the bottom bar by 88px and nothing
+scrolls sideways. In dark mode the toast is `#262b31` / `#e8eaed` with the
+dark danger border — the thing a native dialog can never do.
+
+`test-no-native-dialogs.js` greps for the CALL rather than any message, so
+a new `alert()` written next week fails the day it is written.
+
+Four suites needed deliberate updates: two sandboxes gained `UI`, one had
+pinned `confirm("Remove this checklist item?")` by its exact text (intent
+unchanged, mechanism changed), and its Cancel case is now expressed as
+"the dialog opens and `onConfirm` never fires".
+
+**Still open from the review:** BUG-003 (routing), BUG-004 (mobile
+trip-card hierarchy), BUG-005 (Travel Guide), BUG-006 (budget sign, and
+the number printed twice), BUG-007 (dead code — `planning-item.js` is
+loaded by index.html and never referenced; `components/` is 16 unloaded
+files), UX-005 (directory listing — a cPanel setting, not code).
 
 ## D. Data-model and design questions
 

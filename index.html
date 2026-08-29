@@ -408,6 +408,8 @@
 
     <script src="core/repository-manager.js"></script>
 
+    <!-- Loaded first: almost every module calls UI.warn/fail/confirm. -->
+    <script src="app/ui.js"></script>
     <script src="app/project.js"></script>
 
     <script src="app/data.js"></script>

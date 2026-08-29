@@ -446,7 +446,7 @@ ${rows}
       .catch((error) => {
         console.error("Could not advance activity status:", error);
 
-        alert("Couldn't save that change. Check the connection and try again.");
+        UI.fail("Couldn't save that change. Check the connection and try again.");
       });
   },
 
@@ -471,12 +471,16 @@ ${rows}
   },
 
   remove(id) {
-    const answer = confirm("Remove this activity?");
+    UI.confirm({
+      title: "Remove this activity?",
+      body: "This cannot be undone.",
+      confirmLabel: "Remove",
+      tone: "danger",
+      onConfirm: () => this.removeConfirmed(id),
+    });
+  },
 
-    if (!answer) {
-      return;
-    }
-
+  removeConfirmed(id) {
     fetch(`${window.API_BASE}/api/items/${Data.currentProjectFolder}/activities/${id}`, {
       method: "DELETE",
     })
@@ -496,7 +500,7 @@ ${rows}
       .catch((error) => {
         console.error("Could not remove activity:", error);
 
-        alert("Couldn't remove that item. Check the connection and try again.");
+        UI.fail("Couldn't remove that item. Check the connection and try again.");
       });
   },
 
@@ -712,7 +716,7 @@ ${rows}
     const name = document.getElementById("act-name").value.trim();
 
     if (!name) {
-      alert("Please enter a name before saving.");
+      UI.warn("Please enter a name before saving.");
       return;
     }
 
@@ -731,7 +735,7 @@ ${rows}
     const dayNumber = parseInt(document.getElementById("act-day").value, 10);
 
     if (!dayNumber || dayNumber < 1) {
-      alert("Please enter a valid Day before saving.");
+      UI.warn("Please enter a valid Day before saving.");
       return;
     }
 
@@ -833,7 +837,7 @@ ${rows}
 
         console.error("Could not save activity:", error);
 
-        alert("Couldn't save that item. Check the connection and try again.");
+        UI.fail("Couldn't save that item. Check the connection and try again.");
       });
   },
 

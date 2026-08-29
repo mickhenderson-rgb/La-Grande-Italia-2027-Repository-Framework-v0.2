@@ -70,6 +70,8 @@ const Settings = {
 
             </button>
 
+            <p class="ui-msg" id="set-dates-msg" hidden></p>
+
         </div>
 
         <div class="manager-card form-card">
@@ -128,7 +130,7 @@ const Settings = {
 `;
   },
 
-  // Uses an inline status line rather than alert() - this is the same
+  // Uses an inline status line rather than a dialog - this is the same
   // pattern Auth/Sharing use for credential work, and it keeps the typed
   // fields on screen if something's wrong.
   async changePassword() {
@@ -204,7 +206,7 @@ const Settings = {
     const returnDate = document.getElementById("set-return").value;
 
     if (!departureDate) {
-      alert("Please enter a start date.");
+      UI.warn("Please enter a start date.", { slot: "set-dates-msg", focus: "set-departure" });
       return;
     }
 
@@ -216,7 +218,7 @@ const Settings = {
 
     Dates.recalculateJourney();
 
-    alert("Trip dates saved. Journey days have been recalculated.");
+    UI.ok("Trip dates saved. Journey days have been recalculated.");
 
     this.open();
   },
