@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-29 (v1.23.0).
+Last reviewed: 2026-08-29 (v1.24.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -28,7 +28,7 @@ The agreed order of work, as at 2026-08-28.
 | A8 | Weather: fetch seasonal data + sunrise/sunset (§D9) | DONE — v1.14.0 |
 | A9 | Audit the journal export (§B4) | DONE — v1.14.1 |
 | A11 | Photo book (§B4) | DONE — v1.18.0 |
-| A12 | Web story (§B4) | OPEN — the genuinely separate build |
+| A12 | Web story (§B4) | DONE — v1.24.0 |
 | A13 | Export for production, zip (§B4) | DONE — v1.19.0 |
 | A10 | Tonight flow — the end-of-day journal (§B3) | DONE — v1.16.0 |
 
@@ -874,6 +874,78 @@ on Settings with the trip loaded from the URL.
 **This closes the UX review** apart from two things that are not code:
 UX-005 (directory listing — a cPanel setting) and C12 (re-picking airports
 on an existing flight, which is trip data).
+
+### C21. The "?" landed on its own row — DONE (v1.24.0)
+
+Reported as *"the ? moves the Check-out day out of alignment"*, and it was
+not a spacing problem. `.form-field` is `display: flex; flex-direction:
+column`, so a bare button dropped next to the label text became **a flex
+item on its own row** between the label and the input — 38px wide, not 18,
+and pushing that field 10px below every other field in the grid.
+
+`Guide.label(text, topic, aria)` now wraps the text and the button in one
+`.form-label` flex row, so they are a single item on one line. Three
+separate container rules were each sizing the "?" like a full button and
+all three had to be excluded:
+
+- `padding: 9px 18px` — which under `border-box` **forces** 38px wide
+  whatever `width: 18px` says
+- `.manager-card button { margin-top: 15px }` — 15px above an 18px circle
+  made the label row 33px instead of 23px
+- the mobile pill sizing, `12px 18px`
+
+On a phone it grows to **28px** — 18px is under the 24px minimum for a
+pointer target — and gives the extra 10px back to the flex line with a
+negative margin, so the tap area grows without the row growing.
+
+Measured in a browser at both widths: all three inputs at offset 29,
+hint an 18px (28px mobile) circle on the label's own line.
+
+**I got this wrong twice before measuring.** Each fix looked right and
+changed nothing, because the next rule down was still winning.
+
+### A12. Web story — DONE (v1.24.0)
+
+`app/web-story.js`. The trip as a vertical, tap-through story — one screen
+at a time, the way a phone wants to be read. The third and last export.
+
+**Three exports, three jobs**, and they are not variations on each other:
+the journal export is one document read top to bottom; the photo book is
+pages for a printer; this is screens for a phone.
+
+**It uses the DISPLAY copy (1600px), not the archive (3200px) the photo
+book uses.** No phone shows more than the display copy, and the archive
+would roughly double a file that has to be emailed. It is the one place in
+the app where the smaller copy is the correct one — and the suite asserts
+the two exports have not converged, because if they ever agree one of them
+is wrong.
+
+Reads three ways, none of them the only one: scroll (snapping, one screen
+at a time, `scroll-snap-stop: always` so a fast swipe cannot skip three),
+tap (28% zones left and right, leaving the middle alone so a caption stays
+selectable and a photo long-pressable), and arrow keys. Hand-scrolling
+moves the progress bars too, via an IntersectionObserver — otherwise they
+lie the moment someone swipes instead of tapping.
+
+`100dvh`, not `vh`, because a phone's toolbar hiding changes `vh` mid-read.
+Safe-area insets so nothing sits under a notch. A gradient scrim rather
+than a flat wash, so the top of each picture is untouched — caption
+contrast measured at **10.32:1**.
+
+**Verified in a browser:** 5 slides each exactly one viewport tall, deck
+scroll height 4060 = 5 × 812, snapping and snap-align correct, image
+covering with `object-fit: cover`, caption 32px from its slide's bottom
+over the darkest part of the scrim, tap zones 28% leaving the middle free,
+and the navigation JS advancing and retreating the progress correctly on
+taps and keys.
+
+**NOT verified: the scrolling itself.** Nothing scrolls in this browser
+pane — even a direct `deck.scrollTop = 812` reads back 0 — so
+`scrollIntoView` could not be exercised. The geometry it depends on is
+proven and the JS around it runs, but the actual movement needs a check on
+a real phone.
+
+This closes A11/A12 and the journal export work.
 
 ## D. Data-model and design questions
 

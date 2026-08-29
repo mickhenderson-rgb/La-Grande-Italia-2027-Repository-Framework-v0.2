@@ -549,7 +549,7 @@ body {
   margin-top: 15px;
 }
 
-.timeline-buttons button:not(.btn-primary):not(.btn-secondary):not(.btn-danger) {
+.timeline-buttons button:not(.btn-primary):not(.btn-secondary):not(.btn-danger):not(.guide-hint) {
   border: none;
 
   background: var(--color-primary);
@@ -620,7 +620,7 @@ body {
   margin-top: 20px;
 }
 
-.planner-buttons button:not(.btn-primary):not(.btn-secondary):not(.btn-danger) {
+.planner-buttons button:not(.btn-primary):not(.btn-secondary):not(.btn-danger):not(.guide-hint) {
   background: var(--color-primary);
 
   color: var(--color-on-primary);
@@ -716,7 +716,7 @@ body {
   margin-bottom: 15px;
 }
 
-.workspace-panel button:not(.btn-primary):not(.btn-secondary):not(.btn-danger) {
+.workspace-panel button:not(.btn-primary):not(.btn-secondary):not(.btn-danger):not(.guide-hint) {
   margin-top: 20px;
 
   border: none;
@@ -773,8 +773,8 @@ button {
 }
 
 .btn,
-.manager-card button:not(.btn-primary):not(.btn-secondary):not(.btn-danger),
-.research-actions button:not(.btn-primary):not(.btn-secondary):not(.btn-danger) {
+.manager-card button:not(.btn-primary):not(.btn-secondary):not(.btn-danger):not(.guide-hint),
+.research-actions button:not(.btn-primary):not(.btn-secondary):not(.btn-danger):not(.guide-hint) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -876,7 +876,10 @@ button {
   margin-top: var(--space-1);
 }
 
-.manager-card button {
+/* Spacing above a standalone button in a card. The "?" is not one - it
+   sits inline in a label, and 15px above an 18px circle made the label
+   row 33px tall and pushed its input 10px below every other field. */
+.manager-card button:not(.guide-hint) {
   margin-top: 15px;
 }
 
@@ -1510,7 +1513,20 @@ button {
 .guide-empty { margin: 0 0 16px; color: var(--color-muted); font-style: italic; }
 
 /* The "?" that opens the guide at the paragraph about this field. */
+/* A form label that carries a "?".
+   .form-field is a flex column, so the label text and the button have to be
+   ONE item or the button lands on a row of its own between the label and
+   the input - which is what pushed Check-out Day out of line with every
+   other field in the grid. */
+.form-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .guide-hint {
+  flex: 0 0 auto;
+  margin-left: 0;
   width: 18px;
   height: 18px;
   margin-left: 6px;
@@ -2022,7 +2038,7 @@ button {
 
 .day-now-title { font-size: 15px; margin-top: 4px; }
 
-.day-now-card .planner-buttons button:not(.btn-primary):not(.btn-secondary):not(.btn-danger) {
+.day-now-card .planner-buttons button:not(.btn-primary):not(.btn-secondary):not(.btn-danger):not(.guide-hint) {
   background: var(--color-on-primary);
   color: var(--color-primary-text);
 }

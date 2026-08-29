@@ -667,7 +667,7 @@ ${selected ? selected.planning.notes : ""}
             </label>
 
             <label class="form-field">
-                Check-out Day ${typeof Guide !== "undefined" ? Guide.hint("day-numbers", "Why day numbers, and what Check-out Day means") : ""}
+                ${typeof Guide !== "undefined" ? Guide.label("Check-out Day", "day-numbers", "Why day numbers, and what Check-out Day means") : "Check-out Day"}
                 <input type="number" id="acc-day-end" value="${(item.dayRange && item.dayRange[1]) || 1}" min="1">
                 <span class="form-hint">The day you leave - so 3 nights from Day 1 is Check-out Day 4</span>
             </label>

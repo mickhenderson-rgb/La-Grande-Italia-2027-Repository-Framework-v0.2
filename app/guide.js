@@ -476,8 +476,25 @@ const Guide = {
 `;
   },
 
-  // A "?" that opens the guide at the paragraph explaining this field.
-  // Returned as markup so a form can drop it in beside a label.
+  // A whole form label WITH its "?" - use this rather than hint() inside a
+  // .form-field.
+  //
+  // .form-field is display:flex/column, so anything dropped into it becomes
+  // a flex ITEM ON ITS OWN ROW. A bare hint() next to the label text
+  // therefore did not sit next to it at all: it stretched to 38px, took a
+  // row of its own between the label and the input, and pushed that field
+  // out of alignment with every other field in the grid.
+  //
+  // Wrapping the text and the button together makes them ONE flex item, on
+  // one line, and the input stays where it was.
+  label(text, topic, aria) {
+    return (
+      '<span class="form-label">' + this.esc(text) + this.hint(topic, aria) + "</span>"
+    );
+  },
+
+  // A "?" on its own, for somewhere that is not a .form-field - a heading,
+  // a paragraph, a table caption. Inside a form field, use label().
   hint(topic, label) {
     return `<button type="button" class="guide-hint" onclick="Guide.open('${this.esc(topic)}')" aria-label="${this.esc(label || "What does this mean?")}" title="${this.esc(label || "What does this mean?")}">?</button>`;
   },

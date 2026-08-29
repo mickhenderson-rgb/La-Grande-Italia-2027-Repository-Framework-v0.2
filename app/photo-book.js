@@ -186,6 +186,12 @@ const PhotoBook = {
 
         </button>
 
+        <button type="button" onclick="WebStory.open()">
+
+            Web Story →
+
+        </button>
+
         <button type="button" onclick="ProductionExport.open()">
 
             Export for Production →

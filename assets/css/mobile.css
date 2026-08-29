@@ -204,18 +204,35 @@ listed in the handoff README under "Markup changes".
   /* ── Buttons: one primary per card, 44px targets ───── */
 
   .btn,
-  .manager-card button,
-  .research-actions button,
-  .planner-buttons button,
-  .timeline-buttons button,
-  .workspace-panel button,
-  .destination-card button {
+  .manager-card button:not(.guide-hint),
+  .research-actions button:not(.guide-hint),
+  .planner-buttons button:not(.guide-hint),
+  .timeline-buttons button:not(.guide-hint),
+  .workspace-panel button:not(.guide-hint),
+  .destination-card button:not(.guide-hint) {
     min-height: 44px;
     padding: 12px 18px;
     border-radius: var(--radius-pill);
     font-size: 14px;
     font-weight: 700;
     letter-spacing: 0.04em;
+  }
+
+  /* The "?" is exempt from the pill sizing above - 12px of padding forces
+     it to 38px wide and it stops being a circle. But it still has to be
+     TAPPABLE, so it grows here rather than staying at its 18px desktop
+     size, which is under the 24px minimum for a pointer target. */
+  .guide-hint {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+
+    /* The 10px it gains over the 18px desktop size is taken back out of
+       the flex line, so the tap target grows without making the label row
+       taller than every other label in the grid. The button still RECEIVES
+       28px of pointer area - only its contribution to layout is 18px. */
+    margin-top: -5px;
+    margin-bottom: -5px;
   }
 
   .planner-buttons,
