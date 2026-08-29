@@ -336,6 +336,13 @@ const Budget = {
       // the room it would make the room look dearer than the invoice.
       const tax = this.cityTaxFor(it);
 
+      // Its OWN currency, falling back to the room's. v1.26.0 always used
+      // the room's on the reasoning that a city tax is charged in local
+      // money and so is the room - which is false whenever the booking was
+      // priced away from home, as most are.
+      const taxCurrency =
+        (it.cityTax && it.cityTax.currency) || (it.price && it.price.currency);
+
       if (tax > 0) {
         const guests = Math.max(1, Number(it.guests) || 1);
 
@@ -346,8 +353,8 @@ const Budget = {
           "accommodation",
           (it.name || "Accommodation") + " - city tax",
           tax,
-          it.price && it.price.currency,
-          `${this.money(it.cityTax.perPersonPerNight, it.price && it.price.currency)} × ${guests} ${guests === 1 ? "person" : "people"} × ${nights} ${nights === 1 ? "night" : "nights"}`,
+          taxCurrency,
+          `${this.money(it.cityTax.perPersonPerNight, taxCurrency)} × ${guests} ${guests === 1 ? "person" : "people"} × ${nights} ${nights === 1 ? "night" : "nights"}`,
           it.status,
         );
       }

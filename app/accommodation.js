@@ -601,7 +601,7 @@ ${selected ? selected.planning.notes : ""}
       bookingReference: "",
       price: { amount: 0, currency: "EUR", per: "night" },
       guests: 2,
-      cityTax: { perPersonPerNight: 0 },
+      cityTax: { perPersonPerNight: 0, currency: "EUR" },
       location: { locationId: "", address: "", latitude: null, longitude: null },
       features: {
         parking: false,
@@ -734,6 +734,16 @@ ${selected ? selected.planning.notes : ""}
                     Per person, per night. Italy's tassa di soggiorno is usually
                     EUR 1-7 and is paid at the property, not with the booking - so
                     it is not in the price above.
+                </span>
+            </label>
+
+            <label class="form-field">
+                City Tax Currency
+                <select id="acc-tax-currency">${Currency.currencyOptions(item.cityTax?.currency || item.price?.currency || "EUR")}</select>
+                <span class="form-hint">
+                    Usually the same as the room, and it defaults to it. Not always:
+                    a Rome hotel booked through an Australian site is priced in AUD
+                    while the tax is still EUR cash at the desk.
                 </span>
             </label>
 
@@ -937,11 +947,16 @@ ${selected ? selected.planning.notes : ""}
       // At least one - a stay with nobody in it is a typo, and it would
       // silently zero the tax.
       guests: Math.max(1, parseInt(document.getElementById("acc-guests").value, 10) || 1),
-      // No currency of its own: a city tax is charged in the local currency,
-      // which is the currency of the room. A second currency field here
-      // would be one more thing to get wrong for no case it serves.
+      // Its own currency, defaulting to the room's. They usually match, and
+      // v1.26.0 assumed they always would - but a Rome hotel booked through
+      // an Australian site is priced in AUD while the tax is EUR cash at the
+      // desk, which is the ordinary case rather than an exotic one.
       cityTax: {
         perPersonPerNight: parseFloat(document.getElementById("acc-tax-rate").value) || 0,
+        currency:
+          document.getElementById("acc-tax-currency").value.trim() ||
+          document.getElementById("acc-price-currency").value.trim() ||
+          "EUR",
       },
       location: {
         locationId: "",

@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-29 (v1.26.0).
+Last reviewed: 2026-08-29 (v1.26.1).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -1101,9 +1101,12 @@ Folded into the room it would make the room look dearer than the invoice
 you can check it against — you pay these separately, and the booking
 confirmation will not mention the tax at all.
 
-**Same currency as the room.** A city tax is charged in local money, which
-is the money the room is priced in. A second currency field would be one
-more thing to get wrong for no case it serves.
+**Its own currency, defaulting to the room's** — corrected in v1.26.1.
+v1.26.0 gave it the room's currency and justified that with "a city tax is
+charged in local money, which is the money the room is priced in". **That
+is false in the ordinary case**: book a Rome hotel through an Australian
+site and the room is priced in AUD while the tax is still EUR cash at the
+desk. See D17.
 
 **It rides with the winning option**, so D13's one-per-stay rule still
 holds: three shortlisted hotels contribute one room and one tax between
@@ -1129,6 +1132,27 @@ If it is wanted, the shape is a `cityTax.maxNights` alongside
 `rate × guests × Math.min(nights, maxNights || nights)`. The suite already
 has the per-night maths isolated in `cityTaxFor`, so it is one function and
 one field.
+
+### D17. City tax has its own currency — DONE (v1.26.1)
+
+Mick asked whether the tax needed a currency "so it can add up correctly".
+It already had one — the room's — and it already added up correctly,
+because Budget groups by `entry.currency` and the tax entry carried one.
+
+**But the reasoning for inheriting it was wrong.** v1.26.0 said "a city tax
+is charged in local money, which is the money the room is priced in". The
+second half does not follow: booking sites price in your home currency, so
+a Rome hotel booked from Australia is AUD while the tax is EUR cash at the
+desk. That is the ordinary case, not an exotic one — so the tax was
+carrying the wrong currency for most bookings made from home.
+
+Now its own field, **defaulting to the room's** in both the form and the
+save, since they do usually match. The field only needs touching when they
+do not.
+
+The guard covers the case that motivated it: an AUD room with a EUR tax
+produces two entries in two currency buckets, so each converts at its own
+rate.
 
 ## D2. Deferred to V2
 
