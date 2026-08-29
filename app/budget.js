@@ -147,6 +147,25 @@ const Budget = {
     return labels[key] || key;
   },
 
+  // City tax: per person, per night, and NOT part of the room rate.
+  //
+  // Italy charges a tassa di soggiorno at the property, usually in cash,
+  // and it is never in the price you booked at. Two people for three
+  // nights at EUR 5 is EUR 30 the Budget would otherwise miss.
+  cityTaxFor(item) {
+    const rate = Number(item.cityTax && item.cityTax.perPersonPerNight) || 0;
+
+    if (!(rate > 0)) {
+      return 0;
+    }
+
+    // Defaults to 1, not 0. A missing guest count on an older record
+    // should under-count rather than silently charge nothing.
+    const guests = Math.max(1, Number(item.guests) || 1);
+
+    return rate * guests * this.calculateNights(item);
+  },
+
   // The workflow, in order, so "further along" is a number.
   STATUS_ORDER: ["Research", "Shortlisted", "Selected", "Booked", "Travel", "Review"],
 
@@ -311,6 +330,27 @@ const Budget = {
       }
 
       add(tier, "accommodation", it.name || "Accommodation", total, it.price && it.price.currency, parts.join(" · "), it.status);
+
+      // Its own line, because you pay it separately - it is collected at
+      // the property and is not on the booking confirmation. Folded into
+      // the room it would make the room look dearer than the invoice.
+      const tax = this.cityTaxFor(it);
+
+      if (tax > 0) {
+        const guests = Math.max(1, Number(it.guests) || 1);
+
+        const nights = this.calculateNights(it);
+
+        add(
+          tier,
+          "accommodation",
+          (it.name || "Accommodation") + " - city tax",
+          tax,
+          it.price && it.price.currency,
+          `${this.money(it.cityTax.perPersonPerNight, it.price && it.price.currency)} × ${guests} ${guests === 1 ? "person" : "people"} × ${nights} ${nights === 1 ? "night" : "nights"}`,
+          it.status,
+        );
+      }
     });
 
     this.getItems(Project.get("activities")).forEach((it) => {

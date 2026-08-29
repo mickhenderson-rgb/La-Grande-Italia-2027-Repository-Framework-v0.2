@@ -600,6 +600,8 @@ ${selected ? selected.planning.notes : ""}
       website: "",
       bookingReference: "",
       price: { amount: 0, currency: "EUR", per: "night" },
+      guests: 2,
+      cityTax: { perPersonPerNight: 0 },
       location: { locationId: "", address: "", latitude: null, longitude: null },
       features: {
         parking: false,
@@ -717,6 +719,22 @@ ${selected ? selected.planning.notes : ""}
                     <option value="night" ${item.price?.per === "night" ? "selected" : ""}>Night</option>
                     <option value="stay" ${item.price?.per === "stay" ? "selected" : ""}>Total Stay</option>
                 </select>
+            </label>
+
+            <label class="form-field">
+                Guests
+                <input type="number" id="acc-guests" value="${item.guests ?? 2}" min="1" step="1">
+                <span class="form-hint">How many people are staying - the city tax is charged per person</span>
+            </label>
+
+            <label class="form-field">
+                City Tax
+                <input type="number" id="acc-tax-rate" value="${item.cityTax?.perPersonPerNight ?? 0}" min="0" step="0.01">
+                <span class="form-hint">
+                    Per person, per night. Italy's tassa di soggiorno is usually
+                    EUR 1-7 and is paid at the property, not with the booking - so
+                    it is not in the price above.
+                </span>
             </label>
 
             <label class="form-field">
@@ -915,6 +933,15 @@ ${selected ? selected.planning.notes : ""}
         amount: parseFloat(document.getElementById("acc-price-amount").value) || 0,
         currency: document.getElementById("acc-price-currency").value.trim() || "EUR",
         per: document.getElementById("acc-price-per").value,
+      },
+      // At least one - a stay with nobody in it is a typo, and it would
+      // silently zero the tax.
+      guests: Math.max(1, parseInt(document.getElementById("acc-guests").value, 10) || 1),
+      // No currency of its own: a city tax is charged in the local currency,
+      // which is the currency of the room. A second currency field here
+      // would be one more thing to get wrong for no case it serves.
+      cityTax: {
+        perPersonPerNight: parseFloat(document.getElementById("acc-tax-rate").value) || 0,
       },
       location: {
         locationId: "",

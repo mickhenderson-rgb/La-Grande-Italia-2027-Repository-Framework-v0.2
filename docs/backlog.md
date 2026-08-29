@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-29 (v1.25.1).
+Last reviewed: 2026-08-29 (v1.26.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -1079,6 +1079,56 @@ asserts they agree case for case.
 
 It is a `money`-level finding, so the existing guest filter hides it —
 a guest never sees costs.
+
+### D15. City tax on an accommodation card — DONE (v1.26.0)
+
+Italy charges a *tassa di soggiorno* **per person, per night**. It is
+collected at the property, usually in cash, and it is never in the price
+you booked at — so a trip with four Italian stays can be a couple of
+hundred euro short before anyone notices.
+
+**Two fields, not one.** A per-person rate cannot become money without a
+headcount, and **guests belong on the booking** rather than on the trip:
+one night might be a twin and the next a family room. Both live on the
+accommodation card, which is also where the nights already are.
+
+**Its own line in the Budget**, not folded into the room rate:
+
+> Hotel Milano — city tax · **EUR 30.00**
+> EUR 5.00 × 2 people × 3 nights
+
+Folded into the room it would make the room look dearer than the invoice
+you can check it against — you pay these separately, and the booking
+confirmation will not mention the tax at all.
+
+**Same currency as the room.** A city tax is charged in local money, which
+is the money the room is priced in. A second currency field would be one
+more thing to get wrong for no case it serves.
+
+**It rides with the winning option**, so D13's one-per-stay rule still
+holds: three shortlisted hotels contribute one room and one tax between
+them, not three of each — and it is the *winner's* rate, not the dearest
+or the first.
+
+Defaults chosen so an older record under-counts rather than disappearing:
+a missing guest count is treated as **one person**, not none. A new card
+starts at two guests, which is the common case here.
+
+### D16. City tax has no nightly cap — OPEN
+
+Rome caps its tourist tax at **10 consecutive nights**, Venice at **5**,
+and Florence at **7**. Above the cap you stop paying, and the app would
+keep charging.
+
+Not built, because it was not asked for and it needs a third field on a
+form that is already long. It only bites on a long stay in one city — most
+stops are a few nights — so it is a real gap rather than an urgent one.
+
+If it is wanted, the shape is a `cityTax.maxNights` alongside
+`perPersonPerNight`, and `Budget.cityTaxFor` becomes
+`rate × guests × Math.min(nights, maxNights || nights)`. The suite already
+has the per-night maths isolated in `cityTaxFor`, so it is one function and
+one field.
 
 ## D2. Deferred to V2
 
