@@ -325,6 +325,7 @@ Research List
 
         Status:
         <span class="badge badge--${String(item.status || "").toLowerCase()}">${item.status}</span>
+        ${Participants.chips(item)}
         ${item.addedBy ? `<span class="badge">Added by ${this.esc(item.addedBy)}</span>` : ""}
 
     </p>
@@ -521,6 +522,9 @@ ${rows}
       dayRange: [day.day || 1, day.day || 1],
       type: "restaurant",
       addedBy: Project.currentUser || "",
+      // Empty means unassigned, which is what everything entered before
+      // Phase 2 carries. It must never be read as "everyone".
+      participants: [],
       name: "",
       cuisine: "",
       status: "Research",
@@ -643,6 +647,9 @@ ${rows}
 
         </div>
 
+        ${Participants.picker(item, { label: "Who's eating" })}
+
+
         <label class="form-field form-field-wide">
             Notes
             <textarea id="rst-notes" rows="4">${this.esc(item.planning?.notes)}</textarea>
@@ -754,6 +761,9 @@ ${rows}
       dayRange: [dayNumber, dayNumber],
       type: "restaurant",
       addedBy: isNew ? Project.currentUser || "" : undefined,
+      // Read on every save, new or not. [] when nobody is ticked, which is
+      // the unassigned state rather than a failure to read the form.
+      participants: Participants.readPicker(),
       name,
       cuisine: document.getElementById("rst-cuisine").value,
       priceLevel: parseInt(document.getElementById("rst-price-level").value, 10) || 1,

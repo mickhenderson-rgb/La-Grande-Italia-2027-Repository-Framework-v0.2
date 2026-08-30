@@ -357,6 +357,7 @@ Research List
 
         Status:
         <span class="badge badge--${String(item.status || "").toLowerCase()}">${item.status}</span>
+        ${Participants.chips(item)}
         ${item.addedBy ? `<span class="badge">Added by ${this.esc(item.addedBy)}</span>` : ""}
 
     </p>
@@ -582,6 +583,9 @@ ${rows}
       referenceImage: null,
       type: "transport",
       addedBy: Project.currentUser || "",
+      // Empty means unassigned, which is what everything entered before
+      // Phase 2 carries. It must never be read as "everyone".
+      participants: [],
       mode: "Drive",
       status: "Research",
       locked: false,
@@ -593,6 +597,9 @@ ${rows}
       website: "",
       bookingReference: "",
       price: { amount: 0, currency: "EUR" },
+      // Vehicle capacity. 0 means "does not apply" - a train ticket has no
+      // capacity to run out of - rather than "a vehicle with no seats".
+      seats: 0,
       schedule: { date: day.date || "", departTime: "", arriveDate: "", arriveTime: "" },
       route: { distanceKm: 0, durationMinutes: 0, tollsEstimate: 0, tollsCurrency: "EUR" },
       planning: { priority: "High", notes: "" },
@@ -785,6 +792,18 @@ ${rows}
             </div>
 
         </details>
+
+        ${Participants.picker(item, { label: "Who's travelling" })}
+
+        <label class="form-field">
+            Seats
+            <input type="number" id="trn-seats" value="${item.seats ?? 0}" min="0" step="1">
+            <span class="form-hint">
+                How many people the vehicle holds. Leave at 0 if it does not
+                apply - a train ticket has no capacity to run out of. From
+                Phase 4, Readiness compares this with who is assigned above.
+            </span>
+        </label>
 
         <label class="form-field form-field-wide">
             Notes
@@ -1119,6 +1138,10 @@ ${rows}
       referenceImage: this.pendingImage || null,
       type: "transport",
       addedBy: isNew ? Project.currentUser || "" : undefined,
+      // Read on every save, new or not. [] when nobody is ticked, which is
+      // the unassigned state rather than a failure to read the form.
+      participants: Participants.readPicker(),
+      seats: Math.max(0, parseInt(document.getElementById("trn-seats").value, 10) || 0),
       mode: document.getElementById("trn-mode").value,
       from,
       to,

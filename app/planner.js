@@ -1034,6 +1034,8 @@ const Planner = {
 
         <span class="snap-item-title" onclick="${cfg.module}.edit('${item.id}')">${this.esc(cfg.title(item))}</span>
 
+        ${Participants.chips(item)}
+
     </div>
 
     ${cfg.detail(item)}

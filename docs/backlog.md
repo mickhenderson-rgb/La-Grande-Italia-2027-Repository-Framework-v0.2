@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-30 (v1.29.0).
+Last reviewed: 2026-08-30 (v1.30.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -1330,12 +1330,41 @@ setup page, the party-size line on the dashboard, and the route/nav. No
 existing number moves — the Budget and Accommodation deliberately do not
 read participants yet, and a test asserts it.
 
-**Phase 2 — assignment (OPEN).** A "who's going" picker on stays,
+**Phase 2 — assignment DONE (v1.30.0).** A "who's going" picker on stays,
 activities, restaurants, transport and flights. Empty by default (Mick
 chose pick-each-time over assume-everyone), with an **Everyone** button so
 the common case stays one tap. Day pages show a split day as two groups.
 Transport gains a `seats` field — there is nowhere to record vehicle size
 today.
+
+Shipped as designed. Worth recording:
+
+- **The picker sits above Notes in all five modules** — the one place
+  every form already shared, so it is in the same spot whatever you are
+  editing. Per-module labels: *Who's staying here* / *going* / *eating* /
+  *travelling* / *flying*.
+- **Everyone means everyone PRESENT**, not everyone on the trip. A Day 14
+  booking must not pick up somebody who flew home on Day 10.
+- **Somebody not on the trip those days is still listed**, with a note,
+  and still selectable. Hiding them makes a booking look impossible to fix
+  when the real mistake is the dates; disabling refuses an edit you may be
+  about to make legitimate.
+- **One edit covers the day card**, not five: `renderSnapItem` is the
+  shared row renderer, so the five categories cannot drift apart.
+- **`seats: 0` means "does not apply"**, not "a vehicle with no seats" —
+  a train ticket has no capacity to run out of.
+
+**A real bug, found by driving two pickers on one page in a browser.**
+All three DOM helpers — `pickEveryone`, `pickNobody`, `readPicker` —
+used document-wide selectors. Everyone on the first picker silently
+ticked boxes in the second, and `readPicker()` returned both pickers' ids
+concatenated. The app renders one form at a time so it could not bite
+today, but that is luck rather than design, and Phase 3 turns these ids
+into money. Scoped two ways: the buttons work from the button that was
+pressed, and `readPicker` reads `#pt-picker` on the form being saved.
+Greps would never have caught it — it took two pickers on one page.
+
+New guard: `test-participant-assignment.js`.
 
 **Phase 3 — costs (OPEN).** This is where existing numbers move:
 

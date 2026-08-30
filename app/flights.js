@@ -810,6 +810,7 @@ const Flights = {
 
         Status:
         <span class="badge badge--${String(item.status || "").toLowerCase()}">${item.status}</span>
+        ${Participants.chips(item)}
         ${item.addedBy ? `<span class="badge">Added by ${this.esc(item.addedBy)}</span>` : ""}
 
     </p>
@@ -998,6 +999,9 @@ const Flights = {
       day: day.day || 1,
       legs: [this.blankLeg(day)],
       type: "flight",
+      // Empty means unassigned, which is what everything entered before
+      // Phase 2 carries. It must never be read as "everyone".
+      participants: [],
       status: "Research",
       locked: false,
       price: { amount: 0, currency: "USD" },
@@ -1262,6 +1266,9 @@ const Flights = {
 
         <button type="button" class="btn-secondary btn-sm" onclick="Flights.addLeg()">+ Add Stopover</button>
 
+        ${Participants.picker(item, { label: "Who's flying" })}
+
+
         <label class="form-field form-field-wide">
             Notes
             <textarea id="flt-notes" rows="4">${this.esc(item.planning?.notes)}</textarea>
@@ -1336,6 +1343,9 @@ const Flights = {
       legs: this.editingLegs,
       type: "flight",
       addedBy: isNew ? Project.currentUser || "" : undefined,
+      // Read on every save, new or not. [] when nobody is ticked, which is
+      // the unassigned state rather than a failure to read the form.
+      participants: Participants.readPicker(),
       website: document.getElementById("flt-website").value.trim(),
       bookingReference: document.getElementById("flt-reference").value.trim(),
       status: document.getElementById("flt-status").value,

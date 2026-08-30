@@ -450,6 +450,28 @@ body {
    not a state, so it has to mean the same thing in light and dark. */
 .pt-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
 
+/* The who-is-going picker. A wrapping row of tick-boxes rather than a
+   multi-select: a party is small, and on a phone a multi-select is a
+   modal list you scroll, where these are four things you can see. */
+.pt-picker-label { display: block; font-weight: 600; color: var(--color-text-2); margin-bottom: 6px; }
+
+.pt-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.pt-pick { display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-surface); cursor: pointer; }
+
+/* Big enough to hit with a thumb - the default checkbox is about 13px. */
+.pt-pick input { width: 16px; height: 16px; margin: 0 2px 0 0; }
+
+.pt-away { font-size: 0.72em; color: var(--color-muted); font-style: italic; }
+
+.pt-picker-actions { display: flex; gap: 8px; margin-top: 8px; }
+
+/* Who is on a booking, shown on its card. Inline so it sits beside the
+   status badge rather than pushing the title onto its own line. */
+.pt-chips { display: inline-flex; flex-wrap: wrap; gap: 6px; vertical-align: middle; }
+
+.pt-chip { display: inline-flex; align-items: center; font-size: 0.72em; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: var(--color-bg-tint); color: var(--color-text-2); white-space: nowrap; }
+
 .day-snap-section.is-open .day-snap-snippet { display: none; }
 
 .day-snap-body { display: none; padding: 4px 12px 12px; }

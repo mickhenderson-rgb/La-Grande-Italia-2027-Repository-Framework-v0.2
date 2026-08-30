@@ -206,6 +206,229 @@ const Participants = {
       .join(", then ");
   },
 
+
+  // --- Assignment: who is on a booking ---------------------------------
+  //
+  // AN EMPTY LIST MEANS UNASSIGNED, never "everyone". That is what every
+  // item entered before this build has, and it has to keep meaning exactly
+  // what it meant then - nobody has said. Reading empty as everyone would
+  // silently put the whole party on every booking already in the trip, and
+  // from Phase 3 that would move real money.
+  assignedTo(item) {
+    return item && Array.isArray(item.participants) ? item.participants : [];
+  },
+
+  isAssigned(item, participantId) {
+    return this.assignedTo(item).indexOf(participantId) > -1;
+  },
+
+  // The days a picker should judge "is this person even here?" against.
+  // Every module knows its own shape; this just turns any of them into a
+  // list of day numbers.
+  daysOf(item) {
+    if (!item) {
+      return [];
+    }
+
+    if (Array.isArray(item.dayRange) && item.dayRange.length >= 2) {
+      const out = [];
+
+      for (let d = item.dayRange[0]; d <= item.dayRange[1]; d += 1) {
+        out.push(d);
+      }
+
+      return out;
+    }
+
+    return typeof item.day === "number" ? [item.day] : [];
+  },
+
+  presentOnAny(participant, dayNumbers) {
+    if (!Array.isArray(dayNumbers) || dayNumbers.length === 0) {
+      return true;
+    }
+
+    return dayNumbers.some((d) => this.presentOn(d).indexOf(participant) > -1);
+  },
+
+  // The picker itself.
+  //
+  // Nobody is ticked by default. Mick chose that over assume-everyone: it
+  // is never wrong by accident, and the Everyone button keeps the common
+  // case to one tap rather than four.
+  //
+  // Someone who is not on the trip on these days is still LISTED and still
+  // selectable, with a note saying so. Hiding them would make a booking
+  // look impossible to fix when the real mistake was the dates; disabling
+  // them would refuse an edit you may be about to make legitimate.
+  picker(item, options) {
+    const people = this.all();
+
+    const opts = options || {};
+
+    const label = opts.label || "Who's going";
+
+    if (people.length === 0) {
+      return `
+
+<div class="form-field form-field-wide">
+
+    <span class="pt-picker-label">${this.esc(label)}</span>
+
+    <span class="form-hint">
+        Nobody is on this trip yet. Add people on the
+        <a href="#" onclick="Router.navigate('participants'); return false;">Participants</a>
+        page and they will appear here.
+    </span>
+
+</div>
+
+`;
+    }
+
+    const days = this.daysOf(item);
+
+    const selected = this.assignedTo(item);
+
+    const rows = people
+      .map((p) => {
+        const here = this.presentOnAny(p, days);
+
+        return `
+
+<label class="pt-pick">
+
+    <input type="checkbox" class="pt-pick-box" value="${this.esc(p.id)}" ${selected.indexOf(p.id) > -1 ? "checked" : ""}>
+
+    <span class="pt-dot" style="background: ${this.esc(p.colour || this.COLOURS[0])}"></span>
+
+    <span>${this.esc(p.name || "Unnamed")}</span>
+
+    ${here ? "" : `<span class="pt-away">not on the trip these days</span>`}
+
+</label>
+
+`;
+      })
+      .join("");
+
+    return `
+
+<div class="form-field form-field-wide">
+
+    <span class="pt-picker-label">${this.esc(label)}</span>
+
+    <div class="pt-picker" id="pt-picker">${rows}</div>
+
+    <div class="pt-picker-actions">
+
+        <button type="button" onclick="Participants.pickEveryone(this)">Everyone</button>
+
+        <button type="button" onclick="Participants.pickNobody(this)">Nobody</button>
+
+    </div>
+
+    <span class="form-hint">
+        Leave everyone unticked if it applies to the whole party, or has not
+        been decided - that is what every booking made before this had, and
+        it still means the same thing.
+    </span>
+
+</div>
+
+`;
+  },
+
+  // The tick boxes belonging to ONE picker.
+  //
+  // Scoped from the button that was pressed, not the document. Both of
+  // these reached document-wide until a two-picker page showed what that
+  // means: Everyone on the first picker silently ticked boxes in the
+  // second. One form at a time makes that harmless TODAY, which is luck
+  // rather than design - and Phase 3 turns these ids into money.
+  boxesNear(button) {
+    const field = button && button.closest ? button.closest(".form-field") : null;
+
+    const picker = field ? field.querySelector(".pt-picker") : null;
+
+    return (picker || document).querySelectorAll(".pt-pick-box");
+  },
+
+  // Everyone PRESENT, not everyone on the trip: a booking on Day 14 should
+  // not pick up somebody who flew home on Day 10.
+  pickEveryone(button) {
+    const boxes = this.boxesNear(button);
+
+    for (let i = 0; i < boxes.length; i += 1) {
+      const away = boxes[i].parentNode.querySelector(".pt-away");
+
+      boxes[i].checked = !away;
+    }
+  },
+
+  pickNobody(button) {
+    const boxes = this.boxesNear(button);
+
+    for (let i = 0; i < boxes.length; i += 1) {
+      boxes[i].checked = false;
+    }
+  },
+
+  // Read on save. Returns [] when nobody is ticked, which is the
+  // unassigned state - not a failure to read the form.
+  readPicker(root) {
+    // The form being saved has exactly one picker, and it is #pt-picker.
+    // Falling back to the document keeps this working if a caller ever
+    // renders one without the wrapper.
+    const scope = root || document.getElementById("pt-picker") || document;
+
+    const boxes = scope.querySelectorAll(".pt-pick-box");
+
+    const out = [];
+
+    for (let i = 0; i < boxes.length; i += 1) {
+      if (boxes[i].checked) {
+        out.push(boxes[i].value);
+      }
+    }
+
+    return out;
+  },
+
+  // --- Assignment: showing it on a card --------------------------------
+
+  // Nothing at all when unassigned. A card that says "nobody" where it used
+  // to say nothing would make every existing booking look broken.
+  chips(item) {
+    const ids = this.assignedTo(item);
+
+    if (ids.length === 0) {
+      return "";
+    }
+
+    const chips = ids
+      .map((id) => {
+        const p = this.find(id);
+
+        if (!p) {
+          return "";
+        }
+
+        return `<span class="pt-chip"><span class="pt-dot" style="background: ${this.esc(p.colour || this.COLOURS[0])}"></span>${this.esc(p.name || "Unnamed")}</span>`;
+      })
+      .join("");
+
+    return chips ? `<span class="pt-chips">${chips}</span>` : "";
+  },
+
+  names(item) {
+    const names = this.assignedTo(item)
+      .map((id) => (this.find(id) || {}).name)
+      .filter(Boolean);
+
+    return names.join(", ");
+  },
+
   // --- The page --------------------------------------------------------
 
   open() {

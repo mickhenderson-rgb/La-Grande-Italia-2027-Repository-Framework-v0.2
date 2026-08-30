@@ -320,6 +320,7 @@ Research List
 
         Status:
         <span class="badge badge--${String(item.status || "").toLowerCase()}">${item.status}</span>
+        ${Participants.chips(item)}
         ${item.selected ? '<span class="badge">Selected</span>' : ""}
         ${item.addedBy ? `<span class="badge">Added by ${this.esc(item.addedBy)}</span>` : ""}
 
@@ -592,6 +593,9 @@ ${selected ? selected.planning.notes : ""}
       dayRange: [day.day || 1, day.day || 1],
       type: "accommodation",
       addedBy: Project.currentUser || "",
+      // Empty means unassigned, which is what everything entered before
+      // Phase 2 carries. It must never be read as "everyone".
+      participants: [],
       name: "",
       status: "Research",
       selected: false,
@@ -782,6 +786,9 @@ ${selected ? selected.planning.notes : ""}
 
         </div>
 
+        ${Participants.picker(item, { label: "Who's staying here" })}
+
+
         <label class="form-field form-field-wide">
             Notes
             <textarea id="acc-notes" rows="4">${this.esc(item.planning?.notes)}</textarea>
@@ -932,6 +939,9 @@ ${selected ? selected.planning.notes : ""}
       destination,
       type: "accommodation",
       addedBy: isNew ? Project.currentUser || "" : undefined,
+      // Read on every save, new or not. [] when nobody is ticked, which is
+      // the unassigned state rather than a failure to read the form.
+      participants: Participants.readPicker(),
       name,
       provider: document.getElementById("acc-provider").value.trim(),
       website: document.getElementById("acc-website").value.trim(),
