@@ -513,6 +513,23 @@ ${rows}
       });
   },
 
+  // Same as Accommodation.syncGuests: a table booked for the people you
+  // just ticked is a table for that many. A fill-in, not a lock - type
+  // over it and it stays.
+  syncPartySize() {
+    const field = document.getElementById("rst-party-size");
+
+    if (!field) {
+      return;
+    }
+
+    const picked = Participants.readPicker().length;
+
+    if (picked > 0) {
+      field.value = picked;
+    }
+  },
+
   blankItem() {
     const day = this.currentDay || {};
 
@@ -647,7 +664,7 @@ ${rows}
 
         </div>
 
-        ${Participants.picker(item, { label: "Who's eating" })}
+        ${Participants.picker(item, { label: "Who's eating", onChange: "Restaurants.syncPartySize()" })}
 
 
         <label class="form-field form-field-wide">

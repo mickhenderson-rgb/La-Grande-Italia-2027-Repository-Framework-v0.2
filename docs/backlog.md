@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-30 (v1.30.0).
+Last reviewed: 2026-08-30 (v1.31.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -1366,7 +1366,7 @@ Greps would never have caught it — it took two pickers on one page.
 
 New guard: `test-participant-assignment.js`.
 
-**Phase 3 — costs (OPEN).** This is where existing numbers move:
+**Phase 3 — costs DONE (v1.31.0).** The release where numbers move:
 
 - **The live costing bug.** `activities.js` defaults `price.per` to
   `"person"` and the form offers Person/Total, but `budget.js` only ever
@@ -1383,6 +1383,56 @@ New guard: `test-participant-assignment.js`.
   would drop a real room and undercount by half. Agreed rule: same place
   and dates with DIFFERENT participants means two bills; the same
   participants still means competing options.
+
+Shipped. Four things worth recording:
+
+**The Ferrari bug is fixed** — a per-person activity price now multiplies.
+
+**The Phase 2 rule had to be restated, not quietly broken.** Phase 2 said
+an empty list means unassigned and asserted nothing falls back from empty
+to the whole party. That was right while nothing costed anything, and it
+cannot survive Phase 3 unchanged: an unassigned per-person price
+multiplied by nobody either stays wrong (×1, bug intact) or goes to zero.
+So `Budget.headcountFor` is three-way and **never silent**:
+
+| Ticked | Count | The Budget line says |
+|---|---|---|
+| people | that many | `€90 per person × 4 people` |
+| nobody | the party present *that day* | `… (nobody assigned, so the whole party — tick people to change it)` |
+| no participants at all | 1 | nothing — exactly the old behaviour |
+
+`Participants.assignedTo` still returns only what was ticked and never
+the party. The fallback lives in the Budget, where it is a **pricing**
+decision, and it reaches the screen.
+
+**Only NAMED people drive a price** — a trap found by checking the live
+trip's data. `la-grande-italia-2027` still carries the old `travellers`
+key, so nothing moves there today. But *Bring them across* would have
+created three participants with **empty names**, and that one click would
+silently have trebled every unassigned per-person price on the trip.
+Three people who are not named yet are not yet a party. An unnamed person
+you tick yourself still counts — that was a deliberate answer.
+
+**Two rooms are two bills.** `chooseOnePerStay`'s key gains the sorted
+assigned ids. Same place and dates with different people means two bills;
+the same people (or nobody) still means competing options, which is what
+D13 was built for. Sorted, so ticking the same two in a different order
+cannot invent a second room.
+
+**Guests and party size follow the picker**, as a fill-in rather than a
+lock — type over it and it sticks, and unticking everybody leaves your
+number alone. The Everyone/Nobody buttons needed their own
+`notifyChanged` hook: setting `.checked` in script raises no change
+event, so the one button most likely to change a headcount would
+otherwise not have updated it.
+
+Two of my own assertions — from Phases 1 and 2, both saying the Budget
+must not read Participants — were deliberately broken by this release and
+were **restated rather than deleted**. What they protected is narrower
+and still true: a trip with nobody on it costs exactly what it cost
+before any of this existed.
+
+New guard: `test-participant-costs.js`.
 
 **Phase 4 — warnings (OPEN).** Readiness gains: someone present with no
 bed; a stay booked for fewer than are assigned; a joiner or leaver with no

@@ -584,6 +584,27 @@ ${selected ? selected.planning.notes : ""}
       });
   },
 
+  // Guests follows the picker, because a room booked for the four people
+  // you just ticked is four guests - and the city tax is charged per head,
+  // so getting it from a field nobody remembers to change is how a trip
+  // ends up a couple of hundred euro short.
+  //
+  // Only ever a FILL-IN. Typing over it afterwards sticks, and unticking
+  // everybody leaves the number alone rather than resetting it to nothing.
+  syncGuests() {
+    const field = document.getElementById("acc-guests");
+
+    if (!field) {
+      return;
+    }
+
+    const picked = Participants.readPicker().length;
+
+    if (picked > 0) {
+      field.value = picked;
+    }
+  },
+
   blankItem() {
     const day = this.currentDay || {};
 
@@ -728,7 +749,11 @@ ${selected ? selected.planning.notes : ""}
             <label class="form-field">
                 Guests
                 <input type="number" id="acc-guests" value="${item.guests ?? 2}" min="1" step="1">
-                <span class="form-hint">How many people are staying - the city tax is charged per person</span>
+                <span class="form-hint">
+                    How many people are staying - the city tax is charged per
+                    person. Ticking people above fills this in; type over it if
+                    the booking says something different.
+                </span>
             </label>
 
             <label class="form-field">
@@ -786,7 +811,7 @@ ${selected ? selected.planning.notes : ""}
 
         </div>
 
-        ${Participants.picker(item, { label: "Who's staying here" })}
+        ${Participants.picker(item, { label: "Who's staying here", onChange: "Accommodation.syncGuests()" })}
 
 
         <label class="form-field form-field-wide">

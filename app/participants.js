@@ -298,7 +298,7 @@ const Participants = {
 
 <label class="pt-pick">
 
-    <input type="checkbox" class="pt-pick-box" value="${this.esc(p.id)}" ${selected.indexOf(p.id) > -1 ? "checked" : ""}>
+    <input type="checkbox" class="pt-pick-box" value="${this.esc(p.id)}" ${selected.indexOf(p.id) > -1 ? "checked" : ""}${opts.onChange ? ` onchange="${this.esc(opts.onChange)}"` : ""}>
 
     <span class="pt-dot" style="background: ${this.esc(p.colour || this.COLOURS[0])}"></span>
 
@@ -356,6 +356,17 @@ const Participants = {
 
   // Everyone PRESENT, not everyone on the trip: a booking on Day 14 should
   // not pick up somebody who flew home on Day 10.
+  // The buttons have to fire the same hook the boxes do: setting .checked
+  // in script does NOT raise a change event, so a headcount that follows
+  // the picker would ignore the one button most likely to change it.
+  notifyChanged(button) {
+    const boxes = this.boxesNear(button);
+
+    if (boxes.length > 0 && boxes[0].onchange) {
+      boxes[0].onchange();
+    }
+  },
+
   pickEveryone(button) {
     const boxes = this.boxesNear(button);
 
@@ -364,6 +375,8 @@ const Participants = {
 
       boxes[i].checked = !away;
     }
+
+    this.notifyChanged(button);
   },
 
   pickNobody(button) {
@@ -372,6 +385,8 @@ const Participants = {
     for (let i = 0; i < boxes.length; i += 1) {
       boxes[i].checked = false;
     }
+
+    this.notifyChanged(button);
   },
 
   // Read on save. Returns [] when nobody is ticked, which is the

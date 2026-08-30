@@ -237,7 +237,21 @@ const Budget = {
         return;
       }
 
-      const key = where + "|" + from + "|" + to;
+      // WHO is part of the identity of a stay, not a detail of it.
+      //
+      // Four people in two rooms at one hotel are the same place and the
+      // same dates, so without this they collide and half the
+      // accommodation silently vanishes from the Budget. Different people
+      // means two bills; the SAME people (or nobody, on a shortlist) still
+      // means competing options, which is what D13 was built for.
+      //
+      // Sorted, so ticking the same two people in a different order does
+      // not accidentally make a second booking.
+      const who = typeof Participants === "undefined"
+        ? ""
+        : Participants.assignedTo(item).slice().sort().join(",");
+
+      const key = where + "|" + from + "|" + to + "|" + who;
 
       groups[key] = groups[key] || [];
 
@@ -265,6 +279,53 @@ const Budget = {
     });
 
     return ungrouped.concat(chosen);
+  },
+
+  // How many people a per-person price should be multiplied by.
+  //
+  // Three-way, and the source is returned as well as the number because
+  // the Budget has to SAY which it used - a headcount that appeared from
+  // nowhere is worse than one that is too small.
+  //
+  //   assigned  you ticked people on the booking. Your answer wins.
+  //   party     nobody is ticked. The form says unticked means "the whole
+  //             party, or not decided yet", and a price has to pick one -
+  //             so it takes the party present on the day.
+  //   default   no participants on the trip at all. One, which is exactly
+  //             what the app did before any of this existed.
+  headcountFor(item) {
+    if (typeof Participants === "undefined") {
+      return { count: 1, source: "default" };
+    }
+
+    const assigned = Participants.assignedTo(item);
+
+    if (assigned.length > 0) {
+      return { count: assigned.length, source: "assigned" };
+    }
+
+    const days = Participants.daysOf(item);
+
+    // The first day it covers. A two-day activity with somebody joining
+    // partway is rare enough that picking a side beats inventing a rule.
+    const present = (days.length > 0 ? Participants.presentOn(days[0]) : Participants.all())
+      // NAMED only.
+      //
+      // "Bring them across" turns the old Traveller 1/2/3 placeholders into
+      // real participants with EMPTY names, waiting to be filled in - and
+      // without this, that one click would silently treble every unassigned
+      // per-person price on the trip. Three people who are not named yet are
+      // not yet a party.
+      //
+      // An unnamed person you TICK yourself still counts: that was a
+      // deliberate answer, and it is handled above.
+      .filter(function (person) { return String(person.name || "").trim() !== ""; });
+
+    if (present.length > 0) {
+      return { count: present.length, source: "party" };
+    }
+
+    return { count: 1, source: "default" };
   },
 
   collectEntries() {
@@ -360,12 +421,39 @@ const Budget = {
       }
     });
 
+    // THE FERRARI BUG. price.per has defaulted to "person" since
+    // activities were written and the form has always offered
+    // Person/Total - but only "night" was ever multiplied, so a EUR 90
+    // per-person tour for four has been showing as EUR 90 all along.
     this.getItems(Project.get("activities")).forEach((it) => {
       const tier = this.getTier(it.status);
 
-      if (tier) {
-        add(tier, "activities", it.name || "Activity", it.price && it.price.amount, it.price && it.price.currency, "", it.status);
+      if (!tier) {
+        return;
       }
+
+      const base = Number(it.price && it.price.amount) || 0;
+
+      const currency = it.price && it.price.currency;
+
+      const perPerson = String(it.price && it.price.per).toLowerCase() === "person";
+
+      const head = perPerson ? this.headcountFor(it) : { count: 1, source: "default" };
+
+      const total = base * head.count;
+
+      // Said out loud whenever it is more than one, and it says WHERE the
+      // number came from. A total that quietly disagrees with the figure
+      // you typed is worse than one that is too big.
+      const detail =
+        perPerson && head.count > 1
+          ? `${this.money(base, currency)} per person × ${head.count} people` +
+            (head.source === "party"
+              ? " (nobody assigned, so the whole party - tick people on the activity to change it)"
+              : "")
+          : "";
+
+      add(tier, "activities", it.name || "Activity", total, currency, detail, it.status);
     });
 
     this.getItems(Project.get("restaurants")).forEach((it) => {
