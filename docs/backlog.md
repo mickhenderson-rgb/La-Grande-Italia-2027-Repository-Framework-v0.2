@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-29 (v1.26.1).
+Last reviewed: 2026-08-29 (v1.27.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -1153,6 +1153,53 @@ do not.
 The guard covers the case that motivated it: an AUD room with a EUR tax
 produces two entries in two currency buckets, so each converts at its own
 rate.
+
+### D18. Copy this trip — DONE (v1.27.0)
+
+For "we have planned this to death, now let us try it a week later, or
+through Switzerland instead". The copy starts identical and you edit what
+differs, which is far less work than rebuilding a fortnight of research.
+
+`POST /api/projects/:id/copy` with a name. **Copy** sits beside Share on
+the trip card and opens a small screen — a screen rather than a dialog,
+because a name has to be typed: the id comes from it, so two copies of one
+trip need two names.
+
+**What does not come with it, and why:**
+
+| | |
+|---|---|
+| `expenses.json` | Money actually spent on the real trip. An alternative that has not happened has not cost anything, and carrying it would put fictional spending in **Actual**. |
+| `journal.json` | Entries are about the trip that happened. Two copies of one evening is how you end up editing the wrong one. |
+| `uploads/` | The journal's photos, which the copy no longer references. Copying them would double the disk for files nothing points at. |
+| collaborators | Sharing is a decision per trip. Inheriting it would hand people access to a plan they have never seen. |
+
+**Statuses are kept.** A copy of a trip with a booked flight starts with a
+booked flight, because the alternative may well use the same flight — and
+resetting to Research would throw away the very research the copy exists
+to reuse. The Budget shows real numbers from the first second.
+
+The screen says all of this before you press the button. Finding out later
+that the journal did not travel is a bad way to find out, and it is not
+guessable from the word "copy".
+
+**Gated on WRITE, not ownership**, and checked *before* the owner-only gate
+that guards archive and delete — which would otherwise refuse a
+collaborator. A **guest** cannot copy: they are shown the plan without the
+costs, and a copy would hand them the costs.
+
+**Node 10, again.** No `fs.cpSync` (Node 16+) and no recursive `rmdir`
+(Node 12.10+), so the tree is walked by hand and the failure cleanup reuses
+`collectPaths`, the delete handler's own answer to the same problem.
+
+Driven against a **real server** — it creates files, claims ownership, and
+must leave nothing behind when it fails, none of which a mocked filesystem
+would show. Two of my own assertions were wrong and are worth recording:
+a non-existent trip returns **403, not 404** (nobody can edit a trip that
+does not exist, and the permission check runs first — which is the better
+answer anyway, since it does not tell someone probing ids which trips are
+real); and the Node 10 greps matched the comments *explaining* why
+`fs.cpSync` is avoided, so they now match the call rather than the name.
 
 ## D2. Deferred to V2
 

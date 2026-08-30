@@ -186,6 +186,8 @@ ${
 
         <button type="button" class="btn-secondary btn-sm" onclick="Sharing.open('${project.id}', '${this.jsArg(project.name)}')">Share</button>
 
+        <button type="button" class="btn-secondary btn-sm" onclick="Landing.confirmCopy('${project.id}', '${this.jsArg(project.name)}')">Copy</button>
+
         <button type="button" class="btn-secondary btn-sm" onclick="Landing.setArchived('${project.id}', ${!project.archived})">${project.archived ? "Unarchive" : "Archive"}</button>
 
         <button type="button" class="btn-danger btn-sm" onclick="Landing.confirmDelete('${project.id}', '${this.jsArg(project.name)}')">Delete</button>
@@ -292,6 +294,127 @@ ${
 
   confirmDelete(id, name) {
     Render.show(this.renderDeleteConfirm(id, name));
+  },
+
+  confirmCopy(id, name) {
+    Render.show(this.renderCopyConfirm(id, name));
+
+    const field = document.getElementById("copy-name");
+
+    if (field) {
+      field.focus();
+
+      // Selected, not just focused: the suggestion is a starting point,
+      // and most people will want to type over it.
+      field.select();
+    }
+  },
+
+  renderCopyConfirm(id, name) {
+    return `
+
+<div class="landing">
+
+    <div class="landing-card" style="max-width: 480px;">
+
+        <h1 style="text-align: center;">Copy this trip</h1>
+
+        <p>
+            The copy starts as an exact duplicate of
+            <strong>${this.esc(name)}</strong> - every day, stay, flight and
+            booking, at the status it is at now. Edit it from there.
+        </p>
+
+        <label class="form-field">
+            Name for the copy
+            <input type="text" id="copy-name" value="${this.esc(name)} (alternative)">
+        </label>
+
+        <p class="form-hint">
+            <strong>Not copied:</strong> the journal and its photos, and any
+            expenses you have logged. Those belong to the trip that is
+            actually happening. Sharing is not copied either - the copy is
+            yours until you share it.
+        </p>
+
+        <p class="ui-msg" id="copy-msg" hidden></p>
+
+        <div class="planner-buttons" style="justify-content: center; gap: 10px; margin-top: 16px;">
+
+            <button type="button" onclick="Landing.open()">Cancel</button>
+
+            <button type="button" class="btn-primary" id="copy-go" onclick="Landing.reallyCopy('${id}')">Make the copy</button>
+
+        </div>
+
+    </div>
+
+</div>
+
+`;
+  },
+
+  async reallyCopy(id) {
+    const field = document.getElementById("copy-name");
+
+    const button = document.getElementById("copy-go");
+
+    const name = field ? field.value.trim() : "";
+
+    if (!name) {
+      UI.warn("Give the copy a name.", { slot: "copy-msg", focus: "copy-name" });
+
+      return;
+    }
+
+    if (button) {
+      button.disabled = true;
+
+      button.textContent = "Copying…";
+    }
+
+    try {
+      const response = await fetch(`${window.API_BASE}/api/projects/${id}/copy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        // The 409 - a trip of that name already exists - is the one a
+        // person can actually fix, so it goes beside the field they must
+        // change rather than into a toast at the bottom of the screen.
+        UI.warn(data.error || `Could not copy the trip (status ${response.status}).`, {
+          slot: "copy-msg",
+          focus: "copy-name",
+        });
+
+        if (button) {
+          button.disabled = false;
+
+          button.textContent = "Make the copy";
+        }
+
+        return;
+      }
+
+      UI.ok(`Copied. You are now in "${name}".`);
+
+      // Straight into it - the whole point is to start editing.
+      this.selectTrip(data.id);
+    } catch (error) {
+      console.error("Could not copy the trip:", error);
+
+      UI.warn("Couldn't copy the trip. Check the connection and try again.", { slot: "copy-msg" });
+
+      if (button) {
+        button.disabled = false;
+
+        button.textContent = "Make the copy";
+      }
+    }
   },
 
   renderDeleteConfirm(id, name) {

@@ -2445,6 +2445,195 @@ async function handleCreateProject(req, res) {
   }
 }
 
+
+// =========================================================
+// COPY A TRIP
+//
+// For "we have planned this to death, now let us try it a week later /
+// through Switzerland instead". The copy starts identical and you edit
+// what differs, which is far less work than rebuilding a fortnight of
+// research.
+//
+// WHAT DOES NOT COME WITH IT, and why:
+//
+//   expenses.json  Money actually spent on the real trip. An alternative
+//                  that has not happened has not cost anything, and
+//                  carrying it would put fictional spending in Actual.
+//
+//   journal.json   Entries are about the trip that happened. Two copies
+//                  of one evening is how you end up editing the wrong one.
+//
+//   uploads/       The journal's photos, which the journal no longer
+//                  references. Copying them would double the disk for
+//                  files nothing points at.
+//
+// STATUSES ARE KEPT. A copy of a trip with a booked flight starts with a
+// booked flight, because the alternative may well use the same flight -
+// and resetting everything to Research would throw away the very research
+// the copy exists to reuse. The Budget therefore shows real numbers from
+// the first second, which is the point.
+//
+// The copier OWNS the copy, and the original's collaborators do NOT come
+// with it. Sharing is a decision per trip; inheriting it would hand people
+// access to a plan they have never seen.
+// =========================================================
+
+// Everything else in the folder is planning, and planning is what a copy
+// is for. Named rather than inferred, so a new collection added later is
+// copied by default - the safe direction, since a missing file makes a
+// section look empty while an extra one is merely tidy-up.
+const COPY_EXCLUDES = ["expenses.json", "journal.json", "uploads"];
+
+function copyTreeSync(from, to) {
+  fs.mkdirSync(to, { recursive: true });
+
+  // No fs.cpSync: production runs Node 10.24.1, where it does not exist.
+  fs.readdirSync(from, { withFileTypes: true }).forEach((entry) => {
+    const source = path.join(from, entry.name);
+
+    const target = path.join(to, entry.name);
+
+    if (entry.isDirectory()) {
+      copyTreeSync(source, target);
+
+      return;
+    }
+
+    fs.copyFileSync(source, target);
+  });
+}
+
+async function handleCopyProject(req, res, sourceId) {
+  if (!safeName(sourceId)) {
+    return sendJSON(res, 400, { error: "Invalid project id." });
+  }
+
+  const sourceDir = path.join(ROOT, "data", "projects", sourceId);
+
+  if (!fs.existsSync(sourceDir)) {
+    return sendJSON(res, 404, { error: "Trip not found." });
+  }
+
+  let body;
+
+  try {
+    body = JSON.parse(await readBody(req));
+  } catch (error) {
+    return sendJSON(res, 400, { error: "Request body must be valid JSON." });
+  }
+
+  const name = String((body && body.name) || "").trim();
+
+  if (!name) {
+    return sendJSON(res, 400, { error: "The copy needs a name." });
+  }
+
+  const id = slugify(name);
+
+  if (!id) {
+    return sendJSON(res, 400, { error: "Could not generate a valid id from that name." });
+  }
+
+  const targetDir = path.join(ROOT, "data", "projects", id);
+
+  // Both checked against the real root, so a crafted name cannot write
+  // outside data/projects even if slugify one day lets something through.
+  if (!targetDir.startsWith(path.join(ROOT, "data", "projects"))) {
+    return sendJSON(res, 400, { error: "Invalid path." });
+  }
+
+  if (fs.existsSync(targetDir)) {
+    return sendJSON(res, 409, { error: `A trip called "${name}" already exists. Give the copy a different name.` });
+  }
+
+  try {
+    fs.mkdirSync(targetDir, { recursive: true });
+
+    let copied = 0;
+
+    fs.readdirSync(sourceDir, { withFileTypes: true }).forEach((entry) => {
+      if (COPY_EXCLUDES.indexOf(entry.name) !== -1) {
+        return;
+      }
+
+      const from = path.join(sourceDir, entry.name);
+
+      const to = path.join(targetDir, entry.name);
+
+      if (entry.isDirectory()) {
+        copyTreeSync(from, to);
+      } else {
+        fs.copyFileSync(from, to);
+      }
+
+      copied += 1;
+    });
+
+    // The copy is its own trip: new id, new name, and never inheriting the
+    // original's archived flag - you have just made it, so it is current.
+    const projectPath = path.join(targetDir, "project.json");
+
+    if (fs.existsSync(projectPath)) {
+      const data = JSON.parse(fs.readFileSync(projectPath, "utf8"));
+
+      data.project = data.project || {};
+
+      data.project.id = id;
+
+      data.project.name = name;
+
+      data.project.archived = false;
+
+      data.project.copiedFrom = sourceId;
+
+      fs.writeFileSync(projectPath, JSON.stringify(data, null, 2), "utf8");
+    }
+
+    // A fresh ownership entry, so collaborators do NOT come with it.
+    setTripOwner(id, req.user ? req.user.id : null, name);
+
+    console.log(`[copied project] ${sourceId} -> ${id} (${copied} entries)`);
+
+    return sendJSON(res, 200, { ok: true, id: id });
+  } catch (error) {
+    console.error("[copy project failed]", error.stack || error.message);
+
+    // A half-made trip is worse than none: it shows in the list and opens
+    // to a broken screen. Best effort, and the error is reported either way.
+    //
+    // Via collectPaths rather than a recursive rmdir/rmSync: production is
+    // Node 10.24.1, where fs.rmSync does not exist at all and rmdir has no
+    // recursive option. The delete handler learnt this the hard way and
+    // this reuses its answer.
+    try {
+      const leftovers = collectPaths(targetDir);
+
+      leftovers.files.forEach((filePath) => {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (ignored) {
+          /* best effort */
+        }
+      });
+
+      leftovers.dirs
+        .slice()
+        .reverse()
+        .forEach((dirPath) => {
+          try {
+            fs.rmdirSync(dirPath);
+          } catch (ignored) {
+            /* best effort */
+          }
+        });
+    } catch (cleanupError) {
+      console.error("[copy cleanup failed]", cleanupError.message);
+    }
+
+    return sendJSON(res, 500, { error: "Could not copy the trip." });
+  }
+}
+
 async function handleArchiveProject(req, res, id) {
   if (!safeName(id)) {
     return sendJSON(res, 400, { error: "Invalid project id." });
@@ -2816,10 +3005,23 @@ const server = http.createServer(async (req, res) => {
     return handleCreateProject(req, res);
   }
 
-  const projectItemMatch = req.url.match(/^\/api\/projects\/([^/?]+)(?:\/(archive))?\/?(?:\?.*)?$/);
+  const projectItemMatch = req.url.match(/^\/api\/projects\/([^/?]+)(?:\/(archive|copy))?\/?(?:\?.*)?$/);
 
   if (projectItemMatch) {
     const [, id, action] = projectItemMatch;
+
+    // Copying needs WRITE, not ownership: someone who can already edit
+    // the trip could reproduce it by hand anyway. A GUEST cannot and must
+    // not - they are shown the plan without the costs, and a copy would
+    // hand them the costs. Checked BEFORE the owner-only gate below,
+    // which would otherwise refuse a collaborator.
+    if (action === "copy" && req.method === "POST") {
+      if (!canEditTrip(sessionUser, id)) {
+        return sendJSON(res, 403, { error: "You need edit access to copy this trip." });
+      }
+
+      return handleCopyProject(req, res, id);
+    }
 
     // Archiving or deleting a whole trip is owner-only.
     if (!isTripOwner(sessionUser, id)) {
