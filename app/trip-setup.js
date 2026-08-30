@@ -72,6 +72,17 @@ const TripSetup = {
                 <select id="setup-currency">${Currency.currencyOptions("AUD")}</select>
             </label>
 
+            <label class="form-field form-field-wide">
+                Who is coming? (optional)
+                <textarea id="setup-people" rows="4" placeholder="One name per line"></textarea>
+                <span class="form-hint">
+                    Names only for now - everyone starts down for the whole trip.
+                    Birthdays, and anyone joining late or leaving early, are set
+                    on the Participants page once the trip exists and the days
+                    are real. Skip this entirely if you would rather.
+                </span>
+            </label>
+
         </div>
 
         <div id="setup-status" class="form-hint" style="margin-top: 10px;"></div>
@@ -191,6 +202,15 @@ const TripSetup = {
 
     const currency = document.getElementById("setup-currency").value.trim() || "AUD";
 
+    // One name per line. Blank lines dropped rather than becoming unnamed
+    // people - a trailing newline is not somebody.
+    const peopleField = document.getElementById("setup-people");
+
+    const people = (peopleField ? peopleField.value : "")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
     const statusEl = document.getElementById("setup-status");
 
     if (!name) {
@@ -209,7 +229,7 @@ const TripSetup = {
       const response = await fetch(`${window.API_BASE}/api/projects`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, subtitle, startDate, endDate, currency }),
+        body: JSON.stringify({ name, subtitle, startDate, endDate, currency, participants: people }),
       });
 
       const result = await response.json();

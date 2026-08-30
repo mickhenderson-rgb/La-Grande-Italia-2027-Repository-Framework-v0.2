@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-30 (v1.28.0).
+Last reviewed: 2026-08-30 (v1.29.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -1289,6 +1289,98 @@ events and one glyph for both makes them look identical.
 **Still open:** the Trip Map draws stops from `day.overnight`, so an
 inferred transit night now correctly disappears from it — that is the
 intent, but it has not been checked against the live trip's map.
+
+---
+
+### D20. Participants — Phase 1 DONE (v1.29.0), Phases 2–4 OPEN
+
+Raised by Mick 2026-08-30: *"on some days not everyone will do the same
+things... 4 people for the first 10 days then have one leave to return
+home, or a joinee half way through for 12 days"*. Scoped over two rounds
+of questions before any code was written.
+
+**Agreed shape.** `project.participants[]`, each
+`{ id, name, dob, dayRange, linkedUser, colour }`. Every bookable item
+will gain `participants: [ids]`; an empty list means unassigned, which is
+exactly how everything behaves today.
+
+Four decisions, each because the obvious alternative fails later:
+
+- **A participant is not a collaborator.** Sharing invites app USERS and
+  is about who can SEE the plan. Being on the trip must never require an
+  account. `linkedUser` joins them when the same person is both.
+- **Dates, not a flag.** `dayRange` is the shape accommodation,
+  activities, transport and (v1.28.0) flights already speak, so a joiner
+  needs no new concept.
+- **Date of birth, not an age or a band.** Copy This Trip (v1.27.0)
+  exists so a plan can be shifted a year; a stored age is wrong in every
+  copy. The band derives against that trip's own departure date.
+- **Whole trip is `null`, not `[1, lastDay]`.** A stored range silently
+  stops covering the end the moment the trip gets longer.
+
+**Bands are real thresholds**, not round numbers: under 2 infant fare;
+2–11 child fare; 12+ full adult airfare; **under 25** for the
+young-driver surcharge (not 26 — and many suppliers refuse under 21);
+70+ where upper limits start, varying by country. Nothing calculates
+from a band — the app cannot know a supplier's rates, so from Phase 4 it
+flags what to check and you enter the real price.
+
+**Phase 1 shipped (v1.29.0):** the Participants page, names on the trip
+setup page, the party-size line on the dashboard, and the route/nav. No
+existing number moves — the Budget and Accommodation deliberately do not
+read participants yet, and a test asserts it.
+
+**Phase 2 — assignment (OPEN).** A "who's going" picker on stays,
+activities, restaurants, transport and flights. Empty by default (Mick
+chose pick-each-time over assume-everyone), with an **Everyone** button so
+the common case stays one tap. Day pages show a split day as two groups.
+Transport gains a `seats` field — there is nowhere to record vehicle size
+today.
+
+**Phase 3 — costs (OPEN).** This is where existing numbers move:
+
+- **The live costing bug.** `activities.js` defaults `price.per` to
+  `"person"` and the form offers Person/Total, but `budget.js` only ever
+  multiplies when `per === "night"`. A €90-per-person tour for four shows
+  as **€90, not €360** — wrong on the deployed site today. NOT
+  independently fixable: activities carry no headcount at all, so there is
+  nothing to multiply by until participants exist. (Offered as a
+  standalone patch before that was checked; the offer was wrong.)
+- `accommodation.guests` and `restaurants.reservation.partySize`
+  auto-fill from assignment, overridable.
+- **`chooseOnePerStay` gains a participant dimension.** It groups on
+  `destination|dayFrom|dayTo` (D13, v1.25.0), which is exactly the key
+  four people in two rooms at one hotel would collide on — the Budget
+  would drop a real room and undercount by half. Agreed rule: same place
+  and dates with DIFFERENT participants means two bills; the same
+  participants still means competing options.
+
+**Phase 4 — warnings (OPEN).** Readiness gains: someone present with no
+bed; a stay booked for fewer than are assigned; a joiner or leaver with no
+flight; vehicle seats versus people assigned; and the age prompts. Note
+**Italian city tax exemptions vary by comune** — Rome under 10, Florence
+under 12, Venice under 6 with a reduced rate to 10 — so one national
+threshold cannot be right. Also: the **EU 18–25 museum concession is for
+EU citizens**, so it will not apply on Australian passports.
+
+New guard: `test-participants.js`.
+
+### D21. `.badge` had no base CSS rule — DONE (v1.29.0)
+
+Found while checking the Participants page in a real browser: only
+`.badge.badge--<status>` was ever defined. Every badge WITHOUT a status
+modifier had **no styling at all** and rendered as bare inline text
+running into the heading beside it — 24 of them across ten modules,
+including Flights' "Direct", "2 stops", "⚠ Arrival Not Set" and "Added
+by", and the "Departed Day 1" badge added that morning in v1.28.0.
+
+Geometry copied from `.snap-badge`, which is the same object under
+another name. Neutral fill, since these state a fact rather than a status;
+the status variants are (0,2,0) and still win over the base (0,1,0), so
+nothing that already looked right changed.
+
+Measured in a real browser rather than reasoned about: **9.29:1 dark**,
+**8.43:1 light**, against a 4.5:1 requirement for 11.5px text.
 
 ---
 

@@ -89,6 +89,11 @@ const Router = {
 
         break;
 
+      case "participants":
+        Participants.open();
+
+        break;
+
       case "settings":
         Settings.open();
 

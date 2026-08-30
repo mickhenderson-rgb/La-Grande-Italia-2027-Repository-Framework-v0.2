@@ -98,11 +98,30 @@ const Dashboard = {
 
     <p class="dash-departure-line">${this.esc(this.departureLine(trip, days))}</p>
 
+    ${this.partyLine()}
+
     ${this.renderProgressRail()}
 
 </section>
 
 `;
+  },
+
+  // Who is coming, and whether that changes partway. Silent when nobody
+  // has been added - a trip planned alone should not carry a "1 person"
+  // line it never asked for.
+  partyLine() {
+    if (typeof Participants === "undefined") {
+      return "";
+    }
+
+    const line = Participants.summaryLine();
+
+    if (!line) {
+      return "";
+    }
+
+    return `<p class="dash-departure-line">👥 ${this.esc(line)}</p>`;
   },
 
   // Where you're counting down TO.

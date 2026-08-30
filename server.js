@@ -55,6 +55,40 @@ const MIME_TYPES = {
   ".webmanifest": "application/manifest+json",
 };
 
+// Names in, participants out. The ids are sequential because they end up
+// in every booking's participants array, where they want to be readable.
+//
+// Colours are FIXED hexes rather than theme tokens: they identify a
+// person, not a state, so they have to mean the same thing in both
+// themes. Kept in step with Participants.COLOURS.
+function buildParticipants(names) {
+  var palette = ["#2f6fb3", "#b3572f", "#3f8f5a", "#8a4f9e", "#b3902f", "#4a6b8a", "#a34f6b", "#5a7a3f"];
+
+  if (!Array.isArray(names)) {
+    return [];
+  }
+
+  return names
+    .map(function (name) {
+      return String(name || "").trim();
+    })
+    .filter(Boolean)
+    .slice(0, 30)
+    .map(function (name, index) {
+      return {
+        id: "p" + (index + 1),
+        name: name.slice(0, 80),
+        dob: "",
+        // Null, not [1, lastDay]: "whole trip" has to survive the trip
+        // getting longer, and a stored range would quietly stop covering
+        // the end of it.
+        dayRange: null,
+        linkedUser: "",
+        colour: palette[index % palette.length],
+      };
+    });
+}
+
 function safeName(value) {
   return /^[a-zA-Z0-9_-]+$/.test(value);
 }
@@ -2294,7 +2328,14 @@ function buildProjectFiles(input) {
         homeCountry: input.homeCountry || "",
         currency: input.currency || "USD",
         language: "English",
-        travellers: [{ id: 1, name: "Traveller 1", role: "Primary" }],
+        // Who is actually on the trip. Names only at creation; dates and
+        // birthdays are set later, once the journey has real days.
+        //
+        // This replaces `travellers`, which every trip was created with
+        // since Build 29 and which NOTHING has ever read - three unnamed
+        // placeholders sitting in every project.json. Existing trips keep
+        // theirs until the Participants page offers to bring them across.
+        participants: buildParticipants(input.participants),
       },
       settings: {
         planningMode: true,

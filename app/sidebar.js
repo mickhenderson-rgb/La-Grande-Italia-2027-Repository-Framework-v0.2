@@ -61,6 +61,12 @@ const Sidebar = {
     },
 
     {
+      id: "participants",
+      icon: "👥",
+      title: "Participants",
+    },
+
+    {
       id: "readiness",
       icon: "✓",
       title: "Readiness",
@@ -136,7 +142,7 @@ const Sidebar = {
 
   // Everything not on the bottom bar, grouped for the "More" sheet.
   moreGroups: [
-    { title: "Plan", ids: ["itinerary", "destinations", "accommodation", "flights", "transport", "readiness"] },
+    { title: "Plan", ids: ["itinerary", "destinations", "accommodation", "flights", "transport", "participants", "readiness"] },
     { title: "Money", ids: ["budget", "currency"] },
     { title: "App", ids: ["guide", "settings"] },
   ],

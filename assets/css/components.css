@@ -446,6 +446,10 @@ body {
 
 .snap-transition.is-arrives { background: var(--status-booked-bg); color: var(--status-booked); }
 
+/* A participant's colour dot. FIXED, not themed - it identifies a person,
+   not a state, so it has to mean the same thing in light and dark. */
+.pt-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+
 .day-snap-section.is-open .day-snap-snippet { display: none; }
 
 .day-snap-body { display: none; padding: 4px 12px 12px; }
@@ -845,6 +849,18 @@ button {
 }
 
 /* Status pills — one muted palette, Research → Booked, used everywhere */
+
+/* The BASE badge, which never existed.
+
+   Only .badge.badge--<status> was ever defined, so every badge WITHOUT a
+   status modifier - Direct, 2 stops, Arrival Not Set, Day 3, Added by X,
+   and 24 others across ten modules - rendered as bare inline text that ran
+   into the heading beside it.
+
+   Geometry copied from .snap-badge, which is the same object under another
+   name. Neutral fill, since these say a FACT rather than a state; the
+   status variants below are (0,2,0) and still win over this (0,1,0). */
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72em; font-weight: 700; white-space: nowrap; background: var(--color-bg-tint); color: var(--color-text-2); vertical-align: middle; }
 
 .badge.badge--research { background: var(--status-research-bg); color: var(--status-research); }
 
