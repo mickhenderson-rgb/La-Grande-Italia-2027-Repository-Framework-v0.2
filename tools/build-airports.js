@@ -29,6 +29,34 @@ naming is worth about 90 KB.
 =========================================================
 */
 
+// Airports you can genuinely book a flight to that ourairports does not
+// yet mark scheduled_service = yes.
+//
+// The scheduled-service filter below is right and stays: without it the
+// list balloons with airstrips that share codes. But a brand-new airport
+// is selling seats months before that flag flips, and "not in the list"
+// is indistinguishable from "does not exist" to somebody typing it in.
+//
+// UPSTREAM WINS on a code collision - see the merge below - so each of
+// these is self-deleting: the day ourairports catches up, its row
+// replaces this one and the entry is harmlessly redundant.
+//
+// Same field names as the built rows: c n m k t y x.
+const SUPPLEMENT = [
+  {
+    // Opened 2026. ourairports has the row (id 507237, YSWS/WSI) but
+    // still says scheduled_service "no", while airlines sell it today.
+    // Coordinates and name are that row's, verbatim.
+    c: "WSI",
+    n: "Western Sydney International (Nancy-Bird Walton) Airport",
+    m: "Sydney",
+    k: "AU",
+    t: 3,
+    y: -33.8835,
+    x: 150.713,
+  },
+];
+
 const https = require("https");
 const fs = require("fs");
 const path = require("path");
@@ -122,10 +150,19 @@ https.get(URL, (res) => {
     // Duplicate IATA codes exist in the raw data. Keep the biggest.
     const byCode = {};
 
+    // SUPPLEMENT FIRST, so a real upstream row overwrites it rather than
+      // the other way round. The moment ourairports marks one of these
+      // scheduled, its own data wins and the entry above stops mattering.
+    SUPPLEMENT.forEach((a) => { byCode[a.c] = a; });
+
     rows.forEach((a) => {
       const prev = byCode[a.c];
 
-      if (!prev || a.t > prev.t) { byCode[a.c] = a; }
+      // Upstream beats the supplement unconditionally; between two
+      // upstream rows sharing a code, the biggest airport wins.
+      const fromSupplement = prev && SUPPLEMENT.indexOf(prev) > -1;
+
+      if (!prev || fromSupplement || a.t > prev.t) { byCode[a.c] = a; }
     });
 
     const list = Object.keys(byCode).sort().map((k) => byCode[k]);

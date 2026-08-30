@@ -14,7 +14,7 @@ that; this module only answers "which airport is that?".
 WHY A BUNDLED LIST RATHER THAN A LOOKUP SERVICE
 
 Because the question is asked on every keystroke of every
-flight leg, and the answer never changes. 4,007 airports is
+flight leg, and the answer never changes. 4,008 airports is
 391 KB fetched once, cached by the service worker for the
 life of the release, and free from then on - where a hosted
 autocomplete would be a paid call per keystroke, a network
@@ -25,6 +25,15 @@ with a real 3-letter IATA code AND scheduled service, which
 is what "somewhere you can book a flight to" means. Small
 airports are kept: 764 of them are Greek islands, Scottish
 isles and remote strips that people genuinely fly to.
+
+Plus a small SUPPLEMENT in tools/build-airports.js, for
+airports you can genuinely book that ourairports has not yet
+marked scheduled. WSI (Western Sydney) is the first: its row
+is upstream, correct and complete, and still says
+scheduled_service "no" while airlines sell seats on it - so a
+rebuild alone would not have found it. Upstream wins on a
+code collision, so each supplement entry deletes itself the
+day the flag flips.
 
 WHY PROXIMITY, NOT JUST TEXT
 

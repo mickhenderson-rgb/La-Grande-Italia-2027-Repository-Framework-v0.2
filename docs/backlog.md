@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-30 (v1.33.0).
+Last reviewed: 2026-08-30 (v1.34.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -340,7 +340,7 @@ each failure mode separately.
 
 A leg from/to was free text. "Milan" does not say MXP or LIN, and a trip
 through Singapore could mean any of four fields. Legs now hold an IATA
-CODE picked from a bundled list of 4,007 airports (ourairports.com,
+CODE picked from a bundled list of 4,008 airports (ourairports.com,
 public domain, filtered to a real 3-letter code plus scheduled service).
 
 Two searches, because one is not enough. TEXT finds what you can name.
@@ -1531,6 +1531,90 @@ Measured in a real browser rather than reasoned about: **9.29:1 dark**,
 **8.43:1 light**, against a 4.5:1 requirement for 11.5px text.
 
 ---
+
+### D22. Airports you can book that ourairports calls unscheduled — DONE (v1.33.1)
+
+Reported by Mick: *"Western Sydney Airport IATA code WSI isnt in the
+list, but is available on airline flight selectors"*. Both halves true.
+
+The upstream row exists and is complete — id 507237, large_airport,
+correct coordinates, municipality "Sydney", YSWS/WSI, keywords
+"Badgerys Creek" — and says `scheduled_service: "no"`.
+
+**The filter is right and upstream is behind.** The build keeps only
+rows with `scheduled_service = yes`, deliberately: without it the list
+balloons with airstrips that share codes and would only ever be wrong
+suggestions. So a REBUILD WOULD NOT HAVE FIXED THIS, and loosening the
+filter would have been the wrong fix.
+
+A `SUPPLEMENT` list in `tools/build-airports.js` instead, applied at
+build time so a rebuild keeps it — and seeded FIRST so that **upstream
+wins on a code collision**. Each entry is self-deleting: the day
+ourairports flips the flag, its row replaces ours and the entry becomes
+harmlessly redundant. `assets/data/airports.json` is patched too, so it
+works without anyone running the build.
+
+**The ranking trap**: WSI's municipality is exactly `"Sydney"` while
+SYD's is `"Sydney (Mascot)"`. The municipality-exact score was demoted
+from 80 to 65 back in v1.17.0 for exactly this shape of problem, so
+typing "Sydney" still gives SYD, then WSI, then Sydney NS. Verified
+rather than assumed.
+
+**Known gap, left alone deliberately**: typing "Badgerys" finds nothing.
+ourairports carries it as a keyword and the build has never read the
+keywords column for ANY airport. Adding one for a single entry would be
+inconsistent, and WSI is reachable by code, by "Sydney" and by "Western
+Sydney" — so it is recorded rather than hidden.
+
+New guard: `test-airport-supplement.js`.
+
+### D23. A flight with a stopover drew as one straight line — DONE (v1.34.0)
+
+Reported by Mick: *"my map shows a flight sydney to milan, but its
+actually 2 flights, syd-sin - sin-mxp, i dont like it"*.
+
+**Structural, not a drawing bug.** The map draws one line per OVERNIGHT
+STOP, and stops come from `day.overnight`. Singapore is a couple of hours
+in a terminal, not a night, so no Singapore stop exists — and the line
+ran straight from Sydney to Milan on a great circle that passes nowhere
+near a city you actually spent time in.
+
+**The fix was NOT to make stopovers into stops.** They have no
+accommodation, no days and nothing to sleep in. Promoting them would put
+Singapore on the stop rail, have Readiness ask where you are sleeping
+there, and break the accommodation join.
+
+Instead the flown leg draws its own shape: `flightPath()` returns
+`[fromStop, ...stopover airports..., toStop]`. The ENDPOINTS stay the
+stops so the line still meets both pins; only the middle is the flight's.
+
+- **A direct flight is untouched** — no intermediate airports, so it
+  draws exactly the straight line it always did.
+- **An unresolvable airport is skipped, not guessed at.** A leg saved
+  before v1.17.0 holds free text like "Sydney Airport"; bending toward a
+  wrong place is worse than not bending.
+- **`flightForLeg` reuses the exact predicate `legModeKey` uses**, so the
+  line drawn and the mode reported can never disagree. A test asserts the
+  predicate appears in those two places and nowhere else.
+- **A leg that should have been a road never gets a dogleg** — `routeAs`
+  short-circuits it.
+
+`.tm-over` marks each change: a small hollow dot with the code and a
+"Changed at …" tooltip, deliberately NOT a stop pin.
+
+**A guard caught it correctly.** `test-v1113-mobile-bugs.js` asserts no
+surface in the map panel is hard-coded white, exempting `.tm-pin` and
+`.tm-plabel` by name — *"so the exemption stays a decision rather than a
+loophole"*. `.tm-over` is white for the identical C17 reason (it sits on
+map tiles, which are the same beige in both themes), so it was ADDED TO
+THE NAMED EXEMPTION in both that suite and `test-map-ink-contrast.js`,
+which also asserts it is ENTIRELY literal. Half-themed is what broke C17.
+
+**Built against the described shape, not against real data**: the trip in
+question (`italy-27`) is not in the repo copy of `data/projects`. Worth a
+look on the live map.
+
+New guard: `test-stopover-map.js`.
 
 ## D2. Deferred to V2
 

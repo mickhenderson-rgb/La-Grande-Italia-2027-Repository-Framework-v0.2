@@ -1278,6 +1278,84 @@ ${unplotted}
     return this.TRANSPORT_MODE_KEYS[String(chosen.mode || "").toLowerCase()] || "unknown";
   },
 
+  // The flight that serves this leg, or null.
+  //
+  // Exactly the predicate legModeKey uses to decide the leg is flown, so
+  // the line drawn and the mode reported can never disagree.
+  flightForLeg(from, to) {
+    const flights = Project.get("flights");
+
+    const items = flights && Array.isArray(flights.items) ? flights.items : [];
+
+    const lo = from.dayRange[1];
+
+    const hi = to.dayRange[0];
+
+    const target = String(to.location || "").toLowerCase();
+
+    return (
+      items.filter(
+        (item) => this.itemSpansGap(item, lo, hi) && this.flightServesLeg(item, target, to),
+      )[0] || null
+    );
+  },
+
+  // The airports a booking touches BETWEEN its first departure and its
+  // last arrival - the places you changed planes.
+  //
+  // legs[0].to through legs[n-2].to. The last leg's arrival is where you
+  // end up, which is the stop itself, so it is not a stopover.
+  stopoverAirports(item) {
+    if (typeof Airports === "undefined" || !item) {
+      return [];
+    }
+
+    const legs = Flights.getLegs(item);
+
+    const out = [];
+
+    for (let i = 0; i < legs.length - 1; i++) {
+      const code = legs[i].to;
+
+      const coords = Airports.coordsOf(code);
+
+      // An unresolvable airport is skipped rather than guessed at. A leg
+      // saved before v1.17.0 holds free text like "Sydney Airport", and
+      // bending the line towards a wrong place is worse than not bending
+      // it at all.
+      if (coords) {
+        out.push({ code: code, coords: coords, airport: Airports.lookup(code) });
+      }
+    }
+
+    return out;
+  },
+
+  // The path a flown leg should actually draw.
+  //
+  // Endpoints are the STOPS, not the airports, so the line still meets
+  // both pins - only the middle is the flight's own shape. A direct
+  // flight yields nothing and the caller draws the straight line it
+  // always did.
+  flightPath(from, to) {
+    const item = this.flightForLeg(from, to);
+
+    if (!item || !from.coords || !to.coords) {
+      return null;
+    }
+
+    const overs = this.stopoverAirports(item);
+
+    if (overs.length === 0) {
+      return null;
+    }
+
+    return {
+      path: [from.coords].concat(overs.map((o) => o.coords)).concat([to.coords]),
+      stopovers: overs,
+    };
+  },
+
   // Does this flight belong to THIS leg, or to a different one that merely
   // shares a day with it?
   //
@@ -1495,9 +1573,21 @@ ${unplotted}
         if (leg && leg.path && leg.path.length > 1) {
           this._routeLayers.push(this.drawLeg(leg.path, style));
         } else {
+          // A flown leg draws its own shape: through the airports you
+          // actually changed at, rather than straight over them. Sydney to
+          // Milan via Singapore is two flights and should look like two.
+          const flown = style.routeAs ? null : this.flightPath(from, to);
+
           this._routeLayers.push(
-            this.drawLeg([from.coords, to.coords], style.routeAs ? this.NO_ROUTE_STYLE : style),
+            this.drawLeg(
+              flown ? flown.path : [from.coords, to.coords],
+              style.routeAs ? this.NO_ROUTE_STYLE : style,
+            ),
           );
+
+          if (flown) {
+            this.markStopovers(flown.stopovers);
+          }
         }
 
         const done = results.filter(Boolean).length;
@@ -1615,6 +1705,41 @@ ${unplotted}
         return `<span class="tripmap-legend-item"><svg width="26" height="8" aria-hidden="true" focusable="false"><line x1="0" y1="4" x2="26" y2="4" stroke="${s.color}" stroke-width="${s.weight}" stroke-opacity="${s.opacity}"${dash} /></svg>${this.esc(entry.label)}</span>`;
       })
       .join("");
+  },
+
+  // A small marker at each place you changed planes.
+  //
+  // Without one the dogleg is just an unexplained bend in a line. With
+  // one it says SIN, which is the whole point of drawing it.
+  //
+  // Deliberately NOT a stop pin: a stopover has no accommodation, no
+  // days and nothing to sleep in, and dressing it as a stop would be a
+  // lie the rest of the app would then have to answer for.
+  markStopovers(stopovers) {
+    if (!this.map || !window.L || !Array.isArray(stopovers)) {
+      return;
+    }
+
+    stopovers.forEach((over) => {
+      const icon = window.L.divIcon({
+        className: "tm-over-wrap",
+        html:
+          `<span class="tm-over" aria-hidden="true"></span>` +
+          `<span class="tm-plabel" aria-hidden="true">${this.esc(over.code)}</span>`,
+        iconSize: [12, 12],
+        iconAnchor: [6, 6],
+      });
+
+      const marker = window.L.marker(over.coords, { icon: icon, keyboard: false }).addTo(this.map);
+
+      if (over.airport && over.airport.n) {
+        marker.bindTooltip(`Changed at ${over.airport.n}`);
+      }
+
+      // Tracked with the route layers, so a redraw clears them with
+      // everything else rather than stacking a new set on the old.
+      this._routeLayers.push(marker);
+    });
   },
 
   drawLeg(latlngs, style) {
@@ -2613,6 +2738,12 @@ ${hint}
    The values here are the LIGHT palette, written out rather than
    referenced, because that is the point: they must not move when the theme
    does. */
+/* A stopover: somewhere you changed planes, not somewhere you stayed.
+   Smaller and hollow on purpose, so it never reads as a stop. FIXED
+   colours like the pins - these sit on map tiles, and the tiles are the
+   same beige whichever theme the app is in (see C17). */
+.tm-over { display: block; width: 12px; height: 12px; border-radius: 50%; background: #ffffff; border: 2px solid #b3572f; box-sizing: border-box; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
+
 .tm-pin { width: 100%; height: 100%; border-radius: 50%; background: #ffffff; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 15px; line-height: 1; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); cursor: pointer; transition: transform 0.12s; }
 
 .tm-pin.is-booked { border: 2px solid #34495E; color: #34495E; }
