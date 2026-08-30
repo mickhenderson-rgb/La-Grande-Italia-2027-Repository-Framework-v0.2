@@ -626,7 +626,7 @@ ${selected ? selected.planning.notes : ""}
       bookingReference: "",
       price: { amount: 0, currency: "EUR", per: "night" },
       guests: 2,
-      cityTax: { perPersonPerNight: 0, currency: "EUR" },
+      cityTax: { perPersonPerNight: 0, maxNights: 0, currency: "EUR" },
       location: { locationId: "", address: "", latitude: null, longitude: null },
       features: {
         parking: false,
@@ -763,6 +763,17 @@ ${selected ? selected.planning.notes : ""}
                     Per person, per night. Italy's tassa di soggiorno is usually
                     EUR 1-7 and is paid at the property, not with the booking - so
                     it is not in the price above.
+                </span>
+            </label>
+
+            <label class="form-field">
+                City Tax Capped After
+                <input type="number" id="acc-tax-cap" value="${item.cityTax?.maxNights ?? 0}" min="0" step="1">
+                <span class="form-hint">
+                    Consecutive nights, after which you stop paying. Leave at 0
+                    for no cap. Rome stops at 10, Florence at 7, Venice at 5 -
+                    but every comune sets its own and they change, so check the
+                    city you are actually staying in rather than trusting these.
                 </span>
             </label>
 
@@ -988,6 +999,9 @@ ${selected ? selected.planning.notes : ""}
       // desk, which is the ordinary case rather than an exotic one.
       cityTax: {
         perPersonPerNight: parseFloat(document.getElementById("acc-tax-rate").value) || 0,
+        // 0 is no cap. Negative would be a typo that silently zeroed the
+        // tax, so it is floored rather than trusted.
+        maxNights: Math.max(0, parseInt(document.getElementById("acc-tax-cap").value, 10) || 0),
         currency:
           document.getElementById("acc-tax-currency").value.trim() ||
           document.getElementById("acc-price-currency").value.trim() ||

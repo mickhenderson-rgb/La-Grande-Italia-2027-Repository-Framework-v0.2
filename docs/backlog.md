@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-30 (v1.32.0).
+Last reviewed: 2026-08-30 (v1.33.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -440,13 +440,19 @@ back with nothing. Results are collected BY INDEX and tallied afterwards
 so the summary still reads in trip order, and each leg is still drawn the
 moment it arrives. The progress line now counts ("7 of 15 legs").
 
-### C12. Old flights still hold free text — OPEN (housekeeping, not a bug)
+### C12. Old flights still hold free text — CLOSED (2026-08-30, Mick)
 
 Legs saved before v1.17.0 keep phrases like "Sydney Airport". They
 display and match exactly as before, but they do not carry a code, so the
 map falls back to matching them by name. Reopening a flight and re-picking
 each airport from the list upgrades it. Nothing breaks if that never
 happens.
+
+Closed 2026-08-30: Mick reports the flights were re-picked with IATA codes
+and the flight data completed. NOT verified from here - the repo copy of
+data/projects is a week stale (flights.json dated 23 Aug, before the
+airport picker shipped on the 27th), so it shows the old free text and can
+say nothing about the live server. The known data/projects drift.
 
 ### C17. The stop label was unreadable in dark mode — DONE (v1.17.5)
 
@@ -560,13 +566,20 @@ Guarded by `test-photo-book.js`, which does arithmetic on inches — print
 geometry is the one thing that cannot be checked by looking at it, because
 a page 2% too big looks identical on screen and comes back trimmed wrong.
 
-### A11 (second half). Web story — OPEN
+### A11 (second half). Web story — DONE (v1.24.0)
 
-The genuinely separate build, and the agreed order was photo book first.
-A vertical, tap-through, phone-first telling of the trip. Nothing of it
-exists yet, and nothing claims it does — `test-journal-export.js` asserts
-that the words "web story" appear nowhere, precisely so it cannot be
-claimed before it is built.
+Built as `app/web-story.js`, reached from the photo-book screen. A
+vertical, tap-through, phone-first telling of the trip, using the 1600px
+DISPLAY copies - the one place the smaller copy is the right one.
+
+This entry said OPEN until 2026-08-30, three weeks after it shipped: the
+priority queue had recorded A12 as done and this duplicate was never
+updated. Kept rather than deleted, as the reminder that two places
+tracking one fact is how a backlog starts lying.
+
+STILL UNVERIFIED: the scrolling has never been checked on a real phone.
+Nothing scrolls in the browser pane used for testing - even setting
+deck.scrollTop reads back 0 - so this needs a look on an actual handset.
 
 ### A13. Export for production (zip) — DONE (v1.19.0)
 
@@ -1117,7 +1130,7 @@ Defaults chosen so an older record under-counts rather than disappearing:
 a missing guest count is treated as **one person**, not none. A new card
 starts at two guests, which is the common case here.
 
-### D16. City tax has no nightly cap — OPEN
+### D16. City tax has no nightly cap — DONE (v1.33.0)
 
 Rome caps its tourist tax at **10 consecutive nights**, Venice at **5**,
 and Florence at **7**. Above the cap you stop paying, and the app would
@@ -1132,6 +1145,29 @@ If it is wanted, the shape is a `cityTax.maxNights` alongside
 `rate × guests × Math.min(nights, maxNights || nights)`. The suite already
 has the per-night maths isolated in `cityTaxFor`, so it is one function and
 one field.
+
+Built exactly to that shape. `Budget.chargeableNights` is the one new
+function and `cityTax.maxNights` the one new field.
+
+**Absent or 0 means NO CAP, never "a cap of nothing".** Every
+accommodation record written before v1.33.0 has no `maxNights` at all,
+and reading a missing field as a cap would zero the city tax on every
+existing booking in every trip. Negatives and nonsense are ignored the
+same way rather than trusted from a hand-edited file.
+
+**The Budget says it was capped, but only when the cap bites** — a stay
+shorter than the cap is an ordinary stay and does not need the arithmetic
+explained at it.
+
+**The app does not know each city's number and does not pretend to.** The
+form names Rome 10, Florence 7 and Venice 5 as a starting point and says
+plainly that every comune sets its own and they change. Same rule the age
+prompts follow: say what to check, never invent the figure.
+
+`calculateNights` is untouched and still answers how long the stay is —
+length of stay and length of bill are different questions.
+
+New guard: `test-city-tax-cap.js`.
 
 ### D17. City tax has its own currency — DONE (v1.26.1)
 
@@ -1292,7 +1328,7 @@ intent, but it has not been checked against the live trip's map.
 
 ---
 
-### D20. Participants — Phase 1 DONE (v1.29.0), Phases 2–4 OPEN
+### D20. Participants — ALL FOUR PHASES DONE (v1.29.0 – v1.32.0)
 
 Raised by Mick 2026-08-30: *"on some days not everyone will do the same
 things... 4 people for the first 10 days then have one leave to return

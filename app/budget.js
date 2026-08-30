@@ -163,7 +163,23 @@ const Budget = {
     // should under-count rather than silently charge nothing.
     const guests = Math.max(1, Number(item.guests) || 1);
 
-    return rate * guests * this.calculateNights(item);
+    return rate * guests * this.chargeableNights(item);
+  },
+
+  // Nights you actually pay tax for.
+  //
+  // Italian comuni cap the tassa di soggiorno at a number of consecutive
+  // nights - Rome 10, Florence 7, Venice 5 - and above it you stop paying.
+  //
+  // ABSENT OR 0 MEANS NO CAP, never "a cap of nothing". Every record
+  // written before v1.33.0 has no maxNights at all, and treating that as a
+  // cap would zero the city tax on every existing booking in every trip.
+  chargeableNights(item) {
+    const nights = this.calculateNights(item);
+
+    const cap = Number(item.cityTax && item.cityTax.maxNights) || 0;
+
+    return cap > 0 ? Math.min(nights, cap) : nights;
   },
 
   // The workflow, in order, so "further along" is a number.
@@ -397,6 +413,10 @@ const Budget = {
       // the room it would make the room look dearer than the invoice.
       const tax = this.cityTaxFor(it);
 
+      // Both numbers: `nights` is how long you are there, `charged` is how
+      // many the comune actually bills for.
+      const charged = this.chargeableNights(it);
+
       // Its OWN currency, falling back to the room's. v1.26.0 always used
       // the room's on the reasoning that a city tax is charged in local
       // money and so is the room - which is false whenever the booking was
@@ -415,7 +435,11 @@ const Budget = {
           (it.name || "Accommodation") + " - city tax",
           tax,
           taxCurrency,
-          `${this.money(it.cityTax.perPersonPerNight, taxCurrency)} × ${guests} ${guests === 1 ? "person" : "people"} × ${nights} ${nights === 1 ? "night" : "nights"}`,
+          `${this.money(it.cityTax.perPersonPerNight, taxCurrency)} × ${guests} ${guests === 1 ? "person" : "people"} × ${charged} ${charged === 1 ? "night" : "nights"}` +
+            // Only said when the cap actually bites. A stay shorter than the
+            // cap is an ordinary stay and does not need the arithmetic
+            // explained at it.
+            (charged < nights ? ` (capped at ${charged} of ${nights} nights)` : ""),
           it.status,
         );
       }
