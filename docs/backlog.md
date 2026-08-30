@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-30 (v1.34.0).
+Last reviewed: 2026-08-30 (v1.35.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -1615,6 +1615,68 @@ question (`italy-27`) is not in the repo copy of `data/projects`. Worth a
 look on the live map.
 
 New guard: `test-stopover-map.js`.
+
+### D24. Eight UI/UX items from using it — SIX DONE (v1.35.0), TWO NOT NEEDED
+
+Raised by Mick 2026-08-30 after real use. Six built, two deliberately not
+— and one not reproducible.
+
+| # | Item | Outcome |
+|---|---|---|
+| 1 | Editing a day dropped you at the top of a 52-day planner | DONE |
+| 2 | A trip could not be renamed | DONE — display name only |
+| 3 | Copy loses accommodation / transport | NOT REPRODUCIBLE |
+| 4 | Days in transit home | DONE — recorded and flagged |
+| 5a | Check-out defaulted to the SAME day as check-in | DONE |
+| 5b | 24-hour clock | ALREADY TRUE — see below |
+| 6 | Splits for a night elsewhere | NOTHING TO BUILD |
+| 7 | Group accommodation by stay | DONE |
+| 8 | Clickable booking link | DONE |
+
+**#3 is not reproducible.** Verified end to end against the real trip
+through a real server: files copy (accommodation 4→4, activities 2→2,
+flights 1→1), and the browser's own static fetch returns 200 with the
+right counts. Only `expenses.json` and `journal.json` are excluded, by
+design. Two candidates left with Mick: was the copied trip `italy-27`
+(absent from the repo copy), or was the accommodation page filtered to a
+day rather than showing all? **Nothing changed, because nothing is known
+to be wrong.**
+
+**#5b was already true.** `<input type="time"` stores 24-hour, and the
+app renders that value raw — nothing anywhere formats a time. Only the
+picker WIDGET is 12-hour, and that follows the OS locale with no HTML or
+CSS override. Native pickers kept: they are far better on a phone.
+Windows: Settings → Time & language → Language & region → Regional
+format.
+
+**#6 needs nothing.** Phase 2 assignment already covers it — give the two
+their own accommodation for those nights and tick them. The journey stays
+one line per day, which is what Mick chose.
+
+**#2 is the display name only.** The name lives in TWO places and both
+move together: `project.json`'s `project.name`, and the ownership record
+the trip LIST is built from. Read-modify-write rather than
+`setTripOwner`, which would rewrite the owner — a rename must never
+change who owns the thing. The folder id does NOT move: renaming it would
+mean moving the directory, rewriting ownership and sharing, and breaking
+every link anyone already holds, so a trip renamed "Italy 2028" still
+lives at `#/italy-27`.
+
+**#4 is "worth a look", not blocking**, and is SILENT on an unassigned
+flight — one falling outside the dates is far more likely a date typo
+than somebody's journey home.
+
+**A real gap found by a failing suite**: `scrollToDay` checked the
+element existed but not that it had `scrollIntoView`. Every real browser
+has it, so it would not have bitten — but a function whose whole job is a
+nicety should never be the reason a page throws.
+
+**An over-specified assertion of my own**: `test-copy-trip.js` pinned the
+route matcher as exactly `(archive|copy)`, so adding `rename` to the same
+route failed a copy test. Loosened to "copy is in the list", which is all
+that suite ever cared about.
+
+New guard: `test-ux-round-1350.js`.
 
 ## D2. Deferred to V2
 

@@ -574,6 +574,67 @@ const Readiness = {
     });
   },
 
+  // A flight that falls outside the trip's own days.
+  //
+  // Mick's call: the trip ends when the SHARED itinerary ends, so two
+  // days flying home are not trip days - but the flight is real and the
+  // app should not silently drop it. So it is recorded and flagged rather
+  // than either ignored or allowed to stretch the trip.
+  //
+  // Only speaks about a flight somebody is ASSIGNED to. An unassigned
+  // flight outside the days is far more likely to be a typo in a date
+  // than a person's journey home, and Flights already flags a missing
+  // arrival date on its own.
+  checkTravelOutsideTrip(findings) {
+    const people = this.participantList();
+
+    const days = this.days();
+
+    if (people.length === 0 || days.length === 0 || typeof Flights === "undefined") {
+      return;
+    }
+
+    const firstDate = days[0].date;
+
+    const lastDate = days[days.length - 1].date;
+
+    if (!firstDate || !lastDate) {
+      return;
+    }
+
+    this.items("flights").forEach((item) => {
+      const names = this.assignedNames(item);
+
+      if (names.length === 0) {
+        return;
+      }
+
+      const arrival = Flights.overallArrival(item);
+
+      const departure = Flights.overallDeparture(item);
+
+      const after = arrival.date && arrival.date > lastDate;
+
+      const before = departure.date && departure.date < firstDate;
+
+      if (!after && !before) {
+        return;
+      }
+
+      const route = Flights.routeSummary(item) || "A flight";
+
+      findings.push({
+        level: "tidy",
+        title: after
+          ? `${this.nameList(names)} land${names.length === 1 ? "s" : ""} on ${Format.date(arrival.date)}, after the trip ends`
+          : `${this.nameList(names)} depart${names.length === 1 ? "s" : ""} on ${Format.date(departure.date)}, before the trip starts`,
+        detail: `${route}. The trip runs ${Format.date(firstDate)} to ${Format.date(lastDate)}, and this sits outside it - which is exactly right for a journey home or out, and worth a second look if it was meant to be a trip day.`,
+        action: `Flights.edit('${this.jsArg(item.id)}')`,
+        actionLabel: "Open flight",
+      });
+    });
+  },
+
   // Age prompts.
   //
   // These NEVER calculate. The app cannot know one airline's child fare or
@@ -678,6 +739,7 @@ const Readiness = {
       this.checkUnaccommodatedPeople,
       this.checkVehicleSeats,
       this.checkJoinerTravel,
+      this.checkTravelOutsideTrip,
       this.checkAgePrompts,
       this.checkUntitledDays,
     ];

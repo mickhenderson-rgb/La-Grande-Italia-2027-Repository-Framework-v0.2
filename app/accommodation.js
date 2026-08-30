@@ -264,8 +264,15 @@ Research List
 
 `;
 
-    items.forEach((item) => {
-      html += this.renderItem(item);
+    // Grouped by WHEN you stay, not the order they happened to be typed
+    // in. Options for the same nights belong together - that is how you
+    // compare them, and it is how the Budget already groups them.
+    this.groupByStay(items).forEach((group) => {
+      html += `<h3 class="acc-stay-head">${this.esc(group.label)}</h3>`;
+
+      group.items.forEach((item) => {
+        html += this.renderItem(item);
+      });
     });
 
     html += `
@@ -285,6 +292,82 @@ Research List
 `;
 
     return html;
+  },
+
+  // Options for one stay, in trip order.
+  //
+  // Keyed on the day range alone rather than destination too: the same
+  // nights in the same town is the same stay whether you typed "milan"
+  // or the name of a suburb, and the whole point is to see the options
+  // side by side.
+  groupByStay(items) {
+    const groups = [];
+
+    const byKey = {};
+
+    items.forEach((item) => {
+      const range = Array.isArray(item.dayRange) ? item.dayRange : null;
+
+      const from = range && typeof range[0] === "number" ? range[0] : null;
+
+      const to = range && typeof range[1] === "number" ? range[1] : null;
+
+      // No dates is its own group at the END: it is not comparable to
+      // anything, and hiding it among dated stays is how it stays
+      // forgotten.
+      const key = from === null ? "zz-undated" : from + "-" + to;
+
+      if (!byKey[key]) {
+        byKey[key] = { key: key, from: from, to: to, label: this.stayLabel(from, to), items: [] };
+
+        groups.push(byKey[key]);
+      }
+
+      byKey[key].items.push(item);
+    });
+
+    return groups.sort((a, b) => {
+      if (a.from === null) { return 1; }
+
+      if (b.from === null) { return -1; }
+
+      return a.from - b.from || a.to - b.to;
+    });
+  },
+
+  stayLabel(from, to) {
+    if (from === null) {
+      return "No dates set";
+    }
+
+    const nights = Math.max(1, (to || from) - from);
+
+    const dates = [Dates.getDayDate(from), Dates.getDayDate(to || from)]
+      .filter(Boolean)
+      .map((d) => Format.date(d));
+
+    const when = dates.length === 2 ? ` · ${dates[0]} to ${dates[1]}` : "";
+
+    return `Day ${from} to ${to || from}${when} · ${nights} ${nights === 1 ? "night" : "nights"}`;
+  },
+
+  // A booking link you can actually click.
+  //
+  // The URL has been stored since the field existed and rendered as
+  // plain text, so comparing three shortlisted hotels meant copying each
+  // one out by hand. Same helper the Planner's day snapshot already uses.
+  bookingLink(item) {
+    const url = String((item && item.website) || "").trim();
+
+    if (!url) {
+      return "";
+    }
+
+    // Typed without a scheme it is a relative path, which would navigate
+    // inside the app rather than out to the hotel.
+    const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+
+    return `<a class="snap-link" href="${this.esc(href)}" target="_blank" rel="noopener">Open booking site ↗</a>`;
   },
 
   renderItem(item) {
@@ -307,6 +390,7 @@ Research List
     <p>
 
         ${this.esc(item.provider) || "Unknown Provider"}
+        ${this.bookingLink(item)}
 
     </p>
 
@@ -605,6 +689,29 @@ ${selected ? selected.planning.notes : ""}
     }
   },
 
+  // Check-out is the day you LEAVE, so a one-night stay checks out the
+  // day after it checks in.
+  //
+  // This used to be getDayDate(dayRange[1]) alone, and a new card starts
+  // with dayRange [n, n] - so it offered the same date for both, which is
+  // a zero-night booking and had to be corrected by hand every time.
+  defaultCheckOut(item) {
+    const range = item && item.dayRange;
+
+    const from = Array.isArray(range) ? range[0] : null;
+
+    const to = Array.isArray(range) ? range[1] : null;
+
+    if (typeof to === "number" && typeof from === "number" && to > from) {
+      return Dates.getDayDate(to);
+    }
+
+    // Same day, or no range at all: the night after the check-in date.
+    const checkIn = Dates.getDayDate(typeof from === "number" ? from : 1);
+
+    return checkIn ? Dates.addDays(checkIn, 1) : "";
+  },
+
   blankItem() {
     const day = this.currentDay || {};
 
@@ -799,7 +906,7 @@ ${selected ? selected.planning.notes : ""}
 
             <label class="form-field">
                 Check Out
-                <input type="date" id="acc-checkout" value="${this.esc(item.dates?.checkOut || Dates.getDayDate(item.dayRange?.[1]))}">
+                <input type="date" id="acc-checkout" value="${this.esc(item.dates?.checkOut || this.defaultCheckOut(item))}">
             </label>
 
             <label class="form-field">

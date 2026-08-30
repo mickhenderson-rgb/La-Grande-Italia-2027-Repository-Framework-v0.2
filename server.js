@@ -2544,6 +2544,70 @@ function copyTreeSync(from, to) {
   });
 }
 
+// Rename a trip. The DISPLAY NAME only - the id and its folder stay.
+//
+// The name lives in two places and both move together, or the trip list
+// and the trip itself disagree about what it is called: project.json's
+// project.name, and the ownership record the list is built from.
+async function handleRenameProject(req, res, id) {
+  if (!safeName(id)) {
+    return sendJSON(res, 400, { error: "Invalid project id." });
+  }
+
+  var dir = path.join(ROOT, "data", "projects", id);
+
+  if (!fs.existsSync(dir)) {
+    return sendJSON(res, 404, { error: "Trip not found." });
+  }
+
+  var body;
+
+  try {
+    body = JSON.parse(await readBody(req));
+  } catch (error) {
+    return sendJSON(res, 400, { error: "Request body must be valid JSON." });
+  }
+
+  var name = String((body && body.name) || "").trim().slice(0, 120);
+
+  if (!name) {
+    return sendJSON(res, 400, { error: "A trip needs a name." });
+  }
+
+  try {
+    var projectPath = path.join(dir, "project.json");
+
+    if (fs.existsSync(projectPath)) {
+      var data = JSON.parse(fs.readFileSync(projectPath, "utf8"));
+
+      data.project = data.project || {};
+
+      data.project.name = name;
+
+      fs.writeFileSync(projectPath, JSON.stringify(data, null, 2), "utf8");
+    }
+
+    // The ownership record, so the trip LIST agrees. Read-modify-write
+    // rather than setTripOwner, which would rewrite the owner too - and
+    // a rename must never change who owns the thing.
+    var trips = readOwnership();
+
+    if (trips[id]) {
+      trips[id].name = name;
+
+      writeOwnership(trips);
+    }
+
+    console.log("[renamed project] " + id + " -> " + name);
+
+    return sendJSON(res, 200, { ok: true, id: id, name: name });
+  } catch (error) {
+    console.error("[rename project failed]", error.stack || error.message);
+
+    return sendJSON(res, 500, { error: "Could not rename the trip." });
+  }
+}
+
 async function handleCopyProject(req, res, sourceId) {
   if (!safeName(sourceId)) {
     return sendJSON(res, 400, { error: "Invalid project id." });
@@ -3046,7 +3110,7 @@ const server = http.createServer(async (req, res) => {
     return handleCreateProject(req, res);
   }
 
-  const projectItemMatch = req.url.match(/^\/api\/projects\/([^/?]+)(?:\/(archive|copy))?\/?(?:\?.*)?$/);
+  const projectItemMatch = req.url.match(/^\/api\/projects\/([^/?]+)(?:\/(archive|copy|rename))?\/?(?:\?.*)?$/);
 
   if (projectItemMatch) {
     const [, id, action] = projectItemMatch;
@@ -3062,6 +3126,18 @@ const server = http.createServer(async (req, res) => {
       }
 
       return handleCopyProject(req, res, id);
+    }
+
+    // Renaming needs WRITE, not ownership: anyone who can edit the trip
+    // can already change everything inside it, and what it is CALLED is
+    // the least of that. Checked before the owner-only gate for the same
+    // reason copy is - it would otherwise refuse a collaborator.
+    if (action === "rename" && req.method === "POST") {
+      if (!canEditTrip(sessionUser, id)) {
+        return sendJSON(res, 403, { error: "You need edit access to rename this trip." });
+      }
+
+      return handleRenameProject(req, res, id);
     }
 
     // Archiving or deleting a whole trip is owner-only.

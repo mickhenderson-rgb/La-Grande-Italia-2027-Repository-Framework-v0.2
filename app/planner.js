@@ -87,7 +87,7 @@ const Planner = {
   renderDay(day) {
     return `
 
-<div class="planner-day">
+<div class="planner-day" id="pln-day-${day.day}">
 
     <div class="planner-day-header">
 
@@ -857,11 +857,54 @@ const Planner = {
 
     Project.update("journey", journey);
 
-    this.closeEditDayForm();
+    this.closeEditDayForm(day.day);
   },
 
-  closeEditDayForm() {
+  // Back to the DAY you were editing, not the top of the list.
+  //
+  // Fifty-two days is a long way to scroll, and re-rendering the
+  // planner always put you at the top of it - so every edit cost a
+  // hunt for where you had been.
+  //
+  // After the navigate, because Router.navigate re-renders and the
+  // element does not exist until it has. requestAnimationFrame rather
+  // than a timeout: it fires once the new DOM is laid out, so there is
+  // no guessed delay to be wrong about on a slow phone.
+  closeEditDayForm(dayNumber) {
     Router.navigate("planner");
+
+    if (typeof dayNumber !== "number") {
+      return;
+    }
+
+    this.scrollToDay(dayNumber);
+  },
+
+  scrollToDay(dayNumber) {
+    const go = () => {
+      const el = document.getElementById(`pln-day-${dayNumber}`);
+
+      // The method as well as the element. This reaches into whatever DOM
+      // it is handed, and a function whose whole job is a nicety should
+      // never be the reason a page throws.
+      if (!el || typeof el.scrollIntoView !== "function") {
+        return;
+      }
+
+      el.scrollIntoView({ block: "center" });
+
+      // A brief highlight, because landing mid-list with no cue looks
+      // like the page simply opened somewhere odd.
+      el.classList.add("is-returned");
+
+      setTimeout(() => el.classList.remove("is-returned"), 1600);
+    };
+
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(go);
+    } else {
+      go();
+    }
   },
 
   confirmDeleteDay(dayNumber) {

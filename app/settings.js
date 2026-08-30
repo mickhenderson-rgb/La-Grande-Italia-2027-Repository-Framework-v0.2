@@ -48,6 +48,34 @@ const Settings = {
 
         <div class="manager-card form-card">
 
+            <h2>Trip Name</h2>
+
+            <div class="form-grid">
+
+                <label class="form-field form-field-wide">
+                    Name
+                    <input type="text" id="set-name" value="${this.esc(trip.name)}">
+                    <span class="form-hint">
+                        What the trip is called everywhere you see it. Its web
+                        address keeps the original name, so any link you have
+                        already shared goes on working.
+                    </span>
+                </label>
+
+            </div>
+
+            <p class="ui-msg" id="set-name-msg" hidden></p>
+
+            <div class="planner-buttons">
+
+                <button type="button" class="btn-primary" onclick="Settings.saveName()">Save Name</button>
+
+            </div>
+
+        </div>
+
+        <div class="manager-card form-card">
+
             <h2>Trip Dates</h2>
 
             <div class="form-grid">
@@ -191,6 +219,59 @@ const Settings = {
       console.error("Password change failed:", error);
 
       msg.textContent = "Couldn't reach the server. Try again.";
+    }
+  },
+
+  async saveName() {
+    const field = document.getElementById("set-name");
+
+    const name = field ? field.value.trim() : "";
+
+    if (!name) {
+      UI.warn("A trip needs a name.", { slot: "set-name-msg", focus: "set-name" });
+
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${window.API_BASE}/api/projects/${Data.currentProjectFolder}/rename`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name }),
+        },
+      );
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        UI.warn(result.error || `Could not rename the trip (status ${response.status}).`, {
+          slot: "set-name-msg",
+          focus: "set-name",
+        });
+
+        return;
+      }
+
+      // The server owns both copies of the name, so the in-memory one is
+      // updated to match rather than saved back over it - a PUT here
+      // would race the rename it just did.
+      const projectData = Project.get("project");
+
+      if (projectData && projectData.project) {
+        projectData.project.name = name;
+
+        Project.load("project", projectData);
+      }
+
+      UI.ok(`Renamed to "${name}".`);
+
+      this.open();
+    } catch (error) {
+      console.error("Could not rename the trip:", error);
+
+      UI.warn("Couldn't reach the server. Check the connection and try again.", { slot: "set-name-msg" });
     }
   },
 
