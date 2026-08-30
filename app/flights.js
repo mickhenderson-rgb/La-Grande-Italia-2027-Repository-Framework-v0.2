@@ -146,7 +146,10 @@ const Flights = {
       return data.items;
     }
 
-    return data.items.filter((item) => item.day === this.currentDay.day);
+    // The whole span, matching what the Day page counted to get here.
+    // Filtering on item.day alone would have the day page say "1 item" on
+    // the day you land and this list say "No flights here yet".
+    return data.items.filter((item) => this.touchesDay(item, this.currentDay.day));
   },
 
   // --- Leg helpers: the single source of truth for reading a flight's ---
@@ -199,6 +202,75 @@ const Flights = {
     const legs = this.getLegs(item);
 
     return legs[legs.length - 1].arrival || {};
+  },
+
+  // How long the flight actually is, in journey days.
+  //
+  // A flight has always been keyed to ONE day - item.day, the day it
+  // departs - and both day views filtered on exactly that. So a flight
+  // leaving day 1 and landing day 2 showed nothing at all on day 2: the
+  // day you arrive had an empty Flights panel while every fact about the
+  // flight sat filed on the day you left.
+  //
+  // DERIVED from the legs, never stored. The legs already carry both
+  // dates - and Dates.recalculateJourney already reads the arrival to set
+  // the next day's date, so the fact was there all along. A dayRange
+  // field of its own would be a second copy that drifts the first time
+  // someone edits a leg.
+  daySpan(item) {
+    const from = item.day || 1;
+
+    const departure = this.overallDeparture(item);
+
+    const arrival = this.overallArrival(item);
+
+    // No arrival date yet is the ordinary state of a flight you are still
+    // researching. One day, and no claim about when it lands.
+    if (!departure.date || !arrival.date) {
+      return { from: from, to: from, nights: 0 };
+    }
+
+    const nights = Dates.daysBetween(departure.date, arrival.date);
+
+    // Clamped at both ends. Negative means landing before take-off, which
+    // is a typo, and a span running backwards would hide the flight from
+    // its own departure day. Two nights is longer than any scheduled
+    // flight on earth, so anything beyond it is a mistyped year - and an
+    // uncapped span would paint that flight across the whole trip.
+    return { from: from, to: from + Math.min(2, Math.max(0, nights)), nights: Math.min(2, Math.max(0, nights)) };
+  },
+
+  // What this day IS, for this flight. The three are genuinely different
+  // days and want different things said about them: the day you leave
+  // wants the departure time, the day you land wants the landing time,
+  // and a day spent entirely in the air wants to say so.
+  roleOnDay(item, dayNumber) {
+    const span = this.daySpan(item);
+
+    // The typeof guard is not paranoia: undefined compares false against
+    // BOTH bounds, so without it a caller that passes no day at all falls
+    // through to the last branch and is told the flight is mid-air.
+    if (typeof dayNumber !== "number" || dayNumber < span.from || dayNumber > span.to) {
+      return null;
+    }
+
+    if (span.from === span.to) {
+      return "same-day";
+    }
+
+    if (dayNumber === span.from) {
+      return "departs";
+    }
+
+    if (dayNumber === span.to) {
+      return "arrives";
+    }
+
+    return "airborne";
+  },
+
+  touchesDay(item, dayNumber) {
+    return this.roleOnDay(item, dayNumber) !== null;
   },
 
   routeSummary(item) {
@@ -715,6 +787,7 @@ const Flights = {
         ${this.showAll ? `<span class="badge">Day ${item.day}</span>` : ""}
         ${this.isDirect(item) ? `<span class="badge">Direct</span>` : `<span class="badge">${this.getLegs(item).length - 1} stop${this.getLegs(item).length - 1 === 1 ? "" : "s"}</span>`}
         ${!arr.date ? `<span class="badge">⚠ Arrival Not Set</span>` : ""}
+        ${!this.showAll && this.currentDay && item.day !== this.currentDay.day ? `<span class="badge">Departed Day ${item.day}</span>` : ""}
 
     </strong>
 
@@ -814,6 +887,21 @@ const Flights = {
     const next = this.nextStage(item.status);
 
     if (!next) {
+      return;
+    }
+
+    // Every day after this one takes its date from this flight's arrival
+    // (Dates.recalculateJourney). With the field blank that falls back to
+    // "the day after" - right for a short hop, wrong for anything that
+    // crosses midnight, and wrong SILENTLY, in every later day's date.
+    // Cheap to fill in, expensive to notice three screens later.
+    if (this.workflow.indexOf(next) >= this.workflow.indexOf("Selected") && !this.overallArrival(item).date) {
+      UI.fail(
+        "Set the arrival date on the last leg before marking this " +
+          next +
+          " - every later day's date is worked out from it.",
+      );
+
       return;
     }
 

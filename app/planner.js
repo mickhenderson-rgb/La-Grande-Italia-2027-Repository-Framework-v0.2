@@ -231,8 +231,10 @@ const Planner = {
 
     const transport = this.bestStatus(transportItems);
 
+    // A flight that crosses midnight belongs to every day it touches, not
+    // only the one it left on - so the day you land gets a status dot too.
     const flightItems = this.getItems(Project.get("flights")).filter(
-      (item) => item.day === day.day,
+      (item) => Flights.touchesDay(item, day.day),
     );
 
     const flights = this.bestStatus(flightItems);
@@ -899,10 +901,10 @@ const Planner = {
         icon: "🛫",
         label: "Flights",
         module: "Flights",
-        items: this.getItems(Project.get("flights")).filter((i) => i.day === day.day),
+        items: this.getItems(Project.get("flights")).filter((i) => Flights.touchesDay(i, day.day)),
         title: (it) => this.flightTitle(it),
-        snippet: (it) => this.flightSnippet(it),
-        detail: (it) => this.flightDetail(it),
+        snippet: (it) => this.flightSnippet(it, day.day),
+        detail: (it) => this.flightDetail(it, day.day),
       },
 
       {
@@ -1266,17 +1268,55 @@ const Planner = {
     return `${codes[0]} +${codes.length - 1} more`;
   },
 
-  flightSnippet(it) {
-    const dep = Flights.overallDeparture(it);
+  flightSnippet(it, dayNumber) {
+    const role = Flights.roleOnDay(it, dayNumber);
 
-    const when = [Format.date(dep.date), dep.time].filter(Boolean).join(" ");
+    // On the day you land, the useful time is the landing time. The
+    // departure belongs to a day that is already behind you, and showing
+    // it here is exactly what made a two-day flight read as though it had
+    // left and arrived on the wrong days.
+    const point =
+      role === "arrives" || role === "airborne"
+        ? Flights.overallArrival(it)
+        : Flights.overallDeparture(it);
+
+    const when = [Format.date(point.date), point.time].filter(Boolean).join(" ");
 
     const title = this.flightTitle(it);
 
     return this.esc(when ? `${title} — ${when}` : title);
   },
 
-  flightDetail(it) {
+  // Which of the flight's days this one is. A flight over midnight covers
+  // days that are genuinely different from each other - leaving, being in
+  // the air, landing - and an unlabelled card on each would be worse than
+  // the old behaviour, not better. Same job as the check-in / check-out
+  // badge that makes an accommodation overlap day unambiguous.
+  flightRoleBadge(it, dayNumber) {
+    const role = Flights.roleOnDay(it, dayNumber);
+
+    if (!role || role === "same-day") {
+      return "";
+    }
+
+    const span = Flights.daySpan(it);
+
+    const dep = Flights.overallDeparture(it);
+
+    const arr = Flights.overallArrival(it);
+
+    if (role === "departs") {
+      return `<span class="snap-transition is-departs">🛫 Departs today${dep.time ? " " + this.esc(dep.time) : ""} · lands Day ${span.to}</span><br>`;
+    }
+
+    if (role === "airborne") {
+      return `<span class="snap-transition is-airborne">✈ In the air all day · lands Day ${span.to}${arr.time ? " at " + this.esc(arr.time) : ""}</span><br>`;
+    }
+
+    return `<span class="snap-transition is-arrives">🛬 Lands today${arr.time ? " " + this.esc(arr.time) : ""} · left Day ${span.from}</span><br>`;
+  },
+
+  flightDetail(it, dayNumber) {
     const depFields = Flights.overallDeparture(it);
 
     const arrFields = Flights.overallArrival(it);
@@ -1286,6 +1326,7 @@ const Planner = {
     const arr = [arrFields.date, arrFields.time].filter(Boolean).join(" ");
 
     return [
+      this.flightRoleBadge(it, dayNumber),
       this.snapPriceLine(it),
       this.snapLine("Departs", dep),
       this.snapLine("Arrives", arr),

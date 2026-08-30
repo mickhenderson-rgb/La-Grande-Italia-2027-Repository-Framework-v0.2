@@ -637,7 +637,9 @@ const Dashboard = {
 
   liveItems(collectionKey, dayNumber) {
     if (collectionKey === "flights") {
-      return this.allItems("flights").filter((item) => item.day === dayNumber);
+      // Every day the flight touches, not just the day it left on - the
+      // dashboard's "today" on an arrival day was showing nothing.
+      return this.allItems("flights").filter((item) => Flights.touchesDay(item, dayNumber));
     }
 
     return Planner.matchByDayRange(Project.get(collectionKey), dayNumber);

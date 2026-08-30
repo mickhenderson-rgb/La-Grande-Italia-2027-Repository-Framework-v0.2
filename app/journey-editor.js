@@ -38,11 +38,50 @@ const JourneyEditor = {
       return false;
     }
 
+    // An explicit answer, either way, always wins. Saving the day's form
+    // writes true or false, so once you have touched that checkbox the
+    // guess below never runs again - a red-eye you deliberately kept a
+    // room either side of stays your business.
     if (day.transit === true) {
       return true;
     }
 
+    if (day.transit === false) {
+      return false;
+    }
+
+    // Nobody has said. A flight still in the air over this night says it:
+    // you are not sleeping anywhere, so Readiness should not ask where and
+    // the map should not draw a stop. Before this you had to know to go
+    // into Edit Day and tick it yourself, and until you did, the day you
+    // spent in the air was flagged as a night with nowhere to sleep.
+    if (this.airborneOvernight(day)) {
+      return true;
+    }
+
     return String(day.overnight || "").trim().toLowerCase() === "flight";
+  },
+
+  // True when a flight is still in the air across this day's night: it
+  // took off on this day or earlier and lands on a LATER one.
+  //
+  // Guarded on Flights because journey-editor.js loads first, and this is
+  // called from the map's per-day loop - so it must not throw on a page
+  // that has not loaded the flights module.
+  airborneOvernight(day) {
+    if (!day || typeof day.day !== "number" || typeof Flights === "undefined") {
+      return false;
+    }
+
+    const data = Project.get("flights");
+
+    const items = data && Array.isArray(data.items) ? data.items : [];
+
+    return items.some((item) => {
+      const span = Flights.daySpan(item);
+
+      return span.from <= day.day && span.to > day.day;
+    });
   },
 
   blankDay(dayNumber) {
@@ -52,7 +91,9 @@ const JourneyEditor = {
       title: "New Day",
       location: "",
       overnight: "",
-      transit: false,
+      // Deliberately absent rather than false. isTransit reads three states:
+      // true, false, and nobody-has-said - and only the third one lets a
+      // flight added later mark its own airborne night for you.
       locked: false,
       items: [],
     };

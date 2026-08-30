@@ -437,6 +437,15 @@ body {
 
 .snap-transition.is-checkout { background: var(--status-selected-bg); color: var(--status-selected); }
 
+/* The three days a flight over midnight covers. Reusing the status token
+   pairs rather than inventing colours - each one is already measured
+   against its own background in both themes. */
+.snap-transition.is-departs { background: var(--status-selected-bg); color: var(--status-selected); }
+
+.snap-transition.is-airborne { background: var(--status-research-bg); color: var(--status-research); }
+
+.snap-transition.is-arrives { background: var(--status-booked-bg); color: var(--status-booked); }
+
 .day-snap-section.is-open .day-snap-snippet { display: none; }
 
 .day-snap-body { display: none; padding: 4px 12px 12px; }

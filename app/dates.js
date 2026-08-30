@@ -18,6 +18,36 @@ precedence over the default one-day-per-day assumption.
 */
 
 const Dates = {
+  // Whole days from one ISO date to another, negative if the second is
+  // earlier. Flights.daySpan() uses it to work out how many days a
+  // flight covers: a Sydney departure and a Milan arrival two calendar
+  // dates later is a flight that touches three days, and every one of
+  // them has to show it.
+  //
+  // UTC throughout, like addDays - a local-time subtraction turns the
+  // daylight-saving night into 23 hours and rounds a whole day away.
+  daysBetween(fromDate, toDate) {
+    const parse = (value) => {
+      const parts = String(value || "").split("-").map((n) => parseInt(n, 10));
+
+      if (parts.length < 3 || parts.some((n) => isNaN(n))) {
+        return null;
+      }
+
+      return Date.UTC(parts[0], parts[1] - 1, parts[2]);
+    };
+
+    const from = parse(fromDate);
+
+    const to = parse(toDate);
+
+    if (from === null || to === null) {
+      return 0;
+    }
+
+    return Math.round((to - from) / 86400000);
+  },
+
   addDays(dateString, days) {
     if (!dateString) {
       return "";

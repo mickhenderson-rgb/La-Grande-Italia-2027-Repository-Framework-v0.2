@@ -61,8 +61,16 @@ const Day = {
 
     const items = data && Array.isArray(data.items) ? data.items : [];
 
-    if (collectionKey === "flights" || collectionKey === "expenses") {
+    // Expenses stay pinned to the one day the money was spent.
+    if (collectionKey === "expenses") {
       return items.filter((item) => item.day === dayNumber);
+    }
+
+    // Flights do not. One that crosses midnight belongs to every day it
+    // touches - including the day you land, which used to show an empty
+    // Flights panel because the whole flight was filed on the day you left.
+    if (collectionKey === "flights") {
+      return items.filter((item) => Flights.touchesDay(item, dayNumber));
     }
 
     if (collectionKey === "transport") {
@@ -122,11 +130,25 @@ const Day = {
   timedItems(dayNumber) {
     const out = [];
 
+    // Departures and arrivals are separate events on separate days.
+    // This only ever pushed the DEPARTURE time, so the landing time - the
+    // one fact the rest of an arrival day is planned around - appeared on
+    // no timeline anywhere in the app.
     this.liveItemsFor("flights", dayNumber).forEach((item) => {
+      const role = Flights.roleOnDay(item, dayNumber);
+
+      const route = Flights.routeSummary(item) || "Flight";
+
       const dep = Flights.overallDeparture(item);
 
-      if (dep.time) {
-        out.push({ time: dep.time, icon: "✈", label: Flights.routeSummary(item) || "Flight", action: `Flights.edit('${item.id}')` });
+      const arr = Flights.overallArrival(item);
+
+      if ((role === "departs" || role === "same-day") && dep.time) {
+        out.push({ time: dep.time, icon: "🛫", label: `Depart · ${route}`, action: `Flights.edit('${item.id}')` });
+      }
+
+      if ((role === "arrives" || role === "same-day") && arr.time) {
+        out.push({ time: arr.time, icon: "🛬", label: `Land · ${route}`, action: `Flights.edit('${item.id}')` });
       }
     });
 

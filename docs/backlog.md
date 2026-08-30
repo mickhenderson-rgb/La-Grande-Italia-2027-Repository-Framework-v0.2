@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-29 (v1.27.0).
+Last reviewed: 2026-08-30 (v1.28.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -1200,6 +1200,97 @@ does not exist, and the permission check runs first — which is the better
 answer anyway, since it does not tell someone probing ids which trips are
 real); and the Node 10 greps matched the comments *explaining* why
 `fs.cpSync` is avoided, so they now match the call rather than the name.
+
+### D19. A flight over midnight belonged to one day — DONE (v1.28.0)
+
+Raised by Mick 2026-08-30: *"the day planner is confusing when we have
+flights spanning 2 dates"*.
+
+A flight was keyed to exactly one day — `item.day`, the day it **departs**
+— and both day views filtered on precisely that (`planner.js` day snapshot
+and status dot, `day.js` `liveItemsFor`, `dashboard.js` `liveItems`). So
+Sydney → Doha → Milan, leaving day 1 and landing day 3, showed **nothing
+whatever** on days 2 and 3: an empty Flights panel, a grey status dot and
+a bare timeline, while every fact about the flight sat filed on the day
+you left.
+
+Accommodation had solved this in v1.13.1 (D10) with `dayRange` and
+`matchByDayRange`. Flights never got the equivalent — and did not need a
+new field, because `Dates.recalculateJourney` was **already** reading that
+same flight's arrival date to set the next day's date. The app knew the
+flight spanned two days; only the day views did not.
+
+Four symptoms, one cause:
+
+1. The day you land showed no flight at all.
+2. The **landing time** was on no timeline anywhere — `timedItems` only
+   ever pushed `dep.time`, and the landing time is the one fact the rest
+   of an arrival day is planned around.
+3. The departure day was flagged as a night with nowhere to sleep unless
+   you knew to open Edit Day and tick *In transit overnight* yourself.
+4. A blank arrival date silently shifted every later day: `findArrivalDate`
+   returns null and `recalculateJourney` falls back to *previous + 1* —
+   right for a short hop, wrong for anything crossing midnight, and wrong
+   without saying so. `FLT-0001` in the live trip had a blank arrival date.
+
+**`Flights.daySpan(item)` — derived, never stored.** The legs already
+carry both dates; a `dayRange` field on a flight would be a second copy
+that drifts the first time someone edits a leg. `roleOnDay()` then names
+each day — `departs` / `airborne` / `arrives` / `same-day` — and
+`touchesDay()` is the filter all four read sites now use.
+
+Each day is **labelled**, not just shown: 🛫 *Departs today 21:30 · lands
+Day 3*, ✈ *In the air all day · lands Day 3 at 13:05*, 🛬 *Lands today
+13:05 · left Day 1*. Three unlabelled copies of the same card would have
+been worse than the bug. Same job as the check-in/check-out badge that
+makes an accommodation overlap day unambiguous.
+
+Two clamps, both for typos. A span running **backwards** (landing before
+take-off) would put `to` before `from` and hide the flight from its own
+departure day — strictly worse than the original bug. And a mistyped year
+is one keystroke, so the span caps at **two nights**: longer than any
+scheduled flight on earth, and uncapped it would paint that flight across
+every day of the trip.
+
+**`JourneyEditor.isTransit` now reads three states**, not two: `true`,
+`false`, and nobody-has-said. Only the third infers from a flight still in
+the air over that night. Saving a day's form always writes an explicit
+boolean, so one touch of that checkbox settles it forever — a red-eye you
+deliberately kept a room either side of stays your business. `blankDay`
+consequently leaves `transit` **absent** rather than `false`; a stored
+false would freeze every new day at "no" and no flight could override it.
+
+**The arrival date is now required before Selected.** Research and
+Shortlisted are still a shortlist — you are allowed to note a flight
+before you know when it lands — but every later day's date comes from
+that field, and the message says so rather than reading as a pointless
+required field.
+
+New guard: `test-flight-day-span.js`.
+
+**Found while fixing the suites:** `roleOnDay` called with no day number
+returned `"airborne"`. `undefined` compares false against *both* bounds,
+so it fell straight through to the last branch — every caller with the old
+one-argument signature would have been told the flight was mid-air. Now
+guarded on `typeof dayNumber !== "number"`.
+
+**Five suites broke, and one of them was right to.**
+`test-transit-and-countdown.js` pinned `blankDay(1).transit === false`
+with the reason *"an absent field reads as undefined everywhere
+downstream"* — sound while `isTransit` had two answers, and exactly wrong
+once it had three. Updated with the reasoning recorded. The other four
+were stubs that had fallen behind: two got the new members, and two
+(`test-snapshot.js`, `test-multileg-planner-dates.js`) load the **real**
+`dates.js` instead, since `daySpan`'s whole job is arithmetic through it
+and a stub would have tested the stub. The flight-timeline icon also split
+— ✈ became 🛫 and 🛬, because a departure and an arrival are now separate
+events and one glyph for both makes them look identical.
+
+**Still open:** the Trip Map draws stops from `day.overnight`, so an
+inferred transit night now correctly disappears from it — that is the
+intent, but it has not been checked against the live trip's map.
+
+---
 
 ## D2. Deferred to V2
 
