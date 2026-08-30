@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-30 (v1.31.0).
+Last reviewed: 2026-08-30 (v1.32.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -1434,13 +1434,46 @@ before any of this existed.
 
 New guard: `test-participant-costs.js`.
 
-**Phase 4 — warnings (OPEN).** Readiness gains: someone present with no
+**Phase 4 — warnings DONE (v1.32.0).** Readiness gains: someone present with no
 bed; a stay booked for fewer than are assigned; a joiner or leaver with no
 flight; vehicle seats versus people assigned; and the age prompts. Note
 **Italian city tax exemptions vary by comune** — Rome under 10, Florence
 under 12, Venice under 6 with a reduced rate to 10 — so one national
 threshold cannot be right. Also: the **EU 18–25 museum concession is for
 EU citizens**, so it will not apply on Australian passports.
+
+Five checks shipped, and most of the work was in what they must NOT say.
+Readiness' own rule is that it reports only what it can be sure about —
+*"a checklist that cries wolf gets ignored, and then the real gap gets
+ignored with it"* — so each one stays silent until the trip has told it
+enough:
+
+| Check | Level | Silent when |
+|---|---|---|
+| Room booked for fewer than are on it | blocking | no guest count, or nobody assigned |
+| Somebody with no bed | blocking | **any room that night is unassigned** — unassigned means the whole party, so there is no gap |
+| More people than seats | blocking | `seats: 0`, which means does-not-apply |
+| Joiner or leaver with no travel | tidy | they are on any flight or transport |
+| Age prompts | tidy | the trip has no car / no flights / no city tax |
+
+**The no-bed silence is the one that matters.** Every booking made
+before Phase 2 is unassigned, so without that rule this check would have
+fired on every night of every existing trip on its first run.
+
+**The joiner check is deliberately "worth a look", not blocking.** They
+might be driving themselves and the app cannot tell, so the wording says
+so rather than asserting a missing booking.
+
+**Age prompts never calculate**, and each fires only where the trip
+actually has the thing the age affects — a young-driver warning on a trip
+with no car is exactly the crying wolf the screen exists to avoid. The
+city-tax prompt says the threshold is **per comune** rather than quoting
+one as fact, because Rome, Florence and Venice all differ and they change.
+
+New guard: `test-participant-readiness.js`.
+
+**Participants is complete across all four phases.** Still open, and
+unrelated to this work: D16 (city tax has no nightly cap), C12, UX-005.
 
 New guard: `test-participants.js`.
 

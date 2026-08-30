@@ -350,6 +350,317 @@ const Readiness = {
 
   // ------------------------------------------------------------- results
 
+
+  // =========================================================
+  // PARTICIPANT CHECKS (Phase 4)
+  //
+  // Every one of these follows rule 2 in the header: report only what the
+  // app can be SURE about. A checklist that cries wolf gets ignored, and
+  // the real gap gets ignored with it.
+  //
+  // So each check stays silent unless the trip has told it enough:
+  // capacity says nothing until a room has both a guest count and people
+  // on it; the unaccommodated check says nothing while a night's rooms are
+  // unassigned, because unassigned means the whole party; and the age
+  // prompts say nothing unless the trip actually has the thing the age
+  // affects - a hire car, a flight, a city tax.
+  // =========================================================
+
+  // Named people only, and only when there are any. An unnamed placeholder
+  // is not somebody to warn about - the same rule Budget.headcountFor
+  // applies to pricing.
+  participantList() {
+    if (typeof Participants === "undefined") {
+      return [];
+    }
+
+    return Participants.all().filter((p) => String(p.name || "").trim() !== "");
+  },
+
+  assignedNames(item) {
+    if (typeof Participants === "undefined") {
+      return [];
+    }
+
+    return Participants.assignedTo(item)
+      .map((id) => (Participants.find(id) || {}).name)
+      .filter(Boolean);
+  },
+
+  // "Mick", "Mick and Kate", "Mick, Kate and Jo".
+  nameList(names) {
+    if (names.length <= 1) {
+      return names[0] || "";
+    }
+
+    return names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+  },
+
+  // A room booked for fewer people than are going to sleep in it.
+  //
+  // Only fires when BOTH numbers are real: you have ticked people, and the
+  // guest count says fewer. Since v1.31.0 ticking people fills the count
+  // in, so this catches the case where it was then typed back down - or
+  // where people were added to an older booking.
+  checkRoomCapacity(findings) {
+    if (this.participantList().length === 0) {
+      return;
+    }
+
+    this.items("accommodation").forEach((stay) => {
+      const names = this.assignedNames(stay);
+
+      const guests = Number(stay.guests);
+
+      if (names.length === 0 || !(guests > 0) || guests >= names.length) {
+        return;
+      }
+
+      findings.push({
+        level: "blocking",
+        title: `${stay.name || "A stay"} is booked for ${guests}, but ${names.length} are going`,
+        detail: `${this.nameList(names)} are on this booking. Either the room is too small or the guest count needs raising - and the city tax is charged per head, so the budget is short either way.`,
+        action: `Accommodation.edit('${this.jsArg(stay.id)}')`,
+        actionLabel: "Open booking",
+      });
+    });
+  },
+
+  // Somebody with no bed on a night when everybody else has one.
+  //
+  // DELIBERATELY QUIET while a night's rooms are unassigned: unassigned
+  // means the whole party, so there is no gap to report. It only speaks
+  // when the rooms that night name people AND somebody present is on none
+  // of them - which is a real hole, not a guess.
+  checkUnaccommodatedPeople(findings) {
+    const people = this.participantList();
+
+    const days = this.days();
+
+    if (people.length === 0 || days.length < 2) {
+      return;
+    }
+
+    const stays = this.items("accommodation");
+
+    days.slice(0, -1).forEach((day) => {
+      if (JourneyEditor.isTransit(day)) {
+        return;
+      }
+
+      // Nights run from check-in up to but not including check-out.
+      const covering = stays.filter(
+        (stay) =>
+          Array.isArray(stay.dayRange) &&
+          stay.dayRange.length >= 2 &&
+          stay.dayRange[0] <= day.day &&
+          stay.dayRange[1] > day.day &&
+          (stay.selected || this.isBooked(stay)),
+      );
+
+      if (covering.length === 0) {
+        return;
+      }
+
+      // One unassigned room covers everyone. Nothing to say.
+      if (covering.some((stay) => Participants.assignedTo(stay).length === 0)) {
+        return;
+      }
+
+      const housed = {};
+
+      covering.forEach((stay) => {
+        Participants.assignedTo(stay).forEach((id) => {
+          housed[id] = true;
+        });
+      });
+
+      const homeless = Participants.presentOn(day.day)
+        .filter((p) => String(p.name || "").trim() !== "")
+        .filter((p) => !housed[p.id]);
+
+      if (homeless.length === 0) {
+        return;
+      }
+
+      findings.push({
+        level: "blocking",
+        title: `Day ${day.day}: ${this.nameList(homeless.map((p) => p.name))} ${homeless.length === 1 ? "has" : "have"} no bed`,
+        detail: `Every room that night names who is in it, and ${homeless.length === 1 ? "this person is" : "these people are"} on none of them.`,
+        action: `Day.open(${day.day})`,
+        actionLabel: "Open day",
+      });
+    });
+  },
+
+  // More people on a vehicle than it holds.
+  //
+  // Silent when seats is 0, which means "does not apply" rather than "a
+  // vehicle with no seats" - a train ticket has no capacity to run out of.
+  checkVehicleSeats(findings) {
+    if (this.participantList().length === 0) {
+      return;
+    }
+
+    this.items("transport").forEach((leg) => {
+      const seats = Number(leg.seats);
+
+      const names = this.assignedNames(leg);
+
+      if (!(seats > 0) || names.length <= seats) {
+        return;
+      }
+
+      findings.push({
+        level: "blocking",
+        title: `${leg.mode || "Transport"}${leg.from ? " from " + this.pretty(leg.from) : ""}: ${names.length} people, ${seats} seats`,
+        detail: `${this.nameList(names)} are on this leg. Either a bigger vehicle or a second one.`,
+        action: `Transport.edit('${this.jsArg(leg.id)}')`,
+        actionLabel: "Open transport",
+      });
+    });
+  },
+
+  // Somebody who joins late or leaves early, with no travel of their own.
+  //
+  // "Worth a look" rather than blocking, on purpose. They might be driving
+  // themselves, or live nearby, and the app cannot tell - so this is a
+  // reminder, not an accusation.
+  checkJoinerTravel(findings) {
+    const people = this.participantList();
+
+    const days = this.days();
+
+    if (people.length === 0 || days.length === 0) {
+      return;
+    }
+
+    const lastDay = days[days.length - 1].day;
+
+    const travel = this.items("flights").concat(this.items("transport"));
+
+    people.forEach((p) => {
+      if (!Array.isArray(p.dayRange) || p.dayRange.length < 2) {
+        return;
+      }
+
+      const joinsLate = p.dayRange[0] > 1;
+
+      const leavesEarly = p.dayRange[1] < lastDay;
+
+      if (!joinsLate && !leavesEarly) {
+        return;
+      }
+
+      const onSomething = travel.some((item) => Participants.isAssigned(item, p.id));
+
+      if (onSomething) {
+        return;
+      }
+
+      const what = joinsLate && leavesEarly
+        ? `joins on Day ${p.dayRange[0]} and leaves on Day ${p.dayRange[1]}`
+        : joinsLate
+          ? `joins on Day ${p.dayRange[0]}`
+          : `leaves on Day ${p.dayRange[1]}`;
+
+      findings.push({
+        level: "tidy",
+        title: `${p.name} ${what}, with no travel recorded`,
+        detail: `No flight or transport names ${p.name}. If they are making their own way there this is nothing - otherwise it is a leg nobody has booked.`,
+        action: "Router.navigate('flights')",
+        actionLabel: "Open flights",
+      });
+    });
+  },
+
+  // Age prompts.
+  //
+  // These NEVER calculate. The app cannot know one airline's child fare or
+  // one comune's exemption, so it says what to check and you enter the
+  // real number - which is the same rule the bands were built under.
+  //
+  // Grouped one finding per prompt rather than one per person: four people
+  // times four prompts would bury the checks that matter.
+  //
+  // And each stays silent unless the trip HAS the thing the age affects.
+  // Telling somebody about a young-driver surcharge on a trip with no car
+  // is exactly the crying wolf this screen exists to avoid.
+  checkAgePrompts(findings) {
+    const people = this.participantList();
+
+    if (people.length === 0 || typeof Participants === "undefined") {
+      return;
+    }
+
+    const banded = people
+      .map((p) => ({ person: p, band: Participants.bandFor(p) }))
+      .filter((x) => x.band);
+
+    if (banded.length === 0) {
+      return;
+    }
+
+    const inBand = (keys) =>
+      banded.filter((x) => keys.indexOf(x.band.key) > -1).map((x) => x.person.name);
+
+    const hasCar = this.items("transport").some(
+      (t) => ["Drive", "Car Rental"].indexOf(t.mode) > -1,
+    );
+
+    const hasFlights = this.items("flights").length > 0;
+
+    const hasCityTax = this.items("accommodation").some(
+      (s) => s.cityTax && Number(s.cityTax.perPersonPerNight) > 0,
+    );
+
+    const young = inBand(["young-adult"]);
+
+    if (young.length > 0 && hasCar) {
+      findings.push({
+        level: "tidy",
+        title: `${this.nameList(young)} may cost more to put on a hire car`,
+        detail: "The young-driver surcharge applies under 25, and plenty of suppliers will not rent at all under 21 - or not a larger vehicle until 23 to 25. Worth checking before the booking rather than at the desk.",
+        action: "Router.navigate('transport')",
+        actionLabel: "Open transport",
+      });
+    }
+
+    const senior = inBand(["senior"]);
+
+    if (senior.length > 0 && hasCar) {
+      findings.push({
+        level: "tidy",
+        title: `Check the hire company's upper age limit for ${this.nameList(senior)}`,
+        detail: "Some suppliers cap the age they will rent to, and it varies by country and by company rather than following one rule. Italy usually has none; Ireland and Greece are the strict ones.",
+        action: "Router.navigate('transport')",
+        actionLabel: "Open transport",
+      });
+    }
+
+    const children = inBand(["infant", "child"]);
+
+    if (children.length > 0 && hasFlights) {
+      findings.push({
+        level: "tidy",
+        title: `Child fares may apply for ${this.nameList(children)}`,
+        detail: "Under 2 usually travels as a lap infant at about a tenth of the adult fare, and 2 to 11 at roughly three quarters. Full adult fare from 12. The app does not adjust any price - enter what the airline actually quotes.",
+        action: "Router.navigate('flights')",
+        actionLabel: "Open flights",
+      });
+    }
+
+    if (children.length > 0 && hasCityTax) {
+      findings.push({
+        level: "tidy",
+        title: `${this.nameList(children)} may be exempt from city tax`,
+        detail: "Italian city tax exemptions are set per comune, not nationally - commonly somewhere between under 6 and under 12, and different in each city you are staying in. Check each one and adjust the guest count on that booking if it applies.",
+        action: "Router.navigate('accommodation')",
+        actionLabel: "Open accommodation",
+      });
+    }
+  },
+
   findings() {
     const findings = [];
 
@@ -361,6 +672,13 @@ const Readiness = {
       this.checkUnbooked,
       this.checkMissingPrices,
       this.checkDoubleBooked,
+      // Phase 4 - the party checks. Each one stays silent unless the trip
+      // has told it enough to be sure; see their own comments.
+      this.checkRoomCapacity,
+      this.checkUnaccommodatedPeople,
+      this.checkVehicleSeats,
+      this.checkJoinerTravel,
+      this.checkAgePrompts,
       this.checkUntitledDays,
     ];
 
@@ -550,6 +868,18 @@ const Readiness = {
   // local method so every existing this.pretty(...) call still works.
   pretty(value) {
     return Format.place(value);
+  },
+
+  // These two are the only actions in this file that put an item id into
+  // an onclick string - every other one is a fixed nav name or a day
+  // number. Ids are server-generated (ACC-0001), so a quote cannot
+  // actually get in there today; this is the house helper the other
+  // modules use, applied for the same reason they apply it.
+  jsArg(value) {
+    return String(value === null || value === undefined ? "" : value)
+      .replace(/\\/g, "\\\\")
+      .replace(/'/g, "\\'")
+      .replace(/"/g, "&quot;");
   },
 
   esc(value) {
