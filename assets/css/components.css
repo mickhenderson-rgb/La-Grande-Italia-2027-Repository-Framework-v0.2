@@ -534,6 +534,12 @@ body {
    because silence looks exactly like "no birthday given". */
 .pt-age-wrong { color: var(--color-danger); font-size: 0.85em; font-weight: 600; margin: 2px 0; }
 
+/* Hours and minutes side by side, for a duration you type rather than
+   one the app pretends it can work out. */
+.dur-pair { display: flex; gap: 8px; }
+
+.dur-pair input { flex: 1 1 0; min-width: 0; }
+
 .pt-chip { display: inline-flex; align-items: center; font-size: 0.72em; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: var(--color-bg-tint); color: var(--color-text-2); white-space: nowrap; }
 
 .day-snap-section.is-open .day-snap-snippet { display: none; }

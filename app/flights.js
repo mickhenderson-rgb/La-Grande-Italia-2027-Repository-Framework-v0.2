@@ -269,6 +269,109 @@ const Flights = {
     return "airborne";
   },
 
+  // How long a leg is in the air, as you typed it. null when unknown.
+  legDuration(leg) {
+    const h = Number(leg && leg.durationHours);
+
+    const m = Number(leg && leg.durationMinutes);
+
+    const hours = isNaN(h) ? 0 : h;
+
+    const mins = isNaN(m) ? 0 : m;
+
+    const total = hours * 60 + mins;
+
+    return total > 0 ? total : null;
+  },
+
+  // How long you are ON THE GROUND between two legs.
+  //
+  // DERIVED, and unlike the flight itself that is safe: both times are at
+  // the SAME airport, so the local clock is the right clock. Singapore
+  // arrive 21:20, depart 00:15 next day is 2h 55m, full stop.
+  //
+  // Returns null rather than a number when either end is missing, or when
+  // the maths comes out negative - which means a date is wrong, and a
+  // negative layover on screen would be worse than none.
+  stopoverMinutes(item, index) {
+    const legs = this.getLegs(item);
+
+    const before = legs[index];
+
+    const after = legs[index + 1];
+
+    if (!before || !after) {
+      return null;
+    }
+
+    const arr = before.arrival || {};
+
+    const dep = after.departure || {};
+
+    if (!arr.date || !arr.time || !dep.date || !dep.time) {
+      return null;
+    }
+
+    const at = (d, t) => {
+      const parts = String(d).split("-").map((n) => parseInt(n, 10));
+
+      const clock = String(t).split(":").map((n) => parseInt(n, 10));
+
+      if (parts.length < 3 || clock.length < 2 || parts.concat(clock).some(isNaN)) {
+        return null;
+      }
+
+      return Date.UTC(parts[0], parts[1] - 1, parts[2], clock[0], clock[1]);
+    };
+
+    const a = at(arr.date, arr.time);
+
+    const b = at(dep.date, dep.time);
+
+    if (a === null || b === null) {
+      return null;
+    }
+
+    const mins = Math.round((b - a) / 60000);
+
+    return mins > 0 ? mins : null;
+  },
+
+  // "8h 20m", "55m", "2h".
+  formatDuration(minutes) {
+    if (!minutes || minutes <= 0) {
+      return "";
+    }
+
+    const h = Math.floor(minutes / 60);
+
+    const m = minutes % 60;
+
+    return [h > 0 ? h + "h" : "", m > 0 ? m + "m" : ""].filter(Boolean).join(" ");
+  },
+
+  // "Via Singapore, 2h 55m" - the layover is the part you actually want
+  // to know about a stopover, and it was not shown anywhere.
+  layoverLineWithTimes(item) {
+    const legs = this.getLegs(item);
+
+    const parts = [];
+
+    for (let i = 0; i < legs.length - 1; i++) {
+      const where = legs[i].to;
+
+      if (!where) {
+        continue;
+      }
+
+      const mins = this.stopoverMinutes(item, i);
+
+      parts.push(mins ? `${where} (${this.formatDuration(mins)})` : String(where));
+    }
+
+    return parts.join(", ");
+  },
+
   touchesDay(item, dayNumber) {
     return this.roleOnDay(item, dayNumber) !== null;
   },
@@ -791,7 +894,7 @@ const Flights = {
 
     </strong>
 
-    ${this.layoverLine(item) ? `<p>Via ${this.esc(this.layoverLine(item))}</p>` : ""}
+    ${this.layoverLineWithTimes(item) ? `<p>Via ${this.esc(this.layoverLineWithTimes(item))}</p>` : ""}
 
     <p>
 
@@ -1097,6 +1200,19 @@ const Flights = {
         </label>
 
         <label class="form-field">
+            Time In The Air
+            <span class="dur-pair">
+                <input type="number" id="flt-leg-${i}-dur-h" value="${leg.durationHours ?? ''}" min="0" max="24" placeholder="h">
+                <input type="number" id="flt-leg-${i}-dur-m" value="${leg.durationMinutes ?? ''}" min="0" max="59" placeholder="m">
+            </span>
+            <span class="form-hint">
+                Typed, not worked out. The times above are LOCAL and carry no
+                timezone, so Sydney 15:00 to Singapore 21:20 looks like 6h 20m
+                and is really 8h 20m. Copy it from the airline.
+            </span>
+        </label>
+
+        <label class="form-field">
             Arrival Terminal
             <input type="text" id="flt-leg-${i}-arr-term" value="${this.esc(this.legTerminal(leg.arrival))}"
                 placeholder="e.g. Concourse D">
@@ -1121,6 +1237,20 @@ const Flights = {
         return el ? el.value : "";
       };
 
+      const numOrNull = (id) => {
+        const raw = String(val(id)).trim();
+
+        // Blank means unknown, and unknown is NOT zero - a leg with no
+        // duration entered must not claim to take no time.
+        if (raw === "") {
+          return null;
+        }
+
+        const n = parseInt(raw, 10);
+
+        return isNaN(n) || n < 0 ? null : n;
+      };
+
       return {
         airline: val(`flt-leg-${i}-airline`).trim(),
         flightNumber: val(`flt-leg-${i}-number`).trim(),
@@ -1131,6 +1261,11 @@ const Flights = {
           time: val(`flt-leg-${i}-dep-time`),
           terminal: val(`flt-leg-${i}-dep-term`).trim(),
         },
+        // Typed, because it cannot be derived: the times are LOCAL with no
+        // timezone, so Sydney 15:00 to Singapore 21:20 reads as 6h 20m and
+        // is really 8h 20m. Blank stays blank rather than becoming 0.
+        durationHours: numOrNull(`flt-leg-${i}-dur-h`),
+        durationMinutes: numOrNull(`flt-leg-${i}-dur-m`),
         arrival: {
           date: val(`flt-leg-${i}-arr-date`),
           time: val(`flt-leg-${i}-arr-time`),
@@ -1258,6 +1393,19 @@ const Flights = {
                 <select id="flt-price-currency">${Currency.currencyOptions(item.price?.currency || "USD")}</select>
             </label>
 
+            <label class="form-field">
+                Price Is
+                <select id="flt-price-per">
+                    <option value="total" ${item.price?.per !== "person" ? "selected" : ""}>For the whole booking</option>
+                    <option value="person" ${item.price?.per === "person" ? "selected" : ""}>Per person</option>
+                </select>
+                <span class="form-hint">
+                    A fare quoted per person is multiplied by whoever is on the
+                    flight. Tick people above and the Budget uses that many;
+                    with nobody ticked it uses the party travelling that day.
+                </span>
+            </label>
+
         </div>
 
         <h3>Flight Legs</h3>
@@ -1353,6 +1501,7 @@ const Flights = {
       price: {
         amount: parseFloat(document.getElementById("flt-price-amount").value) || 0,
         currency: document.getElementById("flt-price-currency").value.trim() || "USD",
+        per: document.getElementById("flt-price-per").value,
       },
       planning: {
         priority: document.getElementById("flt-priority").value,

@@ -291,7 +291,8 @@ Research List
 
 `;
 
-    items.forEach((item) => {
+    // In the order you TAKE them, not the order they were typed.
+    this.inTripOrder(items).forEach((item) => {
       html += this.renderItem(item);
     });
 
@@ -312,6 +313,54 @@ Research List
 `;
 
     return html;
+  },
+
+  // Transport, earliest first.
+  //
+  // Sorted on the SCHEDULED DATE where there is one and the day number
+  // otherwise, because the date is the fact you booked and the day is a
+  // position in an itinerary that can be renumbered under it.
+  //
+  // Ties break on departure time, then on the order they were entered -
+  // so two legs on one morning stay in the order you added them rather
+  // than shuffling on every render.
+  inTripOrder(items) {
+    return items
+      .map((item, index) => ({ item: item, index: index }))
+      .sort((a, b) => {
+        const key = (x) => {
+          const date = String((x.item.schedule && x.item.schedule.date) || "").trim();
+
+          if (date) {
+            return date;
+          }
+
+          // No date: fall back to the day number, zero-padded so 9 sorts
+          // before 10 rather than after it.
+          const day = Array.isArray(x.item.dayRange) ? x.item.dayRange[0] : x.item.day;
+
+          return typeof day === "number" ? "day-" + String(day).padStart(4, "0") : "zzzz";
+        };
+
+        const ka = key(a);
+
+        const kb = key(b);
+
+        if (ka !== kb) {
+          return ka < kb ? -1 : 1;
+        }
+
+        const ta = String((a.item.schedule && a.item.schedule.departTime) || "");
+
+        const tb = String((b.item.schedule && b.item.schedule.departTime) || "");
+
+        if (ta !== tb) {
+          return ta < tb ? -1 : 1;
+        }
+
+        return a.index - b.index;
+      })
+      .map((x) => x.item);
   },
 
   renderItem(item) {

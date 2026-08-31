@@ -1306,6 +1306,206 @@ ${unplotted}
     return this.TRANSPORT_MODE_KEYS[String(chosen.mode || "").toLowerCase()] || "unknown";
   },
 
+  // How many transport records cover this leg's window.
+  //
+  // Two or more that fail to chain is a route the data does not describe;
+  // one is just a direct hop and says nothing.
+  transportInWindow(from, to) {
+    const data = Project.get("transport");
+
+    const all = data && Array.isArray(data.items) ? data.items : [];
+
+    return all.filter((item) => this.itemSpansGap(item, from.dayRange[1], to.dayRange[0])).length;
+  },
+
+  // Free text to coordinates: "Rome Termini" -> rome, "Naples Centrale"
+  // -> naples, "MXP" -> Malpensa.
+  //
+  // A transport record names STATIONS AND TERMINALS, not the towns the
+  // journey is keyed on, so an exact lookup finds almost nothing. The
+  // longest matching city name wins, so "san martino" is not beaten by a
+  // shorter key that happens to appear inside it.
+  placeCoords(text) {
+    const said = String(text || "").trim().toLowerCase();
+
+    if (!said) {
+      return null;
+    }
+
+    if (this.cityCoords[said]) {
+      return this.cityCoords[said].slice();
+    }
+
+    let best = null;
+
+    Object.keys(this.cityCoords).forEach((key) => {
+      if (said.indexOf(key) === -1) {
+        return;
+      }
+
+      if (!best || key.length > best.length) {
+        best = key;
+      }
+    });
+
+    if (best) {
+      return this.cityCoords[best].slice();
+    }
+
+    // An airport code or name, for a leg written as "MXP" or "Milan
+    // Malpensa T1".
+    if (typeof Airports !== "undefined") {
+      const airport = Airports.coordsOf(said);
+
+      if (airport) {
+        return airport;
+      }
+    }
+
+    return null;
+  },
+
+  // Is this transport item leaving from where we currently are?
+  //
+  // Either string containing the other, because one side is a town
+  // ("rome") and the other a station ("Rome Termini").
+  samePlace(a, b) {
+    const x = String(a || "").trim().toLowerCase();
+
+    const y = String(b || "").trim().toLowerCase();
+
+    if (!x || !y) {
+      return false;
+    }
+
+    return x === y || x.indexOf(y) > -1 || y.indexOf(x) > -1;
+  },
+
+  // The path a leg made of several transport hops should draw.
+  //
+  // Rome to Palermo is a train to Naples and then a ferry, and the map
+  // drew one straight line over the top of it.
+  //
+  // CHAINED from the leg's origin rather than "everything in the window":
+  // the same window holds a train to Sorrento, which goes nowhere near
+  // Sicily and would bend the line into Campania.
+  transportPath(from, to) {
+    const data = Project.get("transport");
+
+    const all = data && Array.isArray(data.items) ? data.items : [];
+
+    const lo = from.dayRange[1];
+
+    const hi = to.dayRange[0];
+
+    const inWindow = all.filter((item) => this.itemSpansGap(item, lo, hi));
+
+    if (inWindow.length < 2 || !from.coords || !to.coords) {
+      return null;
+    }
+
+    // A route that ARRIVES, found by trying branches and backing out of
+    // the ones that do not.
+    //
+    // Greedy-first-match was not enough on the real trip: the window for
+    // Rome to Palermo also holds a train to Sorrento, so following the
+    // first item out of Naples walked into Campania and stopped there.
+    // Taking the chain anyway would have drawn a confident line through
+    // the wrong end of the country.
+    //
+    // Recursion is bounded by the used-set: every step consumes one item.
+    const walk = (here, used, waypoints) => {
+      if (this.samePlace(here, to.location)) {
+        return waypoints;
+      }
+
+      for (let i = 0; i < inWindow.length; i++) {
+        if (used[i] || !this.samePlace(inWindow[i].from, here)) {
+          continue;
+        }
+
+        used[i] = true;
+
+        const next = inWindow[i].to;
+
+        // Unresolvable is SKIPPED as a waypoint, not guessed at - bending
+        // the line towards the wrong town is worse than not bending it -
+        // but the chain still walks THROUGH it, because a hop the map
+        // cannot draw is still a hop that gets you there.
+        const coords = this.samePlace(next, to.location) ? null : this.placeCoords(next);
+
+        const found = walk(
+          next,
+          used,
+          waypoints.concat([
+            {
+              code: this.pretty(next),
+              coords: coords,
+              airport: null,
+              // The MODE of the hop that got here, so a train leg draws
+              // as a train and the ferry after it as a ferry. One style
+              // for the whole chain would paint the train blue.
+              modeKey: this.TRANSPORT_MODE_KEYS[String(inWindow[i].mode || "").toLowerCase()] || "unknown",
+              arrived: this.samePlace(next, to.location),
+            },
+          ]),
+        );
+
+        if (found) {
+          return found;
+        }
+
+        used[i] = false;
+      }
+
+      return null;
+    };
+
+    const hops = walk(from.location, {}, []);
+
+    // NOTHING RATHER THAN A GUESS. If no chain actually reaches the
+    // destination, the data does not describe this journey - so the leg
+    // draws the straight line it always did rather than a dogleg into
+    // wherever the transport happened to lead.
+    if (!hops || hops.length < 2) {
+      return null;
+    }
+
+    // ONE SEGMENT PER HOP, each with its own mode.
+    //
+    // A single polyline could only carry one style, so Rome-Naples by
+    // train and Naples-Palermo by ferry came out entirely one colour -
+    // "no train on the map", because the train was painted as a ferry.
+    const segments = [];
+
+    let here = from.coords;
+
+    hops.forEach((hop) => {
+      // A hop whose place will not resolve cannot be drawn TO, but the
+      // journey still passes through it - so the line carries on to the
+      // next place that does resolve rather than stopping dead.
+      const next = hop.arrived ? to.coords : hop.coords;
+
+      if (!next) {
+        return;
+      }
+
+      segments.push({ path: [here, next], modeKey: hop.modeKey });
+
+      here = next;
+    });
+
+    if (segments.length < 2) {
+      return null;
+    }
+
+    return {
+      segments: segments,
+      path: [from.coords].concat(segments.map((seg) => seg.path[1])),
+      stopovers: hops.filter((h) => h.coords && !h.arrived),
+    };
+  },
+
   // The flight that serves this leg, or null.
   //
   // Exactly the predicate legModeKey uses to decide the leg is flown, so
@@ -1503,6 +1703,8 @@ ${unplotted}
     // not a problem worth reporting as one.
     const byOtherMeans = {};
 
+    const disconnected = [];
+
     // Legs we expected to route and couldn't, because there is no road.
     // Worth reporting, and the fix is usually a misplaced pin.
     const noRoute = [];
@@ -1604,14 +1806,34 @@ ${unplotted}
           // A flown leg draws its own shape: through the airports you
           // actually changed at, rather than straight over them. Sydney to
           // Milan via Singapore is two flights and should look like two.
-          const flown = style.routeAs ? null : this.flightPath(from, to);
+          // A flight's own stopovers first, then a chain of transport
+          // hops - a leg is one or the other, never both.
+          const flown = style.routeAs
+            ? null
+            : this.flightPath(from, to) || this.transportPath(from, to);
 
-          this._routeLayers.push(
-            this.drawLeg(
-              flown ? flown.path : [from.coords, to.coords],
-              style.routeAs ? this.NO_ROUTE_STYLE : style,
-            ),
-          );
+          // Several transport records cover this leg and none of them chain
+          // to the far end - worth saying, because the straight line that
+          // results looks identical to having drawn nothing special.
+          results[i].disconnected = !flown && !style.routeAs && this.transportInWindow(from, to) > 1;
+
+          if (flown && flown.segments) {
+            // Each hop in its own colour: the train purple, the ferry blue.
+            flown.segments.forEach((seg) => {
+              const segStyle = this.LEG_STYLES[seg.modeKey] || style;
+
+              this._routeLayers.push(this.drawLeg(seg.path, segStyle));
+
+              usedKeys[seg.modeKey] = true;
+            });
+          } else {
+            this._routeLayers.push(
+              this.drawLeg(
+                flown ? flown.path : [from.coords, to.coords],
+                style.routeAs ? this.NO_ROUTE_STYLE : style,
+              ),
+            );
+          }
 
           if (flown) {
             this.markStopovers(flown.stopovers);
@@ -1671,6 +1893,16 @@ ${unplotted}
         continue;
       }
 
+      // Transport WAS found for this leg and did not chain to the far end,
+      // so transportPath refused it and the leg drew a straight line. That
+      // refusal is right, and silent - a straight line where you expected a
+      // dogleg otherwise looks like the feature never shipped.
+      if (result.disconnected) {
+        disconnected.push(
+          `${this.pretty(result.from.location)} → ${this.pretty(result.to.location)}`,
+        );
+      }
+
       if (result.failed) {
         unreachable += 1;
       } else if (result.style.routeAs) {
@@ -1692,7 +1924,7 @@ ${unplotted}
     this._drivingRoute = { distanceKm: Math.round(totalKm * 10) / 10, durationMinutes: totalMinutes };
 
     setSummary(
-      this.routeSummaryText(legCount, routed, totalKm, totalMinutes, byOtherMeans, noRoute, unreachable),
+      this.routeSummaryText(legCount, routed, totalKm, totalMinutes, byOtherMeans, noRoute, unreachable, disconnected),
     );
 
     this.renderRouteLegend(usedKeys, noRoute.length > 0);
@@ -1787,7 +2019,7 @@ ${unplotted}
   // One line that says what the map is showing. Order matters: what was
   // measured, then what's travelled another way (normal), then what
   // couldn't be worked out (the only part that's a problem).
-  routeSummaryText(legCount, routed, totalKm, totalMinutes, byOtherMeans, noRoute, unreachable) {
+  routeSummaryText(legCount, routed, totalKm, totalMinutes, byOtherMeans, noRoute, unreachable, disconnected) {
     const parts = [];
 
     if (routed > 0) {
@@ -1825,6 +2057,21 @@ ${unplotted}
 
       parts.push(
         `Couldn't reach the routing service for ${unreachable} ${legs} - shown as direct lines. Reopen the map to try again`,
+      );
+    }
+
+    // Transport WAS found for these legs and none of it chained end to
+    // end, so the leg drew a straight line rather than a dogleg through
+    // somewhere the data does not actually connect to.
+    //
+    // Said out loud because the refusal is invisible: a straight line looks
+    // exactly like having drawn nothing special, and the usual cause is a
+    // booking left on the wrong day when the trip was reshuffled.
+    if (disconnected && disconnected.length > 0) {
+      const which = disconnected.length === 1 ? "this leg" : "these legs";
+
+      parts.push(
+        `The transport on ${disconnected.join(", ")} doesn't join up end to end, so ${which} ${disconnected.length === 1 ? "is" : "are"} drawn direct - check Readiness for a booking on the wrong day`,
       );
     }
 

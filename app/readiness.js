@@ -654,6 +654,96 @@ const Readiness = {
     });
   },
 
+  // Which days the itinerary puts a place on, as [first, last].
+  //
+  // Overnight only: that is where the trip says you ARE. A place that
+  // never appears returns null, and everything below stays silent about
+  // it - there is nothing to compare against, and a guess would be worse.
+  daysForPlace(text) {
+    const said = String(text || "").trim().toLowerCase();
+
+    if (!said) {
+      return null;
+    }
+
+    const hits = this.days().filter((d) => {
+      const where = String(d.overnight || "").trim().toLowerCase();
+
+      // Either containing the other: a transport record names STATIONS
+      // ("Rome Termini") while the journey names towns ("rome").
+      return where && (where === said || said.indexOf(where) > -1 || where.indexOf(said) > -1);
+    });
+
+    if (hits.length === 0) {
+      return null;
+    }
+
+    return [hits[0].day, hits[hits.length - 1].day];
+  },
+
+  // A booking sitting on a day the itinerary puts somewhere else.
+  //
+  // The date check cannot find this: those four stale Sorrento records
+  // each have a date that matches their own day perfectly. It is the day
+  // NUMBER that is wrong, and only the PLACE gives it away.
+  //
+  // Worth-a-look rather than blocking: a hire car legitimately spans
+  // places, and the app cannot always tell a stale record from a long
+  // booking. It says what it sees and lets you judge.
+  checkPlaceMatchesDay(findings) {
+    const days = this.days();
+
+    if (days.length === 0) {
+      return;
+    }
+
+    this.items("transport").forEach((item) => {
+      if (!this.pastResearch(item)) {
+        return;
+      }
+
+      const range = Array.isArray(item.dayRange) && item.dayRange.length >= 2
+        ? item.dayRange
+        : [item.day, item.day];
+
+      if (typeof range[0] !== "number" || typeof range[1] !== "number") {
+        return;
+      }
+
+      // Where it STARTS is judged against the day it starts, and where it
+      // ENDS against the day it ends - a hire car picked up in Sorrento
+      // must be picked up on a day you are in Sorrento.
+      [
+        { place: item.from, day: range[0], word: "leaves" },
+        { place: item.to, day: range[1], word: "arrives at" },
+      ].forEach((end) => {
+        const where = this.daysForPlace(end.place);
+
+        if (!where) {
+          return;
+        }
+
+        // One day either side: you arrive on the first night of a stay,
+        // and leave on the morning after the last.
+        if (end.day >= where[0] - 1 && end.day <= where[1] + 1) {
+          return;
+        }
+
+        const label = [item.mode, item.from && item.to ? item.from + " to " + item.to : ""]
+          .filter(Boolean)
+          .join(" ");
+
+        findings.push({
+          level: "tidy",
+          title: `${label || "Transport"}: ${end.word} ${this.pretty(end.place)} on Day ${end.day}, but ${this.pretty(end.place)} is Day${where[0] === where[1] ? "" : "s"} ${where[0] === where[1] ? where[0] : where[0] + "-" + where[1]}`,
+          detail: "The date on this booking matches the day it sits on, so the date check cannot see it - but the itinerary puts that place somewhere else entirely. Usually a booking left behind when the trip was reshuffled.",
+          action: `Transport.edit('${this.jsArg(item.id)}')`,
+          actionLabel: "Open transport",
+        });
+      });
+    });
+  },
+
   // A booking whose DATE disagrees with the DAY it sits on.
   //
   // The app plans in days and every booking holds a real date, and until
@@ -1047,6 +1137,7 @@ const Readiness = {
       this.checkVehicleSeats,
       this.checkJoinerTravel,
       this.checkDatesMatchDays,
+      this.checkPlaceMatchesDay,
       this.checkTravelOutsideTrip,
       this.checkAgePrompts,
       this.checkUntitledDays,
