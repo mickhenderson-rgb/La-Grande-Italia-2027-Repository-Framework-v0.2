@@ -1625,7 +1625,7 @@ Raised by Mick 2026-08-30 after real use. Six built, two deliberately not
 |---|---|---|
 | 1 | Editing a day dropped you at the top of a 52-day planner | DONE |
 | 2 | A trip could not be renamed | DONE — display name only |
-| 3 | Copy loses accommodation / transport | NOT REPRODUCIBLE |
+| 3 | Copy loses accommodation / transport | CLOSED — see D30 |
 | 4 | Days in transit home | DONE — recorded and flagged |
 | 5a | Check-out defaulted to the SAME day as check-in | DONE |
 | 5b | 24-hour clock | ALREADY TRUE — see below |
@@ -1849,6 +1849,52 @@ behaviour.
   **EUR**, Venice 5 **AUD** vs 5 **EUR**.
 
 New guard: `test-readiness-noise.js`.
+
+### D29. Close-out: three review items that were never tracked
+
+Asked 2026-08-31: *"is there anything else from the bugs/UI/UX feedback
+sessions we need to close out?"* Traced every ID in the source documents
+back through this file. **BUG-08, BUG-09 and BUG-10 appear in
+`bug-list-and-fixes.md` and were never recorded here** — a tracking gap,
+not a code gap. All three verified in the current source rather than
+trusting the document's own "Fixed in v1.4.1" claim:
+
+- **BUG-08** (journal checklist/photo delete had no confirmation) —
+  genuinely fixed. Both `removeChecklistItem` and `removePhoto` now go
+  through `UI.confirm`, having been migrated from the native `confirm()`
+  along with everything else in v1.20.0.
+- **BUG-09** (auth and sharing swallowed fetch errors) — fixed as
+  specified. `sharing.js` has three catch blocks and three
+  `console.error`; `auth.js` logs in login, register and logout, which
+  are the three the bug named. Its FOURTH catch is `check()`, the session
+  probe that runs on every page load — **silence there is correct**, not
+  an oversight: a logged-out visitor is the ordinary case, and logging an
+  error every load would be noise rather than a breadcrumb.
+- **BUG-10** is not a bug. It is the document's own status paragraph, and
+  the ID appears only because the regex found it.
+
+### D30. Copy this trip — CLOSED, verified against the real trip
+
+Reported 2026-08-30 as *"when you copy a trip, the accommodation doesnt
+come across, neither does the transport"*, and recorded as NOT
+REPRODUCIBLE because the repo copy of `data/projects` was a week stale.
+
+Mick sent the live `italy-2027` files on 2026-08-31, so it could finally
+be tested against the data it was reported on. Through a real server,
+with the browser's own static fetch:
+
+```
+accommodation.json   27 items -> 27      GET -> 200  27 items
+transport.json        5 items ->  5      GET -> 200   5 items
+activities.json       5 items ->  5      GET -> 200   5 items
+flights.json          1 item  ->  1
+MISSING: expenses.json, journal.json     (by design)
+```
+
+**The copy works.** All 12 non-excluded files and the whole
+`destinations/` folder arrive, and the copier can read them. Whatever was
+seen was not the copy losing data — most likely the accommodation view
+filtered to a single day rather than showing all. Closed.
 
 ## D2. Deferred to V2
 
