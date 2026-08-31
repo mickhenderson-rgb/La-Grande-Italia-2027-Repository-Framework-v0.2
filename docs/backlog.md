@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-30 (v1.35.0).
+Last reviewed: 2026-08-30 (v1.36.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -1677,6 +1677,74 @@ route failed a copy test. Loosened to "copy is in the list", which is all
 that suite ever cared about.
 
 New guard: `test-ux-round-1350.js`.
+
+### D25. Who has access, and dates that disagree with days — DONE (v1.36.0)
+
+Both raised by Mick 2026-08-30.
+
+**A booking whose DATE disagrees with the DAY it sits on.** The app plans
+in days, every booking holds a real date, and nothing ever compared them.
+The sample trip is the argument, and it lit up immediately — five real
+errors, three and a half months out and completely invisible:
+
+```
+Hotel Davanzati:  check-in  Wed 5th May  ·  Day 4 is Fri 20th Aug
+Hotel Artemide:   check-out Wed 5th May  ·  Day 3 is Thu 19th Aug
+```
+
+Covers accommodation (both ends), transport, activities, restaurants and
+flights. **Flights need their own handling**: since v1.28.0 a flight can
+land on a LATER day than it departed, so comparing the arrival against
+the departure day would flag every long-haul flight ever entered.
+
+**SHORTLISTED OR BEYOND**, on Mick's correction to the first cut:
+*"if you do all the research at 1 time and mark the favorite as
+shortlisted you could incorrectly book it from the link, if dates are
+wrong, not good."* Exactly right — Shortlisted is the moment you stop
+comparing and start booking, so waiting for Selected flags the error
+AFTER the money has gone. Research stays silent: those dates really are
+provisional when you enter five hotels in a sitting.
+
+**And the flag goes where you are looking.** Readiness is a screen you
+VISIT; the accommodation card is the one you book FROM. So detection
+moved out of the check into `Readiness.dateIssuesFor()` and
+`dayHasDateIssue()`, and the same fact appears three times: a red left
+edge and a flag on the accommodation card, a quiet line on the Planner
+day card, and the full explanation in Readiness. **One source, three
+surfaces** — if the rule changes, it changes once, and the screens cannot
+drift apart.
+
+A left edge rather than a red card: loud enough to stop you clicking
+through, quiet enough to live in a list where most entries are fine.
+
+**It names the disagreement, not a culprit** — the booking may be on the
+wrong date or on the wrong day, and the app cannot tell which.
+
+**Who has access.** The trip card carries the names; Settings carries the
+full list with each person's real permission and anyone invited who has
+not joined.
+
+**A PERMISSION I LOOSENED AND THEN REVERTED.** I opened the share LIST to
+anyone with trip access, reasoning that they are already trusted with the
+whole trip. Two guards said otherwise by name — `test-sharing.js`, and
+`test-guest-and-fixes.js` under a section headed *"guest: cannot manage
+sharing or delete"*. They were right: the request was for a way to SEE
+who has access, from the trip's owner, and owner-only delivers that
+completely — so the loosening bought nothing and cost a boundary somebody
+had deliberately drawn. Reverted, with the reasoning left in the code so
+the argument is not re-made from scratch.
+
+**A side channel closed with it**: the trip list would have carried
+`sharedWith` to collaborators. Handing over the roster through the back
+door while the front door returns 403 is worse than either answer alone,
+because it looks like the boundary holds. A collaborator now sees an
+honest "only the owner can see this" rather than an error.
+
+**Transport findings name the leg.** Transport has no `name` field, so
+the first version read *"Transport: departure is…"*, which says nothing
+about which leg. Now *"Train Rome to Florence: …"*.
+
+New guard: `test-access-and-datecheck.js`.
 
 ## D2. Deferred to V2
 

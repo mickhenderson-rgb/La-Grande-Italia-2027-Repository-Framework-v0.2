@@ -574,6 +574,233 @@ const Readiness = {
     });
   },
 
+  // A booking whose DATE disagrees with the DAY it sits on.
+  //
+  // The app plans in days and every booking holds a real date, and until
+  // now nothing compared the two. The sample trip shows exactly why:
+  // Hotel Artemide sits on days 1-3 and is booked 2-5 May, while day 3 is
+  // 19 August. Three and a half months out, and completely invisible -
+  // you would arrive in Rome to a room booked for the spring.
+  //
+  // Both directions are wrong and both are worth knowing: the booking may
+  // be for the wrong date, or it may be on the wrong day. The app cannot
+  // tell which, so it reports the disagreement rather than picking a
+  // culprit.
+  //
+  // COMMITTED ITEMS ONLY - Selected or beyond. A Research option's dates
+  // are provisional by definition, and flagging those would be the crying
+  // wolf this screen exists to avoid.
+  DATE_FIELDS: [
+    {
+      key: "accommodation",
+      module: "Accommodation",
+      label: "Check-in",
+      date: (it) => it.dates && it.dates.checkIn,
+      day: (it) => (Array.isArray(it.dayRange) ? it.dayRange[0] : it.day),
+    },
+    {
+      key: "accommodation",
+      module: "Accommodation",
+      label: "Check-out",
+      date: (it) => it.dates && it.dates.checkOut,
+      day: (it) => (Array.isArray(it.dayRange) ? it.dayRange[1] : null),
+    },
+    {
+      key: "transport",
+      module: "Transport",
+      label: "Departure",
+      // Transport has no name field - it is a mode and a route. "Transport:
+      // departure is..." tells you nothing about WHICH leg.
+      name: (it) => [it.mode, [it.from, it.to].filter(Boolean).join(" to ")].filter(Boolean).join(" "),
+      date: (it) => it.schedule && it.schedule.date,
+      day: (it) => (Array.isArray(it.dayRange) ? it.dayRange[0] : it.day),
+    },
+    {
+      key: "activities",
+      module: "Activities",
+      label: "Date",
+      date: (it) => it.schedule && it.schedule.date,
+      day: (it) => (Array.isArray(it.dayRange) ? it.dayRange[0] : it.day),
+    },
+    {
+      key: "restaurants",
+      module: "Restaurants",
+      label: "Reservation",
+      date: (it) => it.reservation && it.reservation.date,
+      day: (it) => (Array.isArray(it.dayRange) ? it.dayRange[0] : it.day),
+    },
+  ],
+
+  // Past pure research - Shortlisted or beyond.
+  //
+  // Shortlisted is exactly when a wrong date starts costing money: it is
+  // the moment you stop comparing and start booking, clicking the link on
+  // the one you liked. Waiting for Selected flags the error AFTER the
+  // money has gone.
+  //
+  // Research stays silent, because those dates really are provisional -
+  // you enter five hotels in a sitting and tidy the dates later.
+  pastResearch(item) {
+    if (!item) {
+      return false;
+    }
+
+    return (
+      Boolean(item.selected) ||
+      item.status === "Shortlisted" ||
+      item.status === "Selected" ||
+      this.isBooked(item)
+    );
+  },
+
+  // Where a booking's own dates disagree with the days it sits on.
+  //
+  // Lives here rather than inside the check, because the SAME fact has to
+  // reach three places: a border on the card you book from, a flag on the
+  // day, and the full explanation on this screen. One source, three
+  // surfaces - if the rule changes, it changes once.
+  //
+  // Returns [] for anything still in Research, and for a booking or a day
+  // with no date: silent unless BOTH are known.
+  dateIssuesFor(item, collectionKey) {
+    if (!this.pastResearch(item)) {
+      return [];
+    }
+
+    if (collectionKey === "flights") {
+      return this.flightDateIssues(item);
+    }
+
+    const out = [];
+
+    this.DATE_FIELDS.filter((f) => f.key === collectionKey).forEach((field) => {
+      const booked = String(field.date(item) || "").trim();
+
+      const dayNumber = field.day(item);
+
+      const expected = this.dayDate(dayNumber);
+
+      if (!booked || !expected || booked === expected) {
+        return;
+      }
+
+      out.push({ label: field.label, booked: booked, expected: expected, day: dayNumber });
+    });
+
+    return out;
+  },
+
+  flightDateIssues(item) {
+    if (typeof Flights === "undefined" || !this.pastResearch(item)) {
+      return [];
+    }
+
+    const span = Flights.daySpan(item);
+
+    // Each end against ITS OWN day. Since v1.28.0 a flight can land on a
+    // later day than it left, and comparing the arrival against the
+    // departure day would flag every long-haul flight ever entered.
+    return [
+      { label: "Departure", booked: Flights.overallDeparture(item).date, day: span.from },
+      { label: "Arrival", booked: Flights.overallArrival(item).date, day: span.to },
+    ]
+      .map((pair) => Object.assign({}, pair, { booked: String(pair.booked || "").trim(), expected: this.dayDate(pair.day) }))
+      .filter((pair) => pair.booked && pair.expected && pair.booked !== pair.expected);
+  },
+
+  // Does anything ON this day disagree about its dates? For the day card,
+  // which wants a yes or no rather than the detail.
+  dayHasDateIssue(dayNumber) {
+    const collections = ["accommodation", "transport", "activities", "restaurants", "flights"];
+
+    return collections.some((key) =>
+      this.items(key).some((item) => {
+        const issues = this.dateIssuesFor(item, key);
+
+        return issues.some((issue) => issue.day === dayNumber);
+      }),
+    );
+  },
+
+  dayDate(dayNumber) {
+    if (typeof dayNumber !== "number") {
+      return "";
+    }
+
+    const day = this.days().filter((d) => d.day === dayNumber)[0];
+
+    return (day && day.date) || "";
+  },
+
+  checkDatesMatchDays(findings) {
+    const seen = {};
+
+    // Driven by the shared helper, so the screen and the cards can never
+    // disagree about what counts as a mismatch.
+    this.DATE_FIELDS.forEach((field) => {
+      this.items(field.key).forEach((item) => {
+        const issue = this.dateIssuesFor(item, field.key)
+          .filter((i) => i.label === field.label)[0];
+
+        if (!issue) {
+          return;
+        }
+
+        const booked = issue.booked;
+
+        const dayNumber = issue.day;
+
+        const expected = issue.expected;
+
+        const name = (field.name ? field.name(item) : item.name) || item.name || field.module;
+
+        const id = field.key + "|" + item.id + "|" + field.label;
+
+        if (seen[id]) {
+          return;
+        }
+
+        seen[id] = true;
+
+        findings.push({
+          level: "blocking",
+          title: `${name}: ${field.label.toLowerCase()} is ${Format.date(booked)}, but Day ${dayNumber} is ${Format.date(expected)}`,
+          detail: `The booking and the day it sits on disagree. Either the booking is for the wrong date, or it is on the wrong day - and the app cannot tell which, so it is worth opening both.`,
+          action: `${field.module}.edit('${this.jsArg(item.id)}')`,
+          actionLabel: `Open ${field.module.toLowerCase()}`,
+        });
+      });
+    });
+
+    this.checkFlightDates(findings);
+  },
+
+  // Flights are their own shape: legs rather than a schedule, and since
+  // v1.28.0 an arrival that may land on a LATER day than it departed.
+  // Comparing the arrival against the departure day would flag every
+  // long-haul flight ever entered.
+  checkFlightDates(findings) {
+    if (typeof Flights === "undefined") {
+      return;
+    }
+
+    this.items("flights").forEach((item) => {
+      this.flightDateIssues(item).forEach((pair) => {
+        const booked = pair.booked;
+
+        const expected = pair.expected;
+
+        findings.push({
+          level: "blocking",
+          title: `${Flights.routeSummary(item) || "Flight"}: ${pair.label.toLowerCase()} is ${Format.date(booked)}, but Day ${pair.day} is ${Format.date(expected)}`,
+          detail: "The flight and the day it sits on disagree. Either the flight is for the wrong date, or it is on the wrong day - and the app cannot tell which.",
+          action: "Flights.edit('" + this.jsArg(item.id) + "')",
+          actionLabel: "Open flight",
+        });
+      });
+    });
+  },
+
   // A flight that falls outside the trip's own days.
   //
   // Mick's call: the trip ends when the SHARED itinerary ends, so two
@@ -739,6 +966,7 @@ const Readiness = {
       this.checkUnaccommodatedPeople,
       this.checkVehicleSeats,
       this.checkJoinerTravel,
+      this.checkDatesMatchDays,
       this.checkTravelOutsideTrip,
       this.checkAgePrompts,
       this.checkUntitledDays,

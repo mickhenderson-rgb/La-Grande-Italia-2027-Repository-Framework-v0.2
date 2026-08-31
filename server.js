@@ -2112,10 +2112,14 @@ async function handleShareAdd(req, res, tripId, owner) {
   return sendJSON(res, 404, { error: "No user with that username. To invite someone new, share using their email address." });
 }
 
-function handleShareList(req, res, tripId) {
+function handleShareList(req, res, tripId, isOwner) {
   const entry = readOwnership()[tripId] || {};
 
   const users = readUsers();
+
+  // Named, so "who has access" can show the person who owns the thing
+  // rather than starting the list at the first person they invited.
+  const ownerUser = users.find((x) => x.id === entry.owner);
 
   const collaborators = (entry.collaborators || []).map((c) => {
     const u = users.find((x) => x.id === c.userId);
@@ -2123,9 +2127,18 @@ function handleShareList(req, res, tripId) {
     return { userId: c.userId, username: u ? u.username : "(unknown)", permission: c.permission };
   });
 
-  const pending = (entry.pendingShares || []).map((p) => ({ email: p.email, permission: p.permission }));
+  // OWNER ONLY. A pending share is the email address of somebody not yet
+  // on the trip - a third party's personal data - and being on a trip
+  // does not entitle you to it.
+  const pending = isOwner
+    ? (entry.pendingShares || []).map((p) => ({ email: p.email, permission: p.permission }))
+    : [];
 
-  return sendJSON(res, 200, { collaborators, pending });
+  return sendJSON(res, 200, {
+    collaborators: collaborators,
+    pending: pending,
+    owner: entry.owner ? { userId: entry.owner, username: ownerUser ? ownerUser.username : "(unknown)" } : null,
+  });
 }
 
 function handleShareRemove(req, res, tripId, target) {
@@ -2920,6 +2933,10 @@ function handleProjectsList(req, res) {
       .readdirSync(projectsDir, { withFileTypes: true })
       .filter((entry) => entry.isDirectory() && visible(entry.name));
 
+    // Read ONCE for the whole list rather than per trip - this runs on
+    // every visit to the landing page.
+    const listUsers = readUsers();
+
     const projects = entries.map((entry) => {
       const id = entry.name;
 
@@ -2929,9 +2946,28 @@ function handleProjectsList(req, res) {
 
       const collab = role === "collaborator" ? (ownEntry.collaborators || []).find((c) => c.userId === user.id) : null;
 
+      // Who else is on it, for the trip card. Names only - enough to say
+      // "shared with Kate and Jo" without a second request per trip.
+      //
+      // OWNER ONLY, to match the share route. Leaving it open would hand
+      // a collaborator the full roster through a side channel while the
+      // front door returns 403 - which is worse than either answer alone,
+      // because it looks like the boundary holds.
+      const sharedWith = role !== "owner" ? [] : (ownEntry.collaborators || [])
+        .map((c) => {
+          const u = listUsers.find((x) => x.id === c.userId);
+
+          return u ? u.username : null;
+        })
+        .filter(Boolean);
+
+      const ownerUser = listUsers.find((x) => x.id === ownEntry.owner);
+
       const summary = {
         id,
         name: id,
+        sharedWith: sharedWith,
+        ownerName: ownerUser ? ownerUser.username : "",
         subtitle: "",
         departureDate: "",
         returnDate: "",
@@ -3079,16 +3115,26 @@ const server = http.createServer(async (req, res) => {
 
     const owner = isTripOwner(sessionUser, tripId);
 
+
     // A collaborator may always remove THEMSELVES ("Leave Trip") without
     // being the owner; every other sharing action is owner-only.
     const isSelfLeaving = req.method === "DELETE" && target && sessionUser && target === sessionUser.id;
 
+    // EVERY sharing action, including reading the list, is owner-only.
+    //
+    // v1.36.0 briefly opened the GET to anyone with trip access, on the
+    // reasoning that they are already trusted with the whole trip. Two
+    // guards said otherwise by name - test-sharing.js and
+    // test-guest-and-fixes.js, the latter under "guest: cannot manage
+    // sharing or delete" - and they were right: the feature that wanted
+    // it ("who has access") is for the OWNER, so the loosening bought
+    // nothing and cost a boundary somebody had deliberately drawn.
     if (!owner && !isSelfLeaving) {
       return sendJSON(res, 403, { error: "Only the trip owner can manage sharing." });
     }
 
     if (req.method === "GET" && !target) {
-      return handleShareList(req, res, tripId);
+      return handleShareList(req, res, tripId, owner);
     }
 
     if (req.method === "POST" && !target) {

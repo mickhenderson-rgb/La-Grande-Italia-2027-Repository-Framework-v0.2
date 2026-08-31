@@ -84,6 +84,19 @@ const Planner = {
     return html;
   },
 
+  // Something on this day is booked for a different date.
+  //
+  // Unobtrusive on purpose - one line, and only when there IS one. The
+  // detail lives in Readiness; this is just so you see it while you are
+  // looking at the day rather than having to go and ask.
+  dateIssueFlag(day) {
+    if (typeof Readiness === "undefined" || !Readiness.dayHasDateIssue(day.day)) {
+      return "";
+    }
+
+    return `<p class="pln-date-warn">⚠ A booking on this day is for a different date</p>`;
+  },
+
   renderDay(day) {
     return `
 
@@ -108,6 +121,8 @@ const Planner = {
     ${day.location ? `<p>📍 ${this.pretty(day.location)}</p>` : `<p style="color: var(--color-muted);">No destination set yet</p>`}
 
     ${JourneyEditor.isTransit(day) ? `<p>🌙 In transit overnight</p>` : day.overnight ? `<p>🛏 Overnight: ${this.pretty(day.overnight)}</p>` : ""}
+
+    ${this.dateIssueFlag(day)}
 
     ${this.renderDayItemsSnapshot(day)}
 

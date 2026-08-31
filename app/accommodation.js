@@ -370,6 +370,34 @@ Research List
     return `<a class="snap-link" href="${this.esc(href)}" target="_blank" rel="noopener">Open booking site ↗</a>`;
   },
 
+  // A border and a flag when this booking's dates disagree with the days
+  // it sits on.
+  //
+  // Readiness has the detail, but this is the card you BOOK from - you
+  // click the link here and pay. A warning on a screen you have to go and
+  // visit is a warning you get after the money has gone.
+  //
+  // Guarded on Readiness because accommodation.js loads before it.
+  dateFlag(item) {
+    if (typeof Readiness === "undefined") {
+      return "";
+    }
+
+    const issues = Readiness.dateIssuesFor(item, "accommodation");
+
+    if (issues.length === 0) {
+      return "";
+    }
+
+    const which = issues.map((i) => i.label.toLowerCase()).join(" and ");
+
+    return `<span class="badge badge--datewarn">⚠ ${this.esc(which)} ${issues.length === 1 ? "does" : "do"} not match the day</span>`;
+  },
+
+  hasDateIssue(item) {
+    return typeof Readiness !== "undefined" && Readiness.dateIssuesFor(item, "accommodation").length > 0;
+  },
+
   renderItem(item) {
     const amount =
       item.price && item.price.amount > 0
@@ -378,12 +406,13 @@ Research List
 
     return `
 
-<div class="research-item${item.selected ? " is-selected" : ""}">
+<div class="research-item${item.selected ? " is-selected" : ""}${this.hasDateIssue(item) ? " has-date-issue" : ""}">
 
     <strong>
 
         ${this.esc(item.name) || "Unnamed Accommodation"}
         ${this.showAll ? `<span class="badge">${this.pretty(item.destination)}</span>` : ""}
+        ${this.dateFlag(item)}
 
     </strong>
 

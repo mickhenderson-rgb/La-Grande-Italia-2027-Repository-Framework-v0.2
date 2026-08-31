@@ -15,6 +15,90 @@ Build 12
 const Settings = {
   open() {
     Render.show(Layout.render(this.render()));
+
+    this.loadAccess();
+  },
+
+  // Fetched rather than rendered from what we already hold, because the
+  // trip list's summary is names only - this needs the permission each
+  // person actually has.
+  async loadAccess() {
+    const slot = () => document.getElementById("set-access");
+
+    try {
+      const response = await fetch(
+        `${window.API_BASE}/api/trips/${Data.currentProjectFolder}/share`,
+      );
+
+      // 403 is the ordinary answer for a collaborator, not a failure:
+      // the list is owner-only. Saying so is better than an error that
+      // suggests something is broken.
+      if (response.status === 403) {
+        const denied = slot();
+
+        if (denied) {
+          denied.innerHTML = `<p class="form-hint">Only the trip's owner can see the full list of who has access.</p>`;
+        }
+
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(`status ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      const el = slot();
+
+      if (el) {
+        el.innerHTML = this.renderAccess(data);
+      }
+    } catch (error) {
+      console.error("Could not load who has access:", error);
+
+      const el = slot();
+
+      if (el) {
+        el.innerHTML = `<p class="form-hint">Couldn't load who has access.</p>`;
+      }
+    }
+  },
+
+  renderAccess(data) {
+    const rows = [];
+
+    if (data.owner) {
+      rows.push(`<li><strong>${this.esc(data.owner.username)}</strong> <span class="badge">Owner</span></li>`);
+    }
+
+    (data.collaborators || []).forEach((c) => {
+      rows.push(
+        `<li>${this.esc(c.username)} <span class="badge">${this.esc(this.accessLabel(c.permission))}</span></li>`,
+      );
+    });
+
+    // Owner-only, and the server sends an empty list to anybody else - an
+    // unaccepted invite is a third party's email address.
+    (data.pending || []).forEach((p) => {
+      rows.push(
+        `<li>${this.esc(p.email)} <span class="badge">Invited, not joined</span></li>`,
+      );
+    });
+
+    if (rows.length === 0) {
+      return `<p class="form-hint">Nobody else. This trip is yours alone.</p>`;
+    }
+
+    return `<ul class="set-access-list">${rows.join("")}</ul>`;
+  },
+
+  accessLabel(permission) {
+    if (permission === "write") { return "Can edit"; }
+
+    if (permission === "guest") { return "Guest - no costs"; }
+
+    return "Can view";
   },
 
   render() {
@@ -45,6 +129,14 @@ const Settings = {
     </section>
 
     <div class="manager-grid">
+
+        <div class="manager-card form-card">
+
+            <h2>Who has access</h2>
+
+            <div id="set-access"><p class="form-hint">Loading…</p></div>
+
+        </div>
 
         <div class="manager-card form-card">
 

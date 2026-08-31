@@ -179,6 +179,8 @@ ${
       ? ""
       : `<p><span class="badge">Shared with you · ${this.permissionLabel(project.permission)}</span></p>`;
 
+    const accessLine = this.accessLine(project);
+
     const ownerActions = isOwner
       ? `
 
@@ -217,6 +219,8 @@ ${
 
     ${roleBadge}
 
+    ${accessLine}
+
     <button type="button" class="btn-primary landing-open" onclick="Landing.selectTrip('${project.id}')">
 
         Open Trip
@@ -228,6 +232,35 @@ ${
 </div>
 
 `;
+  },
+
+  // Who else can see this trip, on the card.
+  //
+  // Sharing could always ADD people and there was nowhere to see who was
+  // already on - the owner had to open the Share dialog to remember, and
+  // a collaborator could not find out at all.
+  //
+  // Silent when nobody is on it: "Private" on every card of a person who
+  // has never shared anything is noise, not information.
+  accessLine(project) {
+    const names = Array.isArray(project.sharedWith) ? project.sharedWith : [];
+
+    if (names.length === 0) {
+      return "";
+    }
+
+    // A collaborator sees the OWNER too, because on somebody else's trip
+    // that is the name that matters most.
+    const withOwner =
+      project.role === "owner" || !project.ownerName
+        ? names
+        : [project.ownerName + " (owner)"].concat(names.filter((n) => n !== project.ownerName));
+
+    const shown = withOwner.slice(0, 3);
+
+    const more = withOwner.length - shown.length;
+
+    return `<p class="landing-access">👥 ${this.esc(shown.join(", "))}${more > 0 ? ` +${more} more` : ""}</p>`;
   },
 
   permissionLabel(permission) {
