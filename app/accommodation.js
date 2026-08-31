@@ -367,7 +367,9 @@ Research List
     // inside the app rather than out to the hotel.
     const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
 
-    return `<a class="snap-link" href="${this.esc(href)}" target="_blank" rel="noopener">Open booking site ↗</a>`;
+    // No arrow in the label: .snap-link::after already adds one, and
+    // having both rendered "Open booking site ↗ ↗".
+    return `<a class="snap-link acc-booking-link" href="${this.esc(href)}" target="_blank" rel="noopener">Open booking site</a>`;
   },
 
   // A border and a flag when this booking's dates disagree with the days
@@ -741,6 +743,29 @@ ${selected ? selected.planning.notes : ""}
     return checkIn ? Dates.addDays(checkIn, 1) : "";
   },
 
+  // Opens whatever is in the WEBSITE BOX right now, not what was saved.
+  //
+  // This is the one that was actually missing: you paste a URL, look at
+  // it sitting in the field, click it - and nothing happens, because a
+  // text input is not a link. Checking it before saving is the whole
+  // point, so it reads the live value.
+  openWebsite() {
+    const field = document.getElementById("acc-website");
+
+    const url = field ? field.value.trim() : "";
+
+    if (!url) {
+      UI.warn("Enter a website address first.", { focus: "acc-website" });
+
+      return;
+    }
+
+    // Without a scheme the browser treats it as a path inside the app.
+    const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+
+    window.open(href, "_blank", "noopener");
+  },
+
   blankItem() {
     const day = this.currentDay || {};
 
@@ -842,7 +867,14 @@ ${selected ? selected.planning.notes : ""}
 
             <label class="form-field">
                 Website / Link
-                <input type="text" id="acc-website" value="${this.esc(item.website)}">
+                <span class="field-with-button">
+                    <input type="text" id="acc-website" value="${this.esc(item.website)}">
+                    <button type="button" class="btn-secondary btn-sm" onclick="Accommodation.openWebsite()">Open ↗</button>
+                </span>
+                <span class="form-hint">
+                    Paste the booking page. The button opens whatever is in the
+                    box right now, so you can check the link before saving.
+                </span>
             </label>
 
             <label class="form-field">

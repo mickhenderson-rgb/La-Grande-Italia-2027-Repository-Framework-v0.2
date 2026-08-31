@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-30 (v1.36.0).
+Last reviewed: 2026-08-30 (v1.37.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -1745,6 +1745,57 @@ the first version read *"Transport: departure is…"*, which says nothing
 about which leg. Now *"Train Rome to Florence: …"*.
 
 New guard: `test-access-and-datecheck.js`.
+
+### D26. The Dashboard was rendering the Planner inside itself — DONE (v1.37.0)
+
+Mick: *"Dashboard, isnt it the same as planner? we can either drop it, or
+replace it with a true dashboard, whats do you think we should do?"*
+
+**Measurable, not a matter of taste.** `dashboard.js` line 53 was
+`${Planner.render()}`. Against the real trip: **30,969 characters**, of
+which its own content was ~1,200 and the embedded Planner **27,943** — so
+roughly 80% of what you scrolled on the Dashboard WAS the Planner, day
+cards and "+ Add Day to End" and all. On a 52-day trip, twice.
+
+So neither dropped nor rebuilt: **one line deleted**. Now 3,817
+characters, an 88% cut, and both screens have their identity back.
+
+Two gaps the measurement exposed, filled at the same time:
+
+- **`grep -c Readiness app/dashboard.js` → 0**, while the trip it was
+  describing had 13 findings, five of them bookings on wrong dates. The
+  most useful number the app can show was the one missing from the screen
+  you land on. Now a tappable summary — and **silent when there is
+  nothing wrong**, because a green all-clear on every visit is a banner
+  people stop reading, and then stop seeing when it turns red.
+- **No route out.** With the embedded copy gone there was no way from the
+  Dashboard to the day list at all — it had been relying on simply BEING
+  it. Quick links added, with **Budget hidden from a guest**: the sidebar
+  hides it for the same reason and a shortcut must not be the way round.
+
+### D27. The accommodation booking link — DONE (v1.37.0)
+
+Mick: *"i tried to click the link in accommodation, but it didnt do
+anything, should we add another button to follow the link or can you fix
+the code so it works properly?"*
+
+**The card link was verified WORKING in a real browser** — correct href
+with the scheme added, `target="_blank"`, `pointer-events: auto`, and it
+is the topmost element at its own centre. Two things were wrong with it
+anyway: a **double arrow** (`.snap-link::after` already adds " ↗" and the
+label carried one too) and a **138×14 px** target — fine with a mouse,
+mean with a thumb. Now 125×32.
+
+**The one actually missing was in the FORM.** The Website field is a
+plain text input: you paste a URL, look at it sitting there, click it,
+and nothing happens, because a textbox is not a link. An **Open ↗** button
+now sits beside it and reads the **live** field value, so a link can be
+checked before saving. Verified by typing a new URL and clicking it.
+
+Worth noting: all four accommodation items in the repo copy have
+`website: ""`, so there would have been no card link to click regardless.
+
+New guard: `test-dashboard-and-link.js`.
 
 ## D2. Deferred to V2
 

@@ -38,11 +38,15 @@ const Dashboard = {
         <div class="manager-card" id="dash-currency-card">${this.renderCurrencyCard()}</div>
     </div>
 
+    ${this.renderReadiness()}
+
     ${this.renderLockedIn()}
 
     ${this.renderWaitingOnYou()}
 
     ${this.renderRoute()}
+
+    ${this.renderQuickLinks()}
 
     <div class="planner-buttons desktop-only">
 
@@ -50,7 +54,106 @@ const Dashboard = {
 
     </div>
 
-    ${Planner.render()}
+</div>
+
+`;
+  },
+
+  // What still needs sorting, in one line.
+  //
+  // The Dashboard did not mention Readiness AT ALL - grep -c said zero -
+  // while the trip it was describing had thirteen findings, five of them
+  // bookings on the wrong dates. That is the most useful number the app
+  // can show, and it was the one number missing from the screen you land
+  // on.
+  //
+  // Silent when there is nothing wrong: a green "all clear" on every
+  // visit is a banner people stop reading, and then stop seeing when it
+  // turns red.
+  renderReadiness() {
+    if (typeof Readiness === "undefined") {
+      return "";
+    }
+
+    let findings = [];
+
+    try {
+      findings = Readiness.findings();
+    } catch (error) {
+      // A half-built trip must not take the whole dashboard down.
+      console.error("Readiness summary failed:", error);
+
+      return "";
+    }
+
+    if (findings.length === 0) {
+      return "";
+    }
+
+    const blocking = findings.filter((f) => f.level === "blocking").length;
+
+    const rest = findings.length - blocking;
+
+    // Only worth breaking down when there is more than one KIND. All
+    // thirteen being blocking rendered "13 things to sort out - 13 need
+    // sorting", which says the same thing twice.
+    const parts = [];
+
+    if (blocking > 0 && rest > 0) {
+      parts.push(`${blocking} need${blocking === 1 ? "s" : ""} sorting`);
+
+      parts.push(`${rest} worth a look`);
+    } else if (blocking > 0) {
+      parts.push(`all need${blocking === 1 ? "s" : ""} sorting`);
+    } else {
+      parts.push("worth a look");
+    }
+
+    return `
+
+<button type="button" class="dash-readiness${blocking > 0 ? " is-blocking" : ""}" onclick="Router.navigate('readiness')">
+
+    <span class="dash-readiness-count">${findings.length}</span>
+
+    <span>
+        <strong>${findings.length === 1 ? "thing" : "things"} to sort out</strong>
+        <span class="dash-readiness-detail">${this.esc(parts.join(" · "))}</span>
+    </span>
+
+</button>
+
+`;
+  },
+
+  // Where to go next.
+  //
+  // Needed the moment the embedded Planner came out: there was no route
+  // from here to the day list at all, because the Dashboard had been
+  // relying on simply BEING it.
+  renderQuickLinks() {
+    const links = [
+      { id: "planner", icon: "🧭", label: "Planner" },
+      { id: "map", icon: "🗺", label: "Trip Map" },
+      { id: "accommodation", icon: "🛏", label: "Accommodation" },
+      { id: "budget", icon: "💰", label: "Budget" },
+    ];
+
+    // A guest never sees money - the sidebar hides Budget for exactly
+    // this reason, and a shortcut here must not become the way round it.
+    const visible = links.filter(
+      (l) => !(l.id === "budget" && typeof Project !== "undefined" && Project.currentPermission === "guest"),
+    );
+
+    return `
+
+<div class="dash-links">
+
+    ${visible
+      .map(
+        (l) =>
+          `<button type="button" onclick="Router.navigate('${l.id}')"><span aria-hidden="true">${l.icon}</span> ${this.esc(l.label)}</button>`,
+      )
+      .join("")}
 
 </div>
 

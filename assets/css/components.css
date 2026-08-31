@@ -502,6 +502,34 @@ body {
 
 .pln-date-warn { color: var(--color-danger); font-size: 0.85em; font-weight: 600; margin: 4px 0 0; }
 
+/* The readiness summary on the dashboard: one number and what it means.
+   A button, because it goes somewhere. */
+.dash-readiness { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 14px 16px; margin-bottom: 12px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); cursor: pointer; }
+
+.dash-readiness.is-blocking { border-color: var(--color-danger-border); background: var(--color-danger-bg); }
+
+.dash-readiness-count { font-size: 1.6em; font-weight: 700; line-height: 1; min-width: 1.6em; text-align: center; color: var(--color-text); }
+
+.dash-readiness.is-blocking .dash-readiness-count { color: var(--color-danger); }
+
+.dash-readiness strong { display: block; }
+
+.dash-readiness-detail { display: block; font-size: 0.85em; color: var(--color-text-2); }
+
+/* Where to go next, now that the Dashboard no longer IS the planner. */
+.dash-links { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+
+.dash-links button { flex: 1 1 auto; min-width: 120px; }
+
+/* A text field with an action beside it - the Website box and its Open
+   button. The input takes the room; the button takes what it needs. */
+.field-with-button { display: flex; gap: 8px; align-items: stretch; }
+
+.field-with-button input { flex: 1 1 auto; min-width: 0; }
+
+/* Big enough for a thumb: the inline version was 138x14. */
+.acc-booking-link { display: inline-block; padding: 6px 0; font-size: 0.9em; }
+
 .pt-chip { display: inline-flex; align-items: center; font-size: 0.72em; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: var(--color-bg-tint); color: var(--color-text-2); white-space: nowrap; }
 
 .day-snap-section.is-open .day-snap-snippet { display: none; }
