@@ -59,7 +59,16 @@ const JourneyEditor = {
       return true;
     }
 
-    return String(day.overnight || "").trim().toLowerCase() === "flight";
+    // Spellings that ARE an answer, not a place.
+    //
+    // "flight" is the pre-transit-flag spelling, kept so journeys written
+    // before day.transit existed need no migration. "in transit" turned up
+    // in the real Italy trip on days 1, 50 and 51 - the app asked where you
+    // were sleeping while you were on a plane, and the map had a town
+    // called In Transit it could not find.
+    const said = String(day.overnight || "").trim().toLowerCase();
+
+    return said === "flight" || said === "in transit" || said === "transit";
   },
 
   // True when a flight is still in the air across this day's night: it

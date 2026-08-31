@@ -102,33 +102,113 @@ const Readiness = {
 
     const stays = this.items("accommodation");
 
+    // Nights run from check-in up to but NOT including check-out.
+    const covering = (day) =>
+      stays.filter((stay) => {
+        if (!Array.isArray(stay.dayRange) || stay.dayRange.length < 2) {
+          return this.spansDay(stay, day);
+        }
+
+        return stay.dayRange[0] <= day && stay.dayRange[1] > day;
+      });
+
+    const nothing = [];
+
+    const undecided = [];
+
     // The last day is a departure day, not a night.
     days.slice(0, -1).forEach((day) => {
-      // A night on a ferry or a red-eye needs no bed, so asking where
-      // you're sleeping would be a permanent false alarm.
+      // A night on a ferry, a red-eye or a plane needs no bed, so asking
+      // where you're sleeping would be a permanent false alarm.
       if (JourneyEditor.isTransit(day)) {
         return;
       }
 
-      const covered = stays.some((stay) => {
-        if (!Array.isArray(stay.dayRange) || stay.dayRange.length < 2) {
-          return this.spansDay(stay, day.day);
-        }
+      const options = covering(day.day);
 
-        // Nights run from check-in up to (not including) check-out.
-        return stay.dayRange[0] <= day.day && stay.dayRange[1] > day.day && (stay.selected || this.isBooked(stay));
+      if (options.some((stay) => stay.selected || this.isBooked(stay))) {
+        return;
+      }
+
+      // A night with three shortlisted options is NOT "nowhere to sleep".
+      // It is a decision you have not made, which is a quieter thing - and
+      // conflating them buried seven consecutive nights that genuinely had
+      // nothing under forty-nine identical alarms.
+      (options.length > 0 ? undecided : nothing).push(day.day);
+    });
+
+    this.pushNightRuns(findings, nothing, {
+      level: "blocking",
+      title: "nowhere to sleep",
+      detail: "No accommodation of any kind covers these nights - not even an option to compare.",
+    });
+
+    this.pushNightRuns(findings, undecided, {
+      level: "tidy",
+      title: "a bed to choose",
+      detail: "Options are shortlisted for these nights but none is marked Selected, so the Budget cannot count them and nothing is reserved.",
+    });
+  },
+
+  // Consecutive nights become ONE finding.
+  //
+  // Seven identical rows for Locorotondo and Matera is wallpaper; "Days
+  // 39-45" is something you can act on.
+  pushNightRuns(findings, dayNumbers, spec) {
+    if (dayNumbers.length === 0) {
+      return;
+    }
+
+    const runs = [];
+
+    dayNumbers.forEach((n) => {
+      const last = runs[runs.length - 1];
+
+      if (last && last[1] === n - 1) {
+        last[1] = n;
+
+        return;
+      }
+
+      runs.push([n, n]);
+    });
+
+    runs.forEach((run) => {
+      const nights = run[1] - run[0] + 1;
+
+      const where = this.nightsLabel(run[0], run[1]);
+
+      findings.push({
+        level: spec.level,
+        title:
+          run[0] === run[1]
+            ? `Day ${run[0]}${where}: ${spec.title}`
+            : `Days ${run[0]}-${run[1]}${where}: ${spec.title} (${nights} nights)`,
+        detail: spec.detail,
+        action: `Day.open(${run[0]})`,
+        actionLabel: "Open day",
       });
+    });
+  },
 
-      if (!covered) {
-        findings.push({
-          level: "blocking",
-          title: `Day ${day.day}: nowhere to sleep`,
-          detail: `${this.pretty(day.title || day.overnight) || "Untitled day"} has no accommodation selected or booked.`,
-          action: `Day.open(${day.day})`,
-          actionLabel: "Open day",
-        });
+  // " in Locorotondo" when a run is all one place, nothing when it spans
+  // several - a run titled after only its first town would mislead.
+  nightsLabel(from, to) {
+    const days = this.days().filter((d) => d.day >= from && d.day <= to);
+
+    const places = {};
+
+    days.forEach((d) => {
+      const where = String(d.overnight || "").trim().toLowerCase();
+
+      if (where) {
+        places[where] = true;
       }
     });
+
+    const names = Object.keys(places);
+
+    return names.length === 1 ? ` in ${this.pretty(names[0])}` : "";
   },
 
   // A change of overnight location means you have to physically get there.

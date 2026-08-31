@@ -143,12 +143,35 @@ const Participants = {
     return this.ageOn(participant && participant.dob, this.departureDate());
   },
 
+  // The oldest person ever verified was 122. Anything past that is a
+  // typo, not a person.
+  MAX_PLAUSIBLE_AGE: 125,
+
   band(age) {
-    if (typeof age !== "number") {
+    if (typeof age !== "number" || age < 0 || age > this.MAX_PLAUSIBLE_AGE) {
       return null;
     }
 
     return this.BANDS.filter((b) => age <= b.max)[0] || null;
+  },
+
+  // A birthday that produces an impossible age.
+  //
+  // The real trip had 0001-08-20 - almost certainly 2001 - which made
+  // somebody 2025 years old. That fell past the last band's ceiling, so
+  // band() returned null and the app simply had no age for them.
+  //
+  // SILENCE IS THE WRONG ANSWER TO NONSENSE: it looks exactly like "no
+  // birthday given", so the mistake is invisible until a fare is wrong.
+  ageLooksWrong(participant) {
+    if (!participant || !participant.dob) {
+      return false;
+    }
+
+    const age = this.ageAtDeparture(participant);
+
+    // null is a date that would not parse at all, which is also wrong.
+    return age === null || age < 0 || age > this.MAX_PLAUSIBLE_AGE;
   },
 
   bandFor(participant) {
@@ -577,7 +600,13 @@ const Participants = {
 
     <p>${this.esc(span)}${age === null ? "" : ` · ${age} at departure`}</p>
 
-    ${band ? `<p class="form-hint">${this.esc(band.note)}</p>` : `<p class="form-hint">No date of birth, so no age-related prompts for this person.</p>`}
+    ${
+      this.ageLooksWrong(p)
+        ? `<p class="pt-age-wrong">⚠ That date of birth gives an age of ${age}. Check the year.</p>`
+        : band
+          ? `<p class="form-hint">${this.esc(band.note)}</p>`
+          : `<p class="form-hint">No date of birth, so no age-related prompts for this person.</p>`
+    }
 
     <div class="research-actions">
 

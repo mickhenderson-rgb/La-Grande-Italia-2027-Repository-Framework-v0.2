@@ -6,7 +6,7 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-30 (v1.37.0).
+Last reviewed: 2026-08-31 (v1.38.0).
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -1796,6 +1796,59 @@ Worth noting: all four accommodation items in the repo copy have
 `website: ""`, so there would have been no card link to click regardless.
 
 New guard: `test-dashboard-and-link.js`.
+
+### D28. Three fixes found by running the REAL trip — DONE (v1.38.0)
+
+Mick sent the live `italy-2027` files (52 days, 4 travellers, 26
+accommodation options). Running them through the app found three things
+no fixture had.
+
+**1. Forty-nine alarms for one problem.** Every night reported *"nowhere
+to sleep"*, because the check wants something Selected or Booked and the
+whole trip is Research and Shortlisted. True, and it buried the two that
+mattered — seven consecutive nights in Locorotondo and Matera with
+genuinely nothing.
+
+A night with three shortlisted options is **not** "nowhere to sleep" —
+it is a decision not made. Split into two findings at two levels, and
+consecutive nights group, named by place when the whole run is one place
+(and NOT named when it spans several, which would mislead).
+
+**The real trip went from 52 findings to 7**, with both real gaps at the
+top.
+
+**2. `"in transit"` was not transit.** Days 1, 50 and 51 carry
+`overnight: "in transit"` with no flag, so the app asked where you were
+sleeping while you were on a plane, and the map had a town called *In
+Transit* it could not place. `isTransit` already special-cases the legacy
+`"flight"` spelling for exactly this reason.
+
+**3. An impossible age went quiet.** A date of birth of `0001-08-20` —
+almost certainly 2001 — makes somebody **2025 years old**, which fell
+past the last band's ceiling, so `band()` returned null and the app
+simply had no age. **Silence is the wrong answer to nonsense**: it looks
+identical to "no birthday given". `band()` now refuses anything over 125
+(the oldest verified person was 122) and `ageLooksWrong()` names it.
+
+**Two of my own assertions broke, both pinned to numbers rather than
+behaviour**: `test-v1110` matched on the word "sleep" (the finding was
+reworded, not removed) and `test-dashboard-and-link` asserted the
+all-one-kind wording against whatever the sample trip happened to
+produce — which became a mix once this shipped. Both now pin the
+behaviour.
+
+**Still in Mick's data, reported not fixed** (his to change):
+
+- Tyler's DOB `0001-08-20`, and his `dayRange [1,16]` against a Day 18
+  note saying one traveller flies home from Venice (days 14–18).
+- **Tango House** and **Fenice** are both dated `2027-08-17` (the trip
+  start, the old check-in default) rather than their real nights. Both
+  are Research, so the date check is silent — **it fires the moment
+  either is shortlisted**, which is exactly the case D25 was built for.
+- City tax currencies disagree within a city: Milan 9.5 **AUD** vs 9.5
+  **EUR**, Venice 5 **AUD** vs 5 **EUR**.
+
+New guard: `test-readiness-noise.js`.
 
 ## D2. Deferred to V2
 
