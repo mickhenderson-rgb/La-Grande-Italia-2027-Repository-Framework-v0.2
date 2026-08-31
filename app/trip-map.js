@@ -311,6 +311,17 @@ const TripMap = {
   },
 
   resolveCoords(stop) {
+    // A NIGHT IN TRANSIT HAS NO PLACE. Not "no place yet" - none.
+    //
+    // Every tier below would happily find it one: day 26 of the Italy trip
+    // carries Rome lat/lng because that is where the day STARTS, so the
+    // ferry night was pinned in Rome. That split the Rome-to-Palermo leg in
+    // two, and the train through Naples - which only exists as a chain
+    // across the whole leg - was lost, leaving a ferry sailing out of Rome.
+    if (stop.isTransit) {
+      return null;
+    }
+
     // Tier 1: per-day lat/lng on the journey day.
     const dayWithCoords = stop.days.find(
       (d) => typeof d.lat === "number" && typeof d.lng === "number",
