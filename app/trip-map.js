@@ -184,14 +184,19 @@ const TripMap = {
       // JourneyEditor.isTransit covers the explicit flag AND the old
       // literal "flight" spelling, so an overnight ferry or sleeper train
       // no longer arrives here as an unplottable "place".
-      if (!overnight || JourneyEditor.isTransit(day)) {
+      const transit = JourneyEditor.isTransit(day);
+
+      if (!overnight || transit) {
         if (current) {
           stops.push(current);
 
           current = null;
         }
 
-        // ...EXCEPT day one, which is where the whole trip sets off from.
+        // A day with NO overnight at all is simply unanswered, and gets
+        // nothing. Only a night you have SAID is transit earns a row -
+        // otherwise every half-filled day would become one.
+        // Day one is where the whole trip sets off from.
         //
         // Its OVERNIGHT is genuinely a plane - you do not sleep in Sydney
         // that night - but its LOCATION is the origin, and a map of the
@@ -203,6 +208,8 @@ const TripMap = {
         // ONLY day one. Every transit day would drop a stop wherever each
         // flight happened to take off from - days 50 and 51 would put Rome
         // and In Transit back on as places you stayed.
+        let covered = false;
+
         if (index === 0) {
           const origin = String(day.location || "").toLowerCase();
 
@@ -215,6 +222,45 @@ const TripMap = {
               coords: null,
               status: "Research",
               isOrigin: true,
+            });
+
+            covered = true;
+          }
+        }
+
+        // A transit night is still a NIGHT, and belongs in the list.
+        //
+        // Skipping it entirely left a hole in the dates: Rome to the 10th,
+        // Palermo from the 12th, and the 11th nowhere at all - even though
+        // you spend it on a ferry with a cabin. It gets a row so the trip
+        // reads continuously, and NO COORDINATES so it gets no pin: there
+        // is nowhere honest to put one.
+        //
+        // Not when the origin row above already speaks for this day: night
+        // one is spent on a plane out of Sydney, and saying so twice under
+        // the same date reads as two different nights.
+        //
+        // A day with NO overnight at all is simply unanswered, and gets
+        // nothing. Only a night you have SAID is transit earns a row -
+        // otherwise every half-filled day would become one.
+        //
+        // Consecutive transit nights group, the same way stays do.
+        if (transit && !covered) {
+          const last = stops[stops.length - 1];
+
+          if (last && last.isTransit && last.dayRange[1] === day.day - 1) {
+            last.dayRange[1] = day.day;
+
+            last.days.push(day);
+          } else {
+            stops.push({
+              location: "",
+              title: "In transit",
+              dayRange: [day.day, day.day],
+              days: [day],
+              coords: null,
+              status: "Research",
+              isTransit: true,
             });
           }
         }
@@ -633,7 +679,10 @@ const TripMap = {
 
     const dates = this.formatTripDates(p.departureDate, p.returnDate);
 
-    const count = this.stops.length;
+    // Places you STOP. A transit night has a row of its own so the trip
+    // reads continuously, but you do not stop there - counting it would
+    // put the header one ahead of the places you can actually name.
+    const count = this.stops.filter((s) => !s.isTransit).length;
 
     const plotted = this.stops.filter((s) => s.coords).length;
 
@@ -645,8 +694,13 @@ const TripMap = {
 
     parts.push(`${count} stop${count === 1 ? "" : "s"}`);
 
-    if (plotted < count) {
-      parts.push(`${count - plotted} without a location`);
+    // A transit night has no coordinates ON PURPOSE - counting it as a
+    // missing location would tell you to go and fix something that is
+    // already right.
+    const missing = this.stops.filter((s) => !s.coords && !s.isTransit).length;
+
+    if (missing > 0) {
+      parts.push(`${missing} without a location`);
     }
 
     return parts.join("  ·  ");
@@ -761,7 +815,13 @@ ${this.styles()}
 
             <span class="tripmap-stop-dates">${this.esc(this.formatDateRange(stop))}</span>
 
-            ${unplotted ? `<span class="tripmap-flag">⚑ NO LOCATION</span>` : ""}
+            ${
+              stop.isTransit
+                ? `<span class="tripmap-transit">🌙 In transit overnight</span>`
+                : unplotted
+                  ? `<span class="tripmap-flag">⚑ NO LOCATION</span>`
+                  : ""
+            }
 
         </span>
 
@@ -2934,6 +2994,11 @@ ${hint}
 .tripmap-stop-dates { font-size: 0.82em; color: var(--color-muted, #6b7280); }
 
 .tripmap-flag { font-size: 0.72em; color: #8a5a18; font-weight: 700; letter-spacing: 0.03em; }
+
+/* A transit night has no pin ON PURPOSE, so it must not borrow the
+   amber of a location you forgot to fill in. Quiet and grey: a
+   statement about the trip, not a job on your list. */
+.tripmap-transit { font-size: 0.72em; color: var(--color-muted, #6b7280); font-weight: 600; letter-spacing: 0.03em; }
 
 .tripmap-glyph { font-size: 1.2em; line-height: 1; width: 1.4em; text-align: center; flex: none; }
 
