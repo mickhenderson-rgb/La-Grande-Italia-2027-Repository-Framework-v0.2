@@ -59,14 +59,21 @@ const JourneyEditor = {
       return true;
     }
 
-    // Spellings that ARE an answer, not a place.
-    //
-    // "flight" is the pre-transit-flag spelling, kept so journeys written
-    // before day.transit existed need no migration. "in transit" turned up
-    // in the real Italy trip on days 1, 50 and 51 - the app asked where you
-    // were sleeping while you were on a plane, and the map had a town
-    // called In Transit it could not find.
-    const said = String(day.overnight || "").trim().toLowerCase();
+    return this.isTransitWord(day.overnight);
+  },
+
+  // Spellings that ARE an answer, not a place.
+  //
+  // "flight" is the pre-transit-flag spelling, kept so journeys written
+  // before day.transit existed need no migration. "in transit" turned up
+  // in the real Italy trip on days 1, 50 and 51 - the app asked where you
+  // were sleeping while you were on a plane, and the map had a town called
+  // In Transit it could not find.
+  //
+  // Its own function because the MAP needs the same test on day.location,
+  // not just day.overnight - and two copies of this list would drift.
+  isTransitWord(text) {
+    const said = String(text || "").trim().toLowerCase();
 
     return said === "flight" || said === "in transit" || said === "transit";
   },

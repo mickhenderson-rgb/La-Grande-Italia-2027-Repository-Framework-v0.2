@@ -177,7 +177,7 @@ const TripMap = {
 
     let current = null;
 
-    this.days().forEach((day) => {
+    this.days().forEach((day, index) => {
       const overnight = String(day.overnight || "").toLowerCase();
 
       // Transit / no-stay day: close any open stop and emit nothing.
@@ -189,6 +189,34 @@ const TripMap = {
           stops.push(current);
 
           current = null;
+        }
+
+        // ...EXCEPT day one, which is where the whole trip sets off from.
+        //
+        // Its OVERNIGHT is genuinely a plane - you do not sleep in Sydney
+        // that night - but its LOCATION is the origin, and a map of the
+        // trip that omits where you left from starts at your first hotel.
+        //
+        // The Italy trip gave it away: day 52's overnight IS "sydney", so
+        // the map ended in Sydney without ever starting there.
+        //
+        // ONLY day one. Every transit day would drop a stop wherever each
+        // flight happened to take off from - days 50 and 51 would put Rome
+        // and In Transit back on as places you stayed.
+        if (index === 0) {
+          const origin = String(day.location || "").toLowerCase();
+
+          if (origin && !JourneyEditor.isTransitWord(origin)) {
+            stops.push({
+              location: origin,
+              title: this.pretty(origin),
+              dayRange: [day.day, day.day],
+              days: [day],
+              coords: null,
+              status: "Research",
+              isOrigin: true,
+            });
+          }
         }
 
         return;
