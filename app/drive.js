@@ -106,6 +106,13 @@ const Drive = {
         ? existing.waypoints.map((w) => ({ label: w.label, lat: w.lat, lng: w.lng }))
         : this.seedWaypoints(day),
       route: existing && existing.route ? Object.assign({}, existing.route) : null,
+      // Chosen for you when there is exactly one sensible answer, and
+      // left blank when there is not - a guess between two hire cars is
+      // worse than the question.
+      vehicleId: existing && existing.vehicleId
+        ? existing.vehicleId
+        : (this.vehicleForDay(day) ? this.vehicleForDay(day).id : ""),
+      country: existing && existing.country ? existing.country : this.defaultCountry(),
       status: "",
     };
 
@@ -198,6 +205,39 @@ const Drive = {
 
     </div>
 
+    <div class="manager-card">
+
+        <h3>Fuel</h3>
+
+        <div class="form-grid">
+
+            <label class="form-field">
+                Vehicle
+                <select id="drv-vehicle" onchange="Drive.choiceChanged()">
+                    ${this.vehicleOptions(draft.vehicleId)}
+                </select>
+                <span class="form-hint">
+                    The car you are driving that day. Its consumption and fuel type
+                    live on the Transport record.
+                </span>
+            </label>
+
+            <label class="form-field">
+                Fuel price
+                <select id="drv-country" onchange="Drive.choiceChanged()">
+                    ${this.countryOptions(draft.country)}
+                </select>
+                <span class="form-hint">
+                    Which country's price to use. Set them under Settings.
+                </span>
+            </label>
+
+        </div>
+
+        ${this.renderFuel()}
+
+    </div>
+
     <div class="planner-buttons">
 
         <button type="button" class="btn-primary" onclick="Drive.save()">Save</button>
@@ -283,6 +323,81 @@ const Drive = {
         point.label = field.value;
       }
     });
+
+    const vehicle = document.getElementById("drv-vehicle");
+
+    if (vehicle) {
+      this.draft.vehicleId = vehicle.value;
+    }
+
+    const country = document.getElementById("drv-country");
+
+    if (country) {
+      this.draft.country = country.value;
+    }
+  },
+
+  // Changing either one changes the fuel figure but NOT the route - the
+  // kilometres are the same however you pay for them, so redrawing must
+  // not throw away a lookup you have already paid for.
+  choiceChanged() {
+    this.syncFromDOM();
+
+    this.redraw();
+  },
+
+  vehicleOptions(selected) {
+    const options = this.vehicles().map((v) => {
+      const label = [v.provider, v.mode, v.from && v.to ? `${v.from} to ${v.to}` : ""]
+        .filter(Boolean)
+        .join(" · ");
+
+      return `<option value="${this.esc(v.id)}" ${v.id === selected ? "selected" : ""}>${this.esc(label || "Vehicle")}</option>`;
+    });
+
+    return `<option value="">${options.length ? "Not chosen" : "No hire car or drive on this trip"}</option>${options.join("")}`;
+  },
+
+  countryOptions(selected) {
+    const rates = this.settings().rates;
+
+    const options = rates.map(
+      (r) =>
+        `<option value="${this.esc(r.country)}" ${r.country === selected ? "selected" : ""}>${this.esc(r.country)} — ${this.esc(String(r.currency || ""))} ${this.esc(String(r.fuelPerLitre || ""))}/L</option>`,
+    );
+
+    return `<option value="">${options.length ? "Not chosen" : "No fuel prices set yet"}</option>${options.join("")}`;
+  },
+
+  renderFuel() {
+    const day = this.dayNumbered(this.draft.dayNumber);
+
+    // Reads the DRAFT rather than the saved day, so the figure follows
+    // the pickers before you have saved anything.
+    const pretend = { day: day.day, drive: {
+      waypoints: this.draft.waypoints,
+      route: this.draft.route,
+      vehicleId: this.draft.vehicleId,
+      country: this.draft.country,
+    } };
+
+    const fuel = this.fuelFor(pretend);
+
+    if (!fuel || fuel.unavailable) {
+      return `<p class="drive-empty">No fuel estimate yet — ${this.esc(fuel ? fuel.unavailable : "nothing to price")}.</p>`;
+    }
+
+    return `
+
+<p class="drive-result">
+    <strong>${Format.money(fuel.amount, fuel.currency)}</strong>
+    <span class="drive-asof">
+        ${fuel.litres} litres at ${fuel.litresPer100km} L/100km${fuel.assumed ? ` (assumed — ${this.esc(fuel.assumedWhy)})` : ""},
+        ${Format.money(fuel.perLitre, fuel.currency)}/L in ${this.esc(fuel.country)}
+    </span>
+</p>
+
+`;
   },
 
   labelChanged(index) {
@@ -515,7 +630,12 @@ const Drive = {
       return;
     }
 
-    day.drive = { waypoints, route: this.draft.route || null };
+    day.drive = {
+      waypoints,
+      route: this.draft.route || null,
+      vehicleId: this.draft.vehicleId || "",
+      country: this.draft.country || "",
+    };
 
     Project.update("journey", journey);
 
@@ -557,7 +677,17 @@ const Drive = {
       return "route not worked out yet";
     }
 
-    return `${this.formatKm(drive.route.km)} · ${Geo.formatDuration(drive.route.minutes)}`;
+    const parts = [this.formatKm(drive.route.km), Geo.formatDuration(drive.route.minutes)];
+
+    const fuel = this.fuelFor(day);
+
+    // Only when there IS one. A day card is not the place to explain why
+    // a number is missing - the editor says that.
+    if (fuel && !fuel.unavailable) {
+      parts.push(`${Format.money(fuel.amount, fuel.currency)} fuel${fuel.assumed ? " (est)" : ""}`);
+    }
+
+    return parts.join(" · ");
   },
 
   // The whole trip. Worth more than it looks: hire agreements often carry
@@ -595,6 +725,228 @@ const Drive = {
     });
 
     return { days, km: Math.round(km), minutes: Math.round(minutes), pending };
+  },
+
+  // --- Fuel (phase 2) -------------------------------------------------
+
+  // Indicative figures for a hire car you have not booked yet, so a day
+  // shows a usable number while you are still shopping. An entered figure
+  // always wins, and anything resting on this table says so.
+  CLASSES: [
+    { key: "economy", label: "Economy", litresPer100km: 5.5 },
+    { key: "compact", label: "Compact", litresPer100km: 6.5 },
+    { key: "midsize", label: "Mid-size", litresPer100km: 7.5 },
+    { key: "suv", label: "SUV", litresPer100km: 8.5 },
+    { key: "van", label: "Van / people mover", litresPer100km: 9.5 },
+  ],
+
+  FUEL_TYPES: ["Petrol", "Diesel", "LPG", "Electric"],
+
+  classNamed(key) {
+    return this.CLASSES.find((c) => c.key === key) || null;
+  },
+
+  // Only a vehicle you DRIVE burns fuel you buy. A train ticket has a
+  // price of its own and no consumption.
+  vehicles() {
+    const data = Project.get("transport");
+
+    const items = data && Array.isArray(data.items) ? data.items : [];
+
+    return items.filter((item) => {
+      const mode = String(item.mode || "").toLowerCase();
+
+      return mode === "car rental" || mode === "drive";
+    });
+  },
+
+  vehicleById(id) {
+    return this.vehicles().find((v) => v.id === id) || null;
+  },
+
+  // The hire car whose booking covers this day. A trip usually has one, so
+  // the drive can pick it for you rather than making you say every time.
+  vehicleForDay(day) {
+    const covering = this.vehicles().filter((item) => {
+      const range = Array.isArray(item.dayRange) && item.dayRange.length >= 2
+        ? item.dayRange
+        : [item.day, item.day];
+
+      if (typeof range[0] !== "number" || typeof range[1] !== "number") {
+        return false;
+      }
+
+      return day.day >= range[0] && day.day <= range[1];
+    });
+
+    // Two cars covering one day is ambiguous, and guessing between them
+    // would be worse than asking - so nothing is chosen.
+    return covering.length === 1 ? covering[0] : null;
+  },
+
+  // Entered beats assumed, and the caller is told which it got so it can
+  // label an estimate as one.
+  consumptionOf(vehicle) {
+    if (!vehicle) {
+      return { litresPer100km: null, assumed: false, why: "no vehicle" };
+    }
+
+    const spec = vehicle.vehicle || {};
+
+    const entered = Number(spec.litresPer100km);
+
+    if (entered > 0) {
+      return { litresPer100km: entered, assumed: false, why: "" };
+    }
+
+    const klass = this.classNamed(spec.class);
+
+    if (klass) {
+      return { litresPer100km: klass.litresPer100km, assumed: true, why: `typical for ${klass.label.toLowerCase()}` };
+    }
+
+    return { litresPer100km: null, assumed: false, why: "no consumption set" };
+  },
+
+  // --- Fuel prices ---------------------------------------------------
+
+  // Kept on the project rather than on each drive: you set Italy once and
+  // every Italian day uses it.
+  settings() {
+    const data = Project.get("project");
+
+    const held = data && data.settings && data.settings.driving ? data.settings.driving : null;
+
+    return {
+      rates: held && Array.isArray(held.rates) ? held.rates : [],
+      defaultCountry: held ? held.defaultCountry || "" : "",
+      setOn: held ? held.setOn || "" : "",
+    };
+  },
+
+  rateFor(country) {
+    const wanted = String(country || "").trim().toLowerCase();
+
+    if (!wanted) {
+      return null;
+    }
+
+    return this.settings().rates.find((r) => String(r.country || "").trim().toLowerCase() === wanted) || null;
+  },
+
+  defaultCountry() {
+    const settings = this.settings();
+
+    if (settings.defaultCountry) {
+      return settings.defaultCountry;
+    }
+
+    return settings.rates.length === 1 ? settings.rates[0].country : "";
+  },
+
+  // --- The estimate ---------------------------------------------------
+
+  // Returns either an amount or the ONE reason it cannot produce one.
+  //
+  // A reason rather than a blank: "no consumption set" is something you can
+  // act on, and an empty space is not.
+  fuelFor(day) {
+    const drive = this.driveFor(day);
+
+    if (!drive) {
+      return null;
+    }
+
+    if (!drive.route || typeof drive.route.km !== "number") {
+      return { unavailable: "work out the route first" };
+    }
+
+    const vehicle = drive.vehicleId ? this.vehicleById(drive.vehicleId) : this.vehicleForDay(day);
+
+    if (!vehicle) {
+      return { unavailable: "no vehicle chosen" };
+    }
+
+    const spec = vehicle.vehicle || {};
+
+    // An electric car burns no litres, and pricing it per litre would be
+    // arithmetic on the wrong unit. Said plainly rather than shown as zero.
+    if (String(spec.fuelType || "").toLowerCase() === "electric") {
+      return { unavailable: "electric - not priced yet" };
+    }
+
+    const consumption = this.consumptionOf(vehicle);
+
+    if (!consumption.litresPer100km) {
+      return { unavailable: consumption.why };
+    }
+
+    const country = drive.country || this.defaultCountry();
+
+    const rate = this.rateFor(country);
+
+    if (!rate || !(Number(rate.fuelPerLitre) > 0)) {
+      return { unavailable: "no fuel price set" };
+    }
+
+    const litres = (drive.route.km / 100) * consumption.litresPer100km;
+
+    return {
+      litres: Math.round(litres * 10) / 10,
+      amount: Math.round(litres * Number(rate.fuelPerLitre) * 100) / 100,
+      currency: String(rate.currency || "EUR").toUpperCase(),
+      country: rate.country,
+      perLitre: Number(rate.fuelPerLitre),
+      litresPer100km: consumption.litresPer100km,
+      // True when ANY input was assumed rather than entered, so a caller
+      // never presents a guessed number as a measured one.
+      assumed: consumption.assumed,
+      assumedWhy: consumption.why,
+      vehicleName: vehicle.provider || vehicle.mode || "Vehicle",
+    };
+  },
+
+  // Every driving day's fuel, in one figure per currency.
+  //
+  // Per currency because a trip through Italy and Switzerland produces
+  // euros and francs, and adding them would invent a number. The Budget
+  // converts; this does not.
+  tripFuel() {
+    const byCurrency = {};
+
+    let priced = 0;
+
+    let unpriced = 0;
+
+    let anyAssumed = false;
+
+    this.days().forEach((day) => {
+      const fuel = this.fuelFor(day);
+
+      if (!fuel) {
+        return;
+      }
+
+      if (fuel.unavailable) {
+        unpriced += 1;
+
+        return;
+      }
+
+      priced += 1;
+
+      if (fuel.assumed) {
+        anyAssumed = true;
+      }
+
+      byCurrency[fuel.currency] = (byCurrency[fuel.currency] || 0) + fuel.amount;
+    });
+
+    Object.keys(byCurrency).forEach((c) => {
+      byCurrency[c] = Math.round(byCurrency[c] * 100) / 100;
+    });
+
+    return { byCurrency, priced, unpriced, assumed: anyAssumed };
   },
 
   // --- Small shared bits ---------------------------------------------

@@ -23,7 +23,10 @@ const Expenses = {
 
   showAll: false,
 
-  categories: ["Food", "Transport", "Shopping", "Tips", "Entry Fees", "Other"],
+  // Fuel is split out from Transport so the Driving estimate has
+  // something to be measured against - see Drive.tripFuel(). Lumping it
+  // in with taxis and train tickets made that impossible.
+  categories: ["Food", "Transport", "Fuel", "Shopping", "Tips", "Entry Fees", "Other"],
 
   open(day) {
     this.currentDay = day;

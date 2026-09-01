@@ -14,6 +14,10 @@ Build 12
 
 const Settings = {
   open() {
+    // Dropped on every open, so leaving the page and coming back shows
+    // what is SAVED rather than what you half-typed and walked away from.
+    this.fuelDraft = null;
+
     Render.show(Layout.render(this.render()));
 
     this.loadAccess();
@@ -196,6 +200,31 @@ const Settings = {
 
         <div class="manager-card form-card">
 
+            <h2>Fuel prices</h2>
+
+            <p class="form-hint">
+                What a litre costs, per country. A driving day picks one of these
+                to work out its fuel. Enter the price of the fuel your vehicle
+                actually takes &mdash; petrol and diesel differ.
+                ${this.fuelSetOnLine()}
+            </p>
+
+            <div id="set-fuel-rows">${this.renderFuelRows()}</div>
+
+            <p class="ui-msg" id="set-fuel-msg" hidden></p>
+
+            <div class="planner-buttons">
+
+                <button type="button" onclick="Settings.addFuelRow()">+ Add a country</button>
+
+                <button type="button" class="btn-primary" onclick="Settings.saveFuel()">Save Fuel Prices</button>
+
+            </div>
+
+        </div>
+
+        <div class="manager-card form-card">
+
             <h2>Change Password</h2>
 
             <p class="form-hint">
@@ -365,6 +394,162 @@ const Settings = {
 
       UI.warn("Couldn't reach the server. Check the connection and try again.", { slot: "set-name-msg" });
     }
+  },
+
+  // --- Fuel prices ---------------------------------------------------
+
+  // The working list while the card is open. Seeded from what is saved,
+  // so adding a row does not lose the ones already on screen.
+  fuelDraft: null,
+
+  fuelRates() {
+    if (this.fuelDraft) {
+      return this.fuelDraft;
+    }
+
+    const held = typeof Drive !== "undefined" ? Drive.settings() : { rates: [], defaultCountry: "" };
+
+    this.fuelDraft = held.rates.map((r) => ({
+      country: r.country || "",
+      fuelPerLitre: r.fuelPerLitre || "",
+      currency: r.currency || "",
+      isDefault: r.country === held.defaultCountry,
+    }));
+
+    // One empty row so the card is never a bare button.
+    if (this.fuelDraft.length === 0) {
+      this.fuelDraft.push({ country: "", fuelPerLitre: "", currency: "", isDefault: true });
+    }
+
+    return this.fuelDraft;
+  },
+
+  // A price set in 2026 for a trip in 2027 is an assumption, and must
+  // never present itself as a live figure. The date is the whole point.
+  fuelSetOnLine() {
+    const setOn = typeof Drive !== "undefined" ? Drive.settings().setOn : "";
+
+    return setOn ? `<br>You last set these on ${this.esc(Format.date(setOn))}.` : "";
+  },
+
+  renderFuelRows() {
+    const currencies = typeof Currency !== "undefined" && Array.isArray(Currency.currencies)
+      ? Currency.currencies
+      : ["EUR", "AUD", "USD", "GBP", "CHF"];
+
+    return this.fuelRates()
+      .map((row, index) => `
+
+<div class="fuel-rate-row">
+
+    <input type="text" id="set-fuel-country-${index}" value="${this.esc(row.country)}" placeholder="Country">
+
+    <input type="number" id="set-fuel-price-${index}" value="${this.esc(row.fuelPerLitre)}" min="0" step="0.01" placeholder="Per litre">
+
+    <select id="set-fuel-currency-${index}">
+        ${currencies.map((c) => `<option value="${c}" ${c === row.currency ? "selected" : ""}>${c}</option>`).join("")}
+    </select>
+
+    <label class="fuel-rate-default">
+        <input type="radio" name="set-fuel-default" id="set-fuel-default-${index}" ${row.isDefault ? "checked" : ""}>
+        Default
+    </label>
+
+    <button type="button" onclick="Settings.removeFuelRow(${index})" title="Remove">✕</button>
+
+</div>
+
+`)
+      .join("");
+  },
+
+  // Read before redrawing, so typing in one row and then adding another
+  // does not throw the first away.
+  syncFuelFromDOM() {
+    this.fuelRates().forEach((row, index) => {
+      const country = document.getElementById(`set-fuel-country-${index}`);
+
+      const price = document.getElementById(`set-fuel-price-${index}`);
+
+      const currency = document.getElementById(`set-fuel-currency-${index}`);
+
+      const isDefault = document.getElementById(`set-fuel-default-${index}`);
+
+      if (country) { row.country = country.value; }
+
+      if (price) { row.fuelPerLitre = price.value; }
+
+      if (currency) { row.currency = currency.value; }
+
+      if (isDefault) { row.isDefault = isDefault.checked; }
+    });
+  },
+
+  redrawFuel() {
+    const holder = document.getElementById("set-fuel-rows");
+
+    if (holder) {
+      holder.innerHTML = this.renderFuelRows();
+    }
+  },
+
+  addFuelRow() {
+    this.syncFuelFromDOM();
+
+    this.fuelRates().push({ country: "", fuelPerLitre: "", currency: "", isDefault: false });
+
+    this.redrawFuel();
+  },
+
+  removeFuelRow(index) {
+    this.syncFuelFromDOM();
+
+    this.fuelRates().splice(index, 1);
+
+    if (this.fuelDraft.length === 0) {
+      this.fuelDraft.push({ country: "", fuelPerLitre: "", currency: "", isDefault: true });
+    }
+
+    this.redrawFuel();
+  },
+
+  saveFuel() {
+    this.syncFuelFromDOM();
+
+    const projectData = Project.get("project");
+
+    if (!projectData) {
+      return;
+    }
+
+    // A row with no country is an empty row, not a country called "".
+    const rates = this.fuelDraft
+      .filter((row) => String(row.country || "").trim())
+      .map((row) => ({
+        country: String(row.country).trim(),
+        fuelPerLitre: Number(row.fuelPerLitre) || 0,
+        currency: String(row.currency || "EUR").toUpperCase(),
+      }));
+
+    const chosen = this.fuelDraft.find((row) => row.isDefault && String(row.country || "").trim());
+
+    projectData.settings = projectData.settings || {};
+
+    projectData.settings.driving = {
+      rates,
+      // Falls back to the first named country rather than to nothing: a
+      // single-country trip should not have to nominate a default.
+      defaultCountry: chosen ? String(chosen.country).trim() : (rates.length ? rates[0].country : ""),
+      setOn: Phase.todayISO(),
+    };
+
+    Project.update("project", projectData);
+
+    this.fuelDraft = null;
+
+    UI.ok(rates.length ? "Fuel prices saved." : "Fuel prices cleared.");
+
+    this.open();
   },
 
   save() {

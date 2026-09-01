@@ -2,10 +2,10 @@
 
 Workshopped with Mick 2026-09-02.
 
-**Phase 1 built and shipped in v1.40.0** (kilometres and time). Phases 2
-(fuel) and 3 (tolls) are still design only. The decisions and the API
-findings below stand for all three, so they are not re-litigated or
-re-derived.
+**Phase 1 shipped in v1.40.0** (kilometres and time) and **phase 2 in
+v1.41.0** (fuel). Phase 3 (tolls) is still design only. The decisions and
+the API findings below stand for all three, so they are not re-litigated
+or re-derived.
 
 Goal: for each day you drive, know the kilometres, the time, the fuel and
 the tolls — and get those into the Budget and a whole-trip total.
@@ -167,7 +167,16 @@ Each phase is shippable alone.
    line on the Planner day card, and a "km driving" trip stat. Neither
    plumbing change was needed yet: phase 1 uses the existing
    `Geo.route()` and the distance the proxy already returns.
-2. **Fuel.** Vehicle fields, class fallback, price settings, Budget line.
+2. ~~**Fuel.** Vehicle fields, class fallback, price settings, Budget line.~~
+   **DONE - v1.41.0.** Vehicle & fuel fields on the Car Rental record, the
+   class table in `Drive.CLASSES`, a Fuel prices card in Settings, a Fuel
+   card in the drive editor, and one netted Budget line.
+
+   **Deviation from section 4:** fuel does NOT yet use the per-segment
+   `country_code` split. That needs the `details` plumbing, which is phase
+   3 work. Instead each driving day names WHICH country's price to use,
+   defaulting to the project default. Manual, honest, and superseded
+   automatically once the split lands.
 3. **Tolls.** `details` through the proxy, `tolledKm` out of it, rate
    table with both types, vignette flag, Budget line.
 

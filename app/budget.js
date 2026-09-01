@@ -501,7 +501,76 @@ const Budget = {
       add("actual", "expenses", it.description || it.category || "Expense", it.amount, it.currency, "", "Logged"),
     );
 
+    this.addFuelEstimate(add);
+
     return entries;
+  },
+
+  // ESTIMATED FUEL, LESS WHAT YOU HAVE ALREADY BOUGHT.
+  //
+  // Fuel is estimated per DAY but bought in TANKFULS: you fill up on day
+  // four and burn it over the next four. Listing every day separately
+  // would put a dozen small lines in the Budget that never line up with a
+  // single receipt, so the whole trip's driving is one figure.
+  //
+  // Netting off logged Fuel expenses is what "superseded by real spend"
+  // means here. Without it the Estimated section keeps claiming money
+  // that is already sitting in Actual, and the two sections describe the
+  // same litres twice.
+  //
+  // Floored at zero: buying more fuel than you were estimated to need
+  // means the estimate is spent, not that the trip owes you money.
+  addFuelEstimate(add) {
+    if (typeof Drive === "undefined") {
+      return;
+    }
+
+    const fuel = Drive.tripFuel();
+
+    const spent = this.fuelAlreadySpent();
+
+    Object.keys(fuel.byCurrency).forEach((currency) => {
+      const estimated = fuel.byCurrency[currency];
+
+      const paid = spent[currency] || 0;
+
+      const remaining = Math.max(0, Math.round((estimated - paid) * 100) / 100);
+
+      const parts = [`${fuel.priced} driving day${fuel.priced === 1 ? "" : "s"}`];
+
+      if (paid > 0) {
+        parts.push(`${this.money(estimated, currency)} estimated, less ${this.money(paid, currency)} already spent on fuel`);
+      }
+
+      if (fuel.assumed) {
+        parts.push("some consumption figures are class averages, not the vehicle's own");
+      }
+
+      if (fuel.unpriced > 0) {
+        parts.push(`${fuel.unpriced} driving day${fuel.unpriced === 1 ? "" : "s"} could not be priced`);
+      }
+
+      add("estimated", "transport", "Fuel (estimated)", remaining, currency, parts.join(" · "), "Estimate");
+    });
+  },
+
+  // Only expenses you filed AS fuel. Category rather than a guess at the
+  // description: "Shell" and "servo" and "benzina" are all the same thing
+  // and no keyword list would catch them.
+  fuelAlreadySpent() {
+    const totals = {};
+
+    this.getItems(Project.get("expenses")).forEach((it) => {
+      if (String(it.category || "").toLowerCase() !== "fuel") {
+        return;
+      }
+
+      const currency = String(it.currency || "EUR").toUpperCase();
+
+      totals[currency] = (totals[currency] || 0) + (Number(it.amount) || 0);
+    });
+
+    return totals;
   },
 
   getAllItems() {

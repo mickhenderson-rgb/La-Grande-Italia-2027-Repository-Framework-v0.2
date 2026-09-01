@@ -854,6 +854,48 @@ ${rows}
             </span>
         </label>
 
+        <details class="form-field form-field-wide">
+
+            <summary>Vehicle &amp; fuel</summary>
+
+            <p class="form-hint">
+                Only matters for a car you drive yourself. Fill these in and the
+                Driving days on the Planner can work out what the fuel costs.
+            </p>
+
+            <div class="form-grid">
+
+                <label class="form-field">
+                    Class
+                    <select id="trn-veh-class">
+                        ${this.vehicleClassOptions(item.vehicle && item.vehicle.class)}
+                    </select>
+                    <span class="form-hint">
+                        Used to estimate consumption while you are still shopping. A
+                        figure you enter below always wins.
+                    </span>
+                </label>
+
+                <label class="form-field">
+                    Fuel type
+                    <select id="trn-veh-fuel">
+                        ${this.fuelTypeOptions(item.vehicle && item.vehicle.fuelType)}
+                    </select>
+                </label>
+
+                <label class="form-field">
+                    Consumption (L/100km)
+                    <input type="number" id="trn-veh-consumption" value="${item.vehicle && item.vehicle.litresPer100km ? item.vehicle.litresPer100km : ""}" min="0" step="0.1">
+                    <span class="form-hint">
+                        Off the hire agreement or the manufacturer's figure. Leave blank
+                        to use the class above.
+                    </span>
+                </label>
+
+            </div>
+
+        </details>
+
         <label class="form-field form-field-wide">
             Notes
             <textarea id="trn-notes" rows="4">${this.esc(item.planning?.notes)}</textarea>
@@ -1110,6 +1152,28 @@ ${rows}
     }
   },
 
+  // Null rather than an object of empty strings when nothing was filled
+  // in, so a transport record that is not a car carries no vehicle at all.
+  readVehicle() {
+    const klass = document.getElementById("trn-veh-class");
+
+    const fuelType = document.getElementById("trn-veh-fuel");
+
+    const consumption = document.getElementById("trn-veh-consumption");
+
+    if (!klass && !fuelType && !consumption) {
+      return null;
+    }
+
+    const vehicle = {
+      class: klass ? klass.value : "",
+      fuelType: fuelType ? fuelType.value : "",
+      litresPer100km: consumption ? Number(consumption.value) || null : null,
+    };
+
+    return vehicle.class || vehicle.fuelType || vehicle.litresPer100km ? vehicle : null;
+  },
+
   // Prefers already-entered coordinates over geocoding the name - they're
   // exact, and it avoids spending a credit.
   async resolvePoint(latId, lngId, text) {
@@ -1124,6 +1188,29 @@ ${rows}
     const results = await Geo.search(text, { limit: 1 });
 
     return results.length > 0 ? [results[0].lat, results[0].lon] : null;
+  },
+
+  // Kept in Drive rather than duplicated here: two lists of car classes
+  // would drift, and the one that matters is the one doing the sums.
+  vehicleClassOptions(current) {
+    const classes = typeof Drive !== "undefined" ? Drive.CLASSES : [];
+
+    return [`<option value="">Not set</option>`]
+      .concat(
+        classes.map(
+          (c) =>
+            `<option value="${c.key}" ${c.key === current ? "selected" : ""}>${c.label} (about ${c.litresPer100km} L/100km)</option>`,
+        ),
+      )
+      .join("");
+  },
+
+  fuelTypeOptions(current) {
+    const types = typeof Drive !== "undefined" ? Drive.FUEL_TYPES : [];
+
+    return [`<option value="">Not set</option>`]
+      .concat(types.map((t) => `<option value="${t}" ${t === current ? "selected" : ""}>${t}</option>`))
+      .join("");
   },
 
   modeOptions(current) {
@@ -1191,6 +1278,7 @@ ${rows}
       // the unassigned state rather than a failure to read the form.
       participants: Participants.readPicker(),
       seats: Math.max(0, parseInt(document.getElementById("trn-seats").value, 10) || 0),
+      vehicle: this.readVehicle(),
       mode: document.getElementById("trn-mode").value,
       from,
       to,

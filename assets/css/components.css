@@ -2378,3 +2378,46 @@ button {
   cursor: pointer;
   font-weight: 600;
 }
+
+/* Fuel price rows in Settings (v1.41.0). Same shape as a drive waypoint
+   row: a line of fields you add to and remove from. */
+
+.fuel-rate-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  max-width: 680px;
+  flex-wrap: wrap;
+}
+
+.fuel-rate-row input[type="text"] {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.fuel-rate-row input[type="number"] {
+  flex: 0 1 110px;
+  min-width: 0;
+}
+
+.fuel-rate-row select {
+  flex: 0 1 90px;
+}
+
+/* Sits with the field it labels rather than stacking, and does not stretch
+   the way a bare label in a flex row otherwise would. */
+.fuel-rate-default {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.fuel-rate-row button {
+  flex: none;
+  padding: 4px 10px;
+}
