@@ -56,6 +56,7 @@ const Planner = {
         ${this.statBox(stats.totalItems, "Items")}
         ${this.statBox(stats.openItems, "Open")}
         ${this.statBox(stats.lockedItems, "Locked")}
+        ${this.drivingStat()}
 
     </div>
 
@@ -84,6 +85,20 @@ const Planner = {
     return html;
   },
 
+  // How far you drive on this day, when you have planned it.
+  //
+  // Only on days with a drive - most days do not have one, and a "no
+  // driving" line on all of them would be noise on every card.
+  driveLine(day) {
+    if (typeof Drive === "undefined") {
+      return "";
+    }
+
+    const line = Drive.summaryLine(day);
+
+    return line ? `<p>🚙 ${this.esc(line)}</p>` : "";
+  },
+
   // Something on this day is booked for a different date.
   //
   // Unobtrusive on purpose - one line, and only when there IS one. The
@@ -95,6 +110,26 @@ const Planner = {
     }
 
     return `<p class="pln-date-warn">⚠ A booking on this day is for a different date</p>`;
+  },
+
+  // The whole trip's driving, next to the other totals.
+  //
+  // Hidden until there IS some: a permanent "0 km" on a trip with no
+  // driving advertises a feature rather than reporting a fact. Hire
+  // agreements often cap mileage, so this is the number that says before
+  // you sign whether you are near it.
+  drivingStat() {
+    if (typeof Drive === "undefined") {
+      return "";
+    }
+
+    const totals = Drive.tripTotals();
+
+    if (totals.days === 0) {
+      return "";
+    }
+
+    return this.statBox(Math.round(totals.km).toLocaleString(), "km driving");
   },
 
   renderDay(day) {
@@ -121,6 +156,8 @@ const Planner = {
     ${day.location ? `<p>📍 ${this.pretty(day.location)}</p>` : `<p style="color: var(--color-muted);">No destination set yet</p>`}
 
     ${JourneyEditor.isTransit(day) ? `<p>🌙 In transit overnight</p>` : day.overnight ? `<p>🛏 Overnight: ${this.pretty(day.overnight)}</p>` : ""}
+
+    ${this.driveLine(day)}
 
     ${this.dateIssueFlag(day)}
 

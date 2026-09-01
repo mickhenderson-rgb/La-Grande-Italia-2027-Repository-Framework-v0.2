@@ -2283,3 +2283,98 @@ button {
   color: var(--color-primary-text);
   border-bottom-color: var(--color-secondary);
 }
+
+/* ---------------------------------------------------------------
+   Driving days (v1.40.0)
+
+   Borrows the tokens the rest of the app uses rather than picking
+   its own colours, so it follows both themes without a second set
+   of rules.
+   --------------------------------------------------------------- */
+
+.drive-editor .drive-help {
+  color: var(--color-muted);
+  font-size: 14px;
+  margin-bottom: var(--space-3);
+}
+
+/* Capped: a full-width row on a wide screen strands the reorder
+   buttons a long way from the text they act on. */
+.drive-waypoint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  max-width: 680px;
+}
+
+/* Fixed width so the numbers stay in a column as the list grows past
+   nine and the labels beside them do not shuffle sideways. */
+.drive-waypoint-index {
+  flex: none;
+  width: 24px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--color-muted);
+}
+
+.drive-waypoint input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Reserves its space whether or not the tick is showing, so a lookup
+   does not nudge every row left and right as points resolve. */
+.drive-waypoint-state {
+  flex: none;
+  width: 18px;
+  text-align: center;
+  color: var(--color-success);
+  font-weight: 700;
+}
+
+.drive-waypoint button {
+  flex: none;
+  padding: 4px 10px;
+}
+
+/* The app has no disabled-button styling of its own, so without this the
+   up arrow on the first row looks exactly as pressable as the one below
+   it and simply does nothing. Kept scoped rather than made global: that
+   is a change to every button in the app, not a driving decision. */
+.drive-waypoint button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.drive-result {
+  font-size: 18px;
+}
+
+.drive-result .drive-asof {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+.drive-empty,
+.drive-status {
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
+/* Above the fold on the day itself, so it reads as a fact about today
+   rather than as another tile to go and open. */
+.day-driving-today {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: var(--space-3);
+  background: var(--color-bg-tint);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 600;
+}

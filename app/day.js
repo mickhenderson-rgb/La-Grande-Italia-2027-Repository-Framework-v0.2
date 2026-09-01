@@ -212,6 +212,22 @@ const Day = {
 
   // --- "Today" shape ---
 
+  // On the morning of a driving day, how far and how long is the first
+  // thing you want - so it goes above the fold rather than in a tile.
+  renderDrivingToday(day) {
+    if (typeof Drive === "undefined" || !Drive.canDrive(day)) {
+      return "";
+    }
+
+    const line = Drive.summaryLine(day);
+
+    if (!line) {
+      return "";
+    }
+
+    return `<div class="day-driving-today" onclick="Drive.open(${day.day})">🚙 Driving today &middot; ${this.esc(line)}</div>`;
+  },
+
   renderToday(day) {
     const now = new Date();
 
@@ -234,6 +250,8 @@ const Day = {
     ${this.renderHeader(day)}
 
     ${transitions.length > 0 ? `<div class="day-transitions">${transitions.map((t) => this.renderTransitionRow(t)).join("")}</div>` : ""}
+
+    ${this.renderDrivingToday(day)}
 
     <div class="day-now-card">
 
@@ -318,6 +336,23 @@ const Day = {
     { key: "transport", icon: "🚗", title: "Transport", prompt: "+ Add how you're getting around", action: "Transport.open(Day.current)" },
   ],
 
+  // Driving is not a collection - it lives on the day itself - so it
+  // cannot ride along with promptedPanels and needs its own tile.
+  //
+  // Silent on a transit night: a ferry crossing is not a day at the wheel,
+  // and offering to plan a drive there is just noise.
+  renderDrivingPanel(day) {
+    if (typeof Drive === "undefined" || !Drive.canDrive(day)) {
+      return "";
+    }
+
+    const line = Drive.summaryLine(day);
+
+    return line
+      ? this.panel("🚙", "Driving", line, `Drive.open(${day.day})`)
+      : this.dashedPrompt("🚙", "+ Plan the drive", `Drive.open(${day.day})`);
+  },
+
   renderOtherDay(day) {
     const summary = this.summary(day);
 
@@ -342,6 +377,8 @@ const Day = {
         ${this.panel("✈", "Flights", summary.flight, `Flights.open(Day.current)`)}
 
         ${promptedHtml}
+
+        ${this.renderDrivingPanel(day)}
 
         ${this.panel("💰", "Expenses", summary.expense, `Expenses.open(Day.current)`)}
 
