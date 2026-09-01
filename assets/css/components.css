@@ -2382,13 +2382,23 @@ button {
 /* Fuel price rows in Settings (v1.41.0). Same shape as a drive waypoint
    row: a line of fields you add to and remove from. */
 
+/* Five controls per row since tolls (v1.42.0), so it wraps on anything
+   narrow. A rule and some breathing room below each row keeps a wrapped
+   Default/remove pair visibly attached to the country above it rather
+   than floating between two rows. */
 .fuel-rate-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
-  max-width: 680px;
+  max-width: 980px;
   flex-wrap: wrap;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.fuel-rate-row:last-child {
+  border-bottom: none;
 }
 
 .fuel-rate-row input[type="text"] {

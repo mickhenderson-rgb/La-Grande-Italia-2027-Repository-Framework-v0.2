@@ -1001,6 +1001,11 @@ const GEOAPIFY_ROUTES = {
 const GEOAPIFY_ALLOWED_PARAMS = new Set([
   "text", "limit", "lang", "filter", "bias", "type", "lat", "lon",
   "waypoints", "mode", "units", "avoid",
+  // details=route_details returns per-segment road attributes, which is
+  // the only way to know how much of a route is tolled. The response
+  // grows to ~170KB; shapeRoutingResponse distils it to two numbers, so
+  // the browser never sees the bulk.
+  "details",
 ]);
 
 function shapeGeocodeResponse(parsed) {
@@ -1021,6 +1026,54 @@ function shapeGeocodeResponse(parsed) {
   }));
 
   return { results };
+}
+
+// Per-segment road detail, wherever the provider chose to nest it.
+//
+// A bounded walk rather than a hard-coded path on purpose: the segments
+// were confirmed to exist (a Rome-Naples route reports 360 of them, 225
+// tolled) but their exact nesting under legs/steps/details is the
+// provider's business and not something worth breaking on. Only two
+// fields are needed, and an object carrying BOTH a numeric distance and a
+// boolean toll is unambiguously one of them - nothing else in the
+// response has that pair.
+//
+// country_code is inherited downwards, because it may sit on the segment
+// or on the leg containing it. Absent entirely just means no country
+// split, which the app already copes with.
+//
+// NO flatMap, fromEntries or optional chaining anywhere here: this file
+// runs on Node 10.24.1 in production.
+function collectRouteSegments(node, depth, country, into) {
+  if (!node || typeof node !== "object" || depth > 8) {
+    return;
+  }
+
+  if (Array.isArray(node)) {
+    for (var i = 0; i < node.length; i++) {
+      collectRouteSegments(node[i], depth + 1, country, into);
+    }
+
+    return;
+  }
+
+  var here = typeof node.country_code === "string" && node.country_code
+    ? node.country_code.toUpperCase()
+    : country;
+
+  if (typeof node.distance === "number" && typeof node.toll === "boolean") {
+    into.push({ distance: node.distance, toll: node.toll, country: here });
+
+    // A segment has no segments inside it, so there is nothing below to
+    // find and descending would only double-count.
+    return;
+  }
+
+  var keys = Object.keys(node);
+
+  for (var k = 0; k < keys.length; k++) {
+    collectRouteSegments(node[keys[k]], depth + 1, here, into);
+  }
 }
 
 function shapeRoutingResponse(parsed) {
@@ -1052,12 +1105,61 @@ function shapeRoutingResponse(parsed) {
     });
   });
 
+  // Only present when details=route_details was asked for. An ordinary
+  // map redraw does not pay for it and gets nulls here, which every
+  // caller already treats as "not known".
+  var segments = [];
+
+  collectRouteSegments(props, 0, "", segments);
+
+  var tolledMetres = 0;
+
+  var byCountry = null;
+
+  for (var i = 0; i < segments.length; i++) {
+    var seg = segments[i];
+
+    if (seg.toll) {
+      tolledMetres += seg.distance;
+    }
+
+    if (seg.country) {
+      if (!byCountry) {
+        byCountry = {};
+      }
+
+      if (!byCountry[seg.country]) {
+        byCountry[seg.country] = { km: 0, tolledKm: 0 };
+      }
+
+      byCountry[seg.country].km += seg.distance / 1000;
+
+      if (seg.toll) {
+        byCountry[seg.country].tolledKm += seg.distance / 1000;
+      }
+    }
+  }
+
+  if (byCountry) {
+    var codes = Object.keys(byCountry);
+
+    for (var c = 0; c < codes.length; c++) {
+      byCountry[codes[c]].km = Math.round(byCountry[codes[c]].km * 10) / 10;
+
+      byCountry[codes[c]].tolledKm = Math.round(byCountry[codes[c]].tolledKm * 10) / 10;
+    }
+  }
+
   return {
     route: {
       // distance is metres and time is seconds per Geoapify's docs; convert
       // once here so no caller has to know the raw units.
       distanceKm: typeof props.distance === "number" ? Math.round((props.distance / 1000) * 10) / 10 : null,
       durationMinutes: typeof props.time === "number" ? Math.round(props.time / 60) : null,
+      // null, not 0, when no detail was requested. Zero would read as
+      // "this route is toll-free", which is a different claim.
+      tolledKm: segments.length ? Math.round((tolledMetres / 1000) * 10) / 10 : null,
+      byCountry: byCountry,
       path,
     },
   };

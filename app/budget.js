@@ -503,6 +503,8 @@ const Budget = {
 
     this.addFuelEstimate(add);
 
+    this.addTollEstimate(add);
+
     return entries;
   },
 
@@ -554,14 +556,75 @@ const Budget = {
     });
   },
 
+  // ESTIMATED TOLLS, AND THE VIGNETTES THE TRIP NEEDS.
+  //
+  // Two different things under one heading, deliberately kept apart:
+  //
+  //   Per-kilometre tolls accumulate as you drive, so they net against
+  //   logged Tolls spending exactly as fuel does.
+  //
+  //   A vignette is ONE sticker for the whole trip. Charging it per
+  //   driving day would multiply it by however many times you drive, and
+  //   netting it against spending would hide the fact that it still needs
+  //   buying. It gets its own line, named after the country, so it reads
+  //   as a thing to go and do rather than a running cost.
+  addTollEstimate(add) {
+    if (typeof Drive === "undefined") {
+      return;
+    }
+
+    const tolls = Drive.tripTolls();
+
+    const spent = this.spentOn("tolls");
+
+    Object.keys(tolls.byCurrency).forEach((currency) => {
+      const estimated = tolls.byCurrency[currency];
+
+      const paid = spent[currency] || 0;
+
+      const remaining = Math.max(0, Math.round((estimated - paid) * 100) / 100);
+
+      const parts = [`${tolls.priced} driving day${tolls.priced === 1 ? "" : "s"} on toll roads`];
+
+      if (paid > 0) {
+        parts.push(`${this.money(estimated, currency)} estimated, less ${this.money(paid, currency)} already spent on tolls`);
+      }
+
+      if (tolls.unpriced > 0) {
+        parts.push(`${tolls.unpriced} driving day${tolls.unpriced === 1 ? "" : "s"} could not be priced`);
+      }
+
+      add("estimated", "transport", "Tolls (estimated)", remaining, currency, parts.join(" · "), "Estimate");
+    });
+
+    Drive.vignettesNeeded().forEach((v) => {
+      add(
+        "estimated",
+        "transport",
+        `Vignette — ${v.country}`,
+        v.cost,
+        v.currency,
+        "One sticker for the trip, not per day. Driving without one is fined.",
+        "Estimate",
+      );
+    });
+  },
+
   // Only expenses you filed AS fuel. Category rather than a guess at the
   // description: "Shell" and "servo" and "benzina" are all the same thing
   // and no keyword list would catch them.
   fuelAlreadySpent() {
+    return this.spentOn("fuel");
+  },
+
+  // Logged spending in one category, per currency.
+  spentOn(category) {
+    const wanted = String(category).toLowerCase();
+
     const totals = {};
 
     this.getItems(Project.get("expenses")).forEach((it) => {
-      if (String(it.category || "").toLowerCase() !== "fuel") {
+      if (String(it.category || "").toLowerCase() !== wanted) {
         return;
       }
 

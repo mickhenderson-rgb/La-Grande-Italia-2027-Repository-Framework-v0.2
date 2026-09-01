@@ -207,7 +207,7 @@ const Drive = {
 
     <div class="manager-card">
 
-        <h3>Fuel</h3>
+        <h3>Fuel &amp; tolls</h3>
 
         <div class="form-grid">
 
@@ -235,6 +235,8 @@ const Drive = {
         </div>
 
         ${this.renderFuel()}
+
+        ${this.renderToll()}
 
     </div>
 
@@ -369,19 +371,65 @@ const Drive = {
     return `<option value="">${options.length ? "Not chosen" : "No fuel prices set yet"}</option>${options.join("")}`;
   },
 
+  renderToll() {
+    const day = this.dayNumbered(this.draft.dayNumber);
+
+    const toll = this.tollFor(this.draftAsDay(day));
+
+    if (!toll) {
+      return "";
+    }
+
+    if (toll.vignette) {
+      return `
+
+<p class="drive-result">
+    <strong>${this.esc(toll.country)} uses a vignette</strong>
+    <span class="drive-asof">
+        ${toll.cost ? `${Format.money(toll.cost, toll.currency)} for the sticker, ` : ""}bought once for the trip rather than per day.
+        Driving without one is fined.
+    </span>
+</p>
+
+`;
+    }
+
+    if (toll.unavailable) {
+      return `<p class="drive-empty">No toll estimate yet — ${this.esc(toll.unavailable)}.</p>`;
+    }
+
+    return `
+
+<p class="drive-result">
+    <strong>${Format.money(toll.amount, toll.currency)} tolls</strong>
+    <span class="drive-asof">
+        ${toll.tolledKm} of ${toll.km} km on toll roads, at ${Format.money(toll.perKm, toll.currency)}/km in ${this.esc(toll.country)}
+    </span>
+</p>
+
+`;
+  },
+
+  // The draft dressed as a day, so the fuel and toll figures follow the
+  // pickers before anything has been saved.
+  draftAsDay(day) {
+    return {
+      day: day.day,
+      drive: {
+        waypoints: this.draft.waypoints,
+        route: this.draft.route,
+        vehicleId: this.draft.vehicleId,
+        country: this.draft.country,
+      },
+    };
+  },
+
   renderFuel() {
     const day = this.dayNumbered(this.draft.dayNumber);
 
     // Reads the DRAFT rather than the saved day, so the figure follows
     // the pickers before you have saved anything.
-    const pretend = { day: day.day, drive: {
-      waypoints: this.draft.waypoints,
-      route: this.draft.route,
-      vehicleId: this.draft.vehicleId,
-      country: this.draft.country,
-    } };
-
-    const fuel = this.fuelFor(pretend);
+    const fuel = this.fuelFor(this.draftAsDay(day));
 
     if (!fuel || fuel.unavailable) {
       return `<p class="drive-empty">No fuel estimate yet — ${this.esc(fuel ? fuel.unavailable : "nothing to price")}.</p>`;
@@ -581,7 +629,7 @@ const Drive = {
         points.push(coords);
       }
 
-      const route = await Geo.route(points, { mode: "drive" });
+      const route = await Geo.route(points, { mode: "drive", details: true });
 
       if (!route || route.distanceKm === null) {
         this.setStatus("No road route found between those places.");
@@ -592,6 +640,10 @@ const Drive = {
       this.draft.route = {
         km: route.distanceKm,
         minutes: route.durationMinutes,
+        // null when the provider gave no detail, which is not the same as
+        // zero. Zero is a claim that the road is free.
+        tolledKm: typeof route.tolledKm === "number" ? route.tolledKm : null,
+        byCountry: route.byCountry || null,
         fetchedAt: this.todayISO(),
       };
 
@@ -685,6 +737,13 @@ const Drive = {
     // a number is missing - the editor says that.
     if (fuel && !fuel.unavailable) {
       parts.push(`${Format.money(fuel.amount, fuel.currency)} fuel${fuel.assumed ? " (est)" : ""}`);
+    }
+
+    const toll = this.tollFor(day);
+
+    // A vignette is not this day's cost, so it never appears on a day card.
+    if (toll && !toll.unavailable && !toll.vignette && toll.amount > 0) {
+      parts.push(`${Format.money(toll.amount, toll.currency)} tolls`);
     }
 
     return parts.join(" · ");
@@ -947,6 +1006,133 @@ const Drive = {
     });
 
     return { byCurrency, priced, unpriced, assumed: anyAssumed };
+  },
+
+  // --- Tolls (phase 3) ------------------------------------------------
+
+  // TOLLS ARE NOT ONE KIND OF THING.
+  //
+  // Italy, France and Spain charge by the kilometre. Switzerland, Austria,
+  // Czechia and Slovenia sell a vignette - one sticker, bought once, with
+  // a fine for driving without it.
+  //
+  // This trip drives Italy to Le Noirmont and back, so it is not
+  // hypothetical. A per-km rate applied to Switzerland would invent a
+  // number AND leave out the thing you actually have to buy.
+  TOLL_TYPES: [
+    { key: "none", label: "No tolls" },
+    { key: "perKm", label: "Per kilometre" },
+    { key: "vignette", label: "Vignette (one sticker)" },
+  ],
+
+  tollOf(rate) {
+    const held = rate && rate.toll ? rate.toll : null;
+
+    return {
+      type: held && held.type ? held.type : "none",
+      rate: held && Number(held.rate) > 0 ? Number(held.rate) : 0,
+      cost: held && Number(held.cost) > 0 ? Number(held.cost) : 0,
+    };
+  },
+
+  // What this day's tolls cost. Vignettes are NOT counted here: a sticker
+  // is bought once for the trip, and charging it to every driving day
+  // would multiply it by however many times you drive.
+  tollFor(day) {
+    const drive = this.driveFor(day);
+
+    if (!drive) {
+      return null;
+    }
+
+    if (!drive.route || typeof drive.route.km !== "number") {
+      return { unavailable: "work out the route first" };
+    }
+
+    const rate = this.rateFor(drive.country || this.defaultCountry());
+
+    if (!rate) {
+      return { unavailable: "no country chosen" };
+    }
+
+    const toll = this.tollOf(rate);
+
+    if (toll.type === "vignette") {
+      return { vignette: true, country: rate.country, cost: toll.cost, currency: String(rate.currency || "EUR").toUpperCase() };
+    }
+
+    if (toll.type !== "perKm" || !toll.rate) {
+      return { unavailable: "no toll rate set" };
+    }
+
+    // The route was worked out before phase 3, so it carries no toll
+    // detail. Saying so beats charging the whole distance at the toll
+    // rate, which would be wrong by a factor of two or three.
+    if (typeof drive.route.tolledKm !== "number") {
+      return { unavailable: "work the route out again to measure the toll roads" };
+    }
+
+    return {
+      tolledKm: drive.route.tolledKm,
+      km: drive.route.km,
+      amount: Math.round(drive.route.tolledKm * toll.rate * 100) / 100,
+      perKm: toll.rate,
+      currency: String(rate.currency || "EUR").toUpperCase(),
+      country: rate.country,
+    };
+  },
+
+  // Every vignette the trip needs, once each.
+  //
+  // Keyed by country because you buy one sticker per country however many
+  // days you spend there - which is the whole difference between a
+  // vignette and a per-kilometre toll.
+  vignettesNeeded() {
+    const needed = {};
+
+    this.days().forEach((day) => {
+      const toll = this.tollFor(day);
+
+      if (toll && toll.vignette) {
+        needed[toll.country] = { country: toll.country, cost: toll.cost, currency: toll.currency };
+      }
+    });
+
+    return Object.keys(needed).map((k) => needed[k]);
+  },
+
+  // Per-kilometre tolls across the trip, per currency. Vignettes are
+  // reported separately by vignettesNeeded, for the reason above.
+  tripTolls() {
+    const byCurrency = {};
+
+    let priced = 0;
+
+    let unpriced = 0;
+
+    this.days().forEach((day) => {
+      const toll = this.tollFor(day);
+
+      if (!toll || toll.vignette) {
+        return;
+      }
+
+      if (toll.unavailable) {
+        unpriced += 1;
+
+        return;
+      }
+
+      priced += 1;
+
+      byCurrency[toll.currency] = (byCurrency[toll.currency] || 0) + toll.amount;
+    });
+
+    Object.keys(byCurrency).forEach((c) => {
+      byCurrency[c] = Math.round(byCurrency[c] * 100) / 100;
+    });
+
+    return { byCurrency, priced, unpriced };
   },
 
   // --- Small shared bits ---------------------------------------------

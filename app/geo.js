@@ -169,6 +169,13 @@ const Geo = {
 
     const params = { waypoints, mode: options.mode || "drive" };
 
+    // Opt-in, because it makes the provider's response about twenty times
+    // bigger. A map redraw wants a line and nothing else; only a driving
+    // day needs to know which parts of the road are tolled.
+    if (options.details) {
+      params.details = "route_details";
+    }
+
     const key = this.cacheKey("routing", params);
 
     if (this._cache.has(key)) {

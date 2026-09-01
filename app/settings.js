@@ -413,12 +413,14 @@ const Settings = {
       country: r.country || "",
       fuelPerLitre: r.fuelPerLitre || "",
       currency: r.currency || "",
+      tollType: r.toll && r.toll.type ? r.toll.type : "none",
+      tollValue: r.toll ? (r.toll.type === "vignette" ? r.toll.cost : r.toll.rate) || "" : "",
       isDefault: r.country === held.defaultCountry,
     }));
 
     // One empty row so the card is never a bare button.
     if (this.fuelDraft.length === 0) {
-      this.fuelDraft.push({ country: "", fuelPerLitre: "", currency: "", isDefault: true });
+      this.fuelDraft.push({ country: "", fuelPerLitre: "", currency: "", tollType: "none", tollValue: "", isDefault: true });
     }
 
     return this.fuelDraft;
@@ -449,6 +451,14 @@ const Settings = {
     <select id="set-fuel-currency-${index}">
         ${currencies.map((c) => `<option value="${c}" ${c === row.currency ? "selected" : ""}>${c}</option>`).join("")}
     </select>
+
+    <select id="set-fuel-toll-type-${index}" onchange="Settings.tollTypeChanged(${index})">
+        ${this.tollTypeOptions(row.tollType)}
+    </select>
+
+    <input type="number" id="set-fuel-toll-value-${index}" value="${this.esc(row.tollValue)}" min="0" step="0.01"
+        placeholder="${row.tollType === "vignette" ? "Sticker cost" : "Per tolled km"}"
+        ${row.tollType === "none" ? "disabled" : ""}>
 
     <label class="fuel-rate-default">
         <input type="radio" name="set-fuel-default" id="set-fuel-default-${index}" ${row.isDefault ? "checked" : ""}>
@@ -482,7 +492,32 @@ const Settings = {
       if (currency) { row.currency = currency.value; }
 
       if (isDefault) { row.isDefault = isDefault.checked; }
+
+      const tollType = document.getElementById(`set-fuel-toll-type-${index}`);
+
+      const tollValue = document.getElementById(`set-fuel-toll-value-${index}`);
+
+      if (tollType) { row.tollType = tollType.value; }
+
+      if (tollValue) { row.tollValue = tollValue.value; }
     });
+  },
+
+  tollTypeOptions(current) {
+    const types = typeof Drive !== "undefined" ? Drive.TOLL_TYPES : [];
+
+    return types
+      .map((t) => `<option value="${t.key}" ${t.key === current ? "selected" : ""}>${t.label}</option>`)
+      .join("");
+  },
+
+  // The figure means something different per type - a rate per kilometre
+  // or the price of a sticker - so the placeholder has to follow it, and
+  // "no tolls" has nothing to type at all.
+  tollTypeChanged(index) {
+    this.syncFuelFromDOM();
+
+    this.redrawFuel();
   },
 
   redrawFuel() {
@@ -496,7 +531,7 @@ const Settings = {
   addFuelRow() {
     this.syncFuelFromDOM();
 
-    this.fuelRates().push({ country: "", fuelPerLitre: "", currency: "", isDefault: false });
+    this.fuelRates().push({ country: "", fuelPerLitre: "", currency: "", tollType: "none", tollValue: "", isDefault: false });
 
     this.redrawFuel();
   },
@@ -507,7 +542,7 @@ const Settings = {
     this.fuelRates().splice(index, 1);
 
     if (this.fuelDraft.length === 0) {
-      this.fuelDraft.push({ country: "", fuelPerLitre: "", currency: "", isDefault: true });
+      this.fuelDraft.push({ country: "", fuelPerLitre: "", currency: "", tollType: "none", tollValue: "", isDefault: true });
     }
 
     this.redrawFuel();
@@ -525,11 +560,25 @@ const Settings = {
     // A row with no country is an empty row, not a country called "".
     const rates = this.fuelDraft
       .filter((row) => String(row.country || "").trim())
-      .map((row) => ({
-        country: String(row.country).trim(),
-        fuelPerLitre: Number(row.fuelPerLitre) || 0,
-        currency: String(row.currency || "EUR").toUpperCase(),
-      }));
+      .map((row) => {
+        const type = row.tollType || "none";
+
+        const value = Number(row.tollValue) || 0;
+
+        return {
+          country: String(row.country).trim(),
+          fuelPerLitre: Number(row.fuelPerLitre) || 0,
+          currency: String(row.currency || "EUR").toUpperCase(),
+          // rate and cost are different things - one is per kilometre, the
+          // other is a sticker - so the figure is filed under the name that
+          // matches what it is.
+          toll: {
+            type,
+            rate: type === "perKm" ? value : 0,
+            cost: type === "vignette" ? value : 0,
+          },
+        };
+      });
 
     const chosen = this.fuelDraft.find((row) => row.isDefault && String(row.country || "").trim());
 

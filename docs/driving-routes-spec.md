@@ -2,10 +2,9 @@
 
 Workshopped with Mick 2026-09-02.
 
-**Phase 1 shipped in v1.40.0** (kilometres and time) and **phase 2 in
-v1.41.0** (fuel). Phase 3 (tolls) is still design only. The decisions and
-the API findings below stand for all three, so they are not re-litigated
-or re-derived.
+**All three phases shipped:** kilometres and time in **v1.40.0**, fuel in
+**v1.41.0**, tolls in **v1.42.0**. The decisions and the API findings
+below are kept so they are not re-litigated or re-derived.
 
 Goal: for each day you drive, know the kilometres, the time, the fuel and
 the tolls — and get those into the Budget and a whole-trip total.
@@ -177,8 +176,18 @@ Each phase is shippable alone.
    3 work. Instead each driving day names WHICH country's price to use,
    defaulting to the project default. Manual, honest, and superseded
    automatically once the split lands.
-3. **Tolls.** `details` through the proxy, `tolledKm` out of it, rate
-   table with both types, vignette flag, Budget line.
+3. ~~**Tolls.** `details` through the proxy, `tolledKm` out of it, rate
+   table with both types, vignette flag, Budget line.~~
+   **DONE - v1.42.0.** `details` is allow-listed and opt-in per call, so a
+   map redraw does not pay for a 170KB response. `collectRouteSegments`
+   walks the detail for `tolledKm` and the per-country split. Each rate
+   carries a toll type; vignettes are counted once per trip rather than
+   per driving day.
+
+   **Still outstanding:** the per-country split now REACHES the client as
+   `route.byCountry`, but nothing consumes it yet - a driving day still
+   names one country for its whole route (the phase 2 deviation). The data
+   is there to retire that picker whenever it is worth doing.
 
 Trip total is worth more than it first appears: hire agreements often
 carry an excess-mileage cap, and a total tells you before signing whether
