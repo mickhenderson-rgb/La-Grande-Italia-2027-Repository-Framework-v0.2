@@ -2450,6 +2450,118 @@ ${unplotted}
     }
 
     this._dayMarkers = null;
+
+    if (this.map && this._driveLayers) {
+      this._driveLayers.forEach((layer) => {
+        if (layer) {
+          this.map.removeLayer(layer);
+        }
+      });
+    }
+
+    this._driveLayers = null;
+  },
+
+  // THE DAY'S DRIVE: the road you take, and the places you stop on it.
+  //
+  // The line is the simplified path stored with the drive (v1.44.0), so
+  // it draws instantly and works offline. A day with no drive planned
+  // draws nothing at all - most days are not driving days.
+  //
+  // Underneath the item pins deliberately: the road is context for what
+  // you are doing that day, not the subject of the map.
+  renderDayDrive() {
+    if (!this.map || !window.L || typeof Drive === "undefined") {
+      return;
+    }
+
+    const L = window.L;
+
+    const day = Drive.dayNumbered(this.selectedDay);
+
+    const drive = day ? Drive.driveFor(day) : null;
+
+    if (!drive) {
+      return;
+    }
+
+    this._driveLayers = this._driveLayers || [];
+
+    const route = drive.route || {};
+
+    // The real road when it was worked out; the waypoints themselves
+    // otherwise. A straight line between two towns is a poor drawing of a
+    // drive, so it is dashed - the same way the app already distinguishes
+    // a route it knows from one it is guessing at.
+    const placed = drive.waypoints
+      .filter((w) => typeof w.lat === "number" && typeof w.lng === "number")
+      .map((w) => [w.lat, w.lng]);
+
+    const hasRoad = Array.isArray(route.path) && route.path.length > 1;
+
+    const line = hasRoad ? route.path : placed;
+
+    if (line.length > 1) {
+      const drawn = L.polyline(line, {
+        color: "#7A5C3E",
+        weight: 4,
+        opacity: 0.85,
+        dashArray: hasRoad ? null : "8 8",
+      }).addTo(this.map);
+
+      this._driveLayers.push(drawn);
+    }
+
+    // Numbered so the order you drive them is readable, which a row of
+    // identical dots is not.
+    placed.forEach((coords, index) => {
+      const first = index === 0;
+
+      const last = index === placed.length - 1;
+
+      const label = drive.waypoints.filter((w) => typeof w.lat === "number")[index];
+
+      const marker = L.marker(coords, {
+        icon: L.divIcon({
+          className: "tripmap-pin-wrap",
+          html:
+            `<span class="tm-drivepin${first ? " is-start" : last ? " is-end" : ""}" aria-hidden="true">${index + 1}</span>` +
+            `<span class="tm-plabel" aria-hidden="true">${this.esc(this.pretty(label ? label.label : ""))}</span>`,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13],
+        }),
+        keyboard: false,
+      }).addTo(this.map);
+
+      marker.bindTooltip(`${first ? "Start" : last ? "Finish" : "Stop " + (index + 1)}: ${this.pretty(label ? label.label : "")}`);
+
+      this._driveLayers.push(marker);
+    });
+  },
+
+  // Every point the day's drive touches, for fitting the map to it.
+  driveBounds(dayNum) {
+    if (typeof Drive === "undefined") {
+      return [];
+    }
+
+    const day = Drive.dayNumbered(dayNum);
+
+    const drive = day ? Drive.driveFor(day) : null;
+
+    if (!drive) {
+      return [];
+    }
+
+    const route = drive.route || {};
+
+    if (Array.isArray(route.path) && route.path.length > 1) {
+      return route.path;
+    }
+
+    return drive.waypoints
+      .filter((w) => typeof w.lat === "number" && typeof w.lng === "number")
+      .map((w) => [w.lat, w.lng]);
   },
 
   renderDayPins() {
@@ -2460,6 +2572,11 @@ ${unplotted}
     const L = window.L;
 
     this.clearDayLayers();
+
+    // clearDayLayers takes the drive's layers with it - they share a
+    // lifetime - so it is redrawn here rather than left to whoever
+    // happened to call this.
+    this.renderDayDrive();
 
     this._dayMarkers = [];
 
@@ -2492,7 +2609,10 @@ ${unplotted}
 
     const pts = this.getItemsForDay(dayNum)
       .map((e) => this.itemCoords(e.item))
-      .filter(Boolean);
+      .filter(Boolean)
+      // Without the road, a driving day with one hotel on it zooms to
+      // that hotel and puts the entire drive off screen.
+      .concat(this.driveBounds(dayNum));
 
     if (pts.length === 1) {
       this.map.setView(pts[0], 15);
@@ -3176,6 +3296,20 @@ ${hint}
 .tm-daypin.is-selected { border-color: var(--color-secondary, #C79C5D); }
 
 .tm-daypin.is-research { border-color: #9aa0a6; }
+
+/* Waypoints on a driving day. Numbered rather than iconed, because the
+   ORDER is the information - a row of identical dots does not say which
+   way round you drive them.
+
+   FIXED colours like the other pins: these sit on map tiles, which are the
+   same beige in both themes, so following the app theme would make them
+   vanish in one of them. */
+.tm-drivepin { width: 100%; height: 100%; border-radius: 50%; background: #7A5C3E; color: #ffffff; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; line-height: 1; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); border: 2px solid #ffffff; }
+
+/* Where you set off and where you sleep are the two that matter most. */
+.tm-drivepin.is-start { background: #ffffff; color: #7A5C3E; border-color: #7A5C3E; }
+
+.tm-drivepin.is-end { background: #2e7d4f; }
 
 @media (max-width: 820px) {
 

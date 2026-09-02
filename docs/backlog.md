@@ -1896,6 +1896,41 @@ MISSING: expenses.json, journal.json     (by design)
 seen was not the copy losing data — most likely the accommodation view
 filtered to a single day rather than showing all. Closed.
 
+## D3. Agreed, not yet built
+
+### D3-1. The journal trace — photo EXIF + breadcrumbs — OPEN, WITH A DEADLINE
+
+Agreed with Mick 2026-09-02, alongside the day-map route (shipped v1.44.0).
+
+The journal should show where the trip ACTUALLY went, not just the route
+that was planned — a detour to a winery never appears in a planned path.
+Two sources, both agreed:
+
+1. **Photo EXIF.** Every phone photo carries where it was taken and when.
+   A real record of the places worth stopping at, with no tracking, no
+   battery cost and no permission beyond the photo itself. Parsing EXIF
+   GPS in plain JS is ~100 lines, which is fine against the
+   zero-dependency rule.
+
+2. **Breadcrumbs.** Stamp a location onto each Capture (spend, note,
+   photo) logged while the app is open, filling the gaps where nothing
+   was photographed. Needs a location permission prompt.
+
+**THE DEADLINE, AND WHY IT IS IRREVERSIBLE.** Photos are resized through
+`canvas.toDataURL()` (`app/journal.js` DISPLAY_MAX_PX / ARCHIVE_MAX_PX),
+**which strips all EXIF including GPS**. Any photo captured before the
+reader is added has no location and never will — exactly the same shape
+of problem as the resolution cap in V2-1. The Italy trip departs August
+2027, so there is a year of slack, but this must land before the first
+trip photo is taken.
+
+Continuous GPS tracking was considered and **rejected as not possible**: a
+PWA cannot run geolocation in the background, and iOS suspends the JS as
+soon as the screen locks or you switch apps. It would record a fraction of
+a day while appearing to record all of it.
+
+---
+
 ## D2. Deferred to V2
 
 ### V2-1. Lossless photo storage — OPEN

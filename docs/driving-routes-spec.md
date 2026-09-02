@@ -2,9 +2,10 @@
 
 Workshopped with Mick 2026-09-02.
 
-**All three phases shipped:** kilometres and time in **v1.40.0**, fuel in
-**v1.41.0**, tolls in **v1.42.0**. The decisions and the API findings
-below are kept so they are not re-litigated or re-derived.
+**Complete.** Kilometres and time in **v1.40.0**, fuel in **v1.41.0**,
+tolls in **v1.42.0**, and the automatic country split in **v1.43.0** -
+which closed the one deviation from this spec. The decisions and the API
+findings below are kept so they are not re-litigated or re-derived.
 
 Goal: for each day you drive, know the kilometres, the time, the fuel and
 the tolls — and get those into the Budget and a whole-trip total.
@@ -184,10 +185,17 @@ Each phase is shippable alone.
    carries a toll type; vignettes are counted once per trip rather than
    per driving day.
 
-   **Still outstanding:** the per-country split now REACHES the client as
-   `route.byCountry`, but nothing consumes it yet - a driving day still
-   names one country for its whole route (the phase 2 deviation). The data
-   is there to retire that picker whenever it is worth doing.
+4. ~~The per-country split reaches the client but nothing consumes it.~~
+   **DONE - v1.43.0.** `countryLegs()` prices each side of a border
+   separately, closing the phase 2 deviation. The named country remains
+   the FALLBACK, used whenever there is no usable split - which is every
+   day inside one country, and every route worked out before v1.42.0.
+
+   A rate now carries an ISO code, resolved from its name for the rates
+   saved before this existed. A split that does not account for the
+   distance is not trusted, and kilometres in a country with no rate are
+   reported rather than dropped. A day can now cost money in two
+   currencies, which are never added together.
 
 Trip total is worth more than it first appears: hire agreements often
 carry an excess-mileage cap, and a total tells you before signing whether

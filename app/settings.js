@@ -413,6 +413,7 @@ const Settings = {
       country: r.country || "",
       fuelPerLitre: r.fuelPerLitre || "",
       currency: r.currency || "",
+      code: typeof Drive !== "undefined" ? Drive.codeOf(r) : (r.code || ""),
       tollType: r.toll && r.toll.type ? r.toll.type : "none",
       tollValue: r.toll ? (r.toll.type === "vignette" ? r.toll.cost : r.toll.rate) || "" : "",
       isDefault: r.country === held.defaultCountry,
@@ -420,7 +421,7 @@ const Settings = {
 
     // One empty row so the card is never a bare button.
     if (this.fuelDraft.length === 0) {
-      this.fuelDraft.push({ country: "", fuelPerLitre: "", currency: "", tollType: "none", tollValue: "", isDefault: true });
+      this.fuelDraft.push({ country: "", code: "", fuelPerLitre: "", currency: "", tollType: "none", tollValue: "", isDefault: true });
     }
 
     return this.fuelDraft;
@@ -445,6 +446,9 @@ const Settings = {
 <div class="fuel-rate-row">
 
     <input type="text" id="set-fuel-country-${index}" value="${this.esc(row.country)}" placeholder="Country">
+
+    <input type="text" id="set-fuel-code-${index}" class="fuel-rate-code" value="${this.esc(row.code)}" maxlength="2" placeholder="IT"
+        title="Two-letter country code. Filled in for you from the name where it is recognised; needed so a day that crosses a border can be priced on each side.">
 
     <input type="number" id="set-fuel-price-${index}" value="${this.esc(row.fuelPerLitre)}" min="0" step="0.01" placeholder="Per litre">
 
@@ -491,6 +495,10 @@ const Settings = {
 
       if (currency) { row.currency = currency.value; }
 
+      const code = document.getElementById(`set-fuel-code-${index}`);
+
+      if (code) { row.code = code.value; }
+
       if (isDefault) { row.isDefault = isDefault.checked; }
 
       const tollType = document.getElementById(`set-fuel-toll-type-${index}`);
@@ -531,7 +539,7 @@ const Settings = {
   addFuelRow() {
     this.syncFuelFromDOM();
 
-    this.fuelRates().push({ country: "", fuelPerLitre: "", currency: "", tollType: "none", tollValue: "", isDefault: false });
+    this.fuelRates().push({ country: "", code: "", fuelPerLitre: "", currency: "", tollType: "none", tollValue: "", isDefault: false });
 
     this.redrawFuel();
   },
@@ -542,7 +550,7 @@ const Settings = {
     this.fuelRates().splice(index, 1);
 
     if (this.fuelDraft.length === 0) {
-      this.fuelDraft.push({ country: "", fuelPerLitre: "", currency: "", tollType: "none", tollValue: "", isDefault: true });
+      this.fuelDraft.push({ country: "", code: "", fuelPerLitre: "", currency: "", tollType: "none", tollValue: "", isDefault: true });
     }
 
     this.redrawFuel();
@@ -565,8 +573,17 @@ const Settings = {
 
         const value = Number(row.tollValue) || 0;
 
+        // Blank is resolved from the name, so an existing rate never has
+        // to be re-entered just to take part in the split.
+        const typed = String(row.code || "").trim().toUpperCase();
+
+        const code = typed || (typeof Drive !== "undefined"
+          ? Drive.COUNTRY_CODES[String(row.country || "").trim().toLowerCase()] || ""
+          : "");
+
         return {
           country: String(row.country).trim(),
+          code,
           fuelPerLitre: Number(row.fuelPerLitre) || 0,
           currency: String(row.currency || "EUR").toUpperCase(),
           // rate and cost are different things - one is per kilometre, the

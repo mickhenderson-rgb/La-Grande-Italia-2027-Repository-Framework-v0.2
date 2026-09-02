@@ -380,34 +380,47 @@ const Drive = {
       return "";
     }
 
-    if (toll.vignette) {
-      return `
-
-<p class="drive-result">
-    <strong>${this.esc(toll.country)} uses a vignette</strong>
-    <span class="drive-asof">
-        ${toll.cost ? `${Format.money(toll.cost, toll.currency)} for the sticker, ` : ""}bought once for the trip rather than per day.
-        Driving without one is fined.
-    </span>
-</p>
-
-`;
-    }
-
     if (toll.unavailable) {
       return `<p class="drive-empty">No toll estimate yet — ${this.esc(toll.unavailable)}.</p>`;
     }
 
-    return `
+    // A border crossing can produce BOTH: kilometres of Italian
+    // autostrada and a Swiss sticker, on the same day.
+    const stickers = (toll.vignettes || [])
+      .map(
+        (v) => `
 
 <p class="drive-result">
-    <strong>${Format.money(toll.amount, toll.currency)} tolls</strong>
+    <strong>${this.esc(v.country)} uses a vignette</strong>
     <span class="drive-asof">
-        ${toll.tolledKm} of ${toll.km} km on toll roads, at ${Format.money(toll.perKm, toll.currency)}/km in ${this.esc(toll.country)}
+        ${v.cost ? `${Format.money(v.cost, v.currency)} for the sticker, ` : ""}bought once for the trip rather than per day.
+        Driving without one is fined.
     </span>
 </p>
 
-`;
+`,
+      )
+      .join("");
+
+    if (!toll.parts || toll.parts.length === 0) {
+      return stickers;
+    }
+
+    const breakdown = toll.parts
+      .map(
+        (part) =>
+          `${part.tolledKm} of ${part.km} km tolled in ${this.esc(part.country)}, at ${Format.money(part.perKm, part.currency)}/km = ${Format.money(part.amount, part.currency)}`,
+      )
+      .join("<br>");
+
+    return `
+
+<p class="drive-result">
+    <strong>${this.describeParts(toll.parts)} tolls</strong>
+    <span class="drive-asof">${breakdown}</span>
+</p>
+
+` + stickers;
   },
 
   // The draft dressed as a day, so the fuel and toll figures follow the
@@ -435,13 +448,26 @@ const Drive = {
       return `<p class="drive-empty">No fuel estimate yet — ${this.esc(fuel ? fuel.unavailable : "nothing to price")}.</p>`;
     }
 
+    // The breakdown only appears when there IS one. A day inside one
+    // country reads exactly as it did before the split.
+    const breakdown = fuel.parts
+      .map(
+        (part) =>
+          `${part.km} km in ${this.esc(part.country)} — ${part.litres} litres at ${Format.money(part.perLitre, part.currency)}/L = ${Format.money(part.amount, part.currency)}`,
+      )
+      .join("<br>");
+
+    const missed = fuel.unpriced && fuel.unpriced.length
+      ? `<br><strong>${fuel.unpriced.map((u) => `${u.km} km in ${this.esc(u.code || "an unnamed country")} has no fuel price set`).join("; ")}</strong>`
+      : "";
+
     return `
 
 <p class="drive-result">
-    <strong>${Format.money(fuel.amount, fuel.currency)}</strong>
+    <strong>${this.describeParts(fuel.parts)}</strong>
     <span class="drive-asof">
-        ${fuel.litres} litres at ${fuel.litresPer100km} L/100km${fuel.assumed ? ` (assumed — ${this.esc(fuel.assumedWhy)})` : ""},
-        ${Format.money(fuel.perLitre, fuel.currency)}/L in ${this.esc(fuel.country)}
+        ${fuel.litresPer100km} L/100km${fuel.assumed ? ` (assumed — ${this.esc(fuel.assumedWhy)})` : ""}<br>
+        ${breakdown}${missed}
     </span>
 </p>
 
@@ -644,6 +670,9 @@ const Drive = {
         // zero. Zero is a claim that the road is free.
         tolledKm: typeof route.tolledKm === "number" ? route.tolledKm : null,
         byCountry: route.byCountry || null,
+        // The shape, simplified enough to live in journey.json - see
+        // compactPath. Drawn on the day map; nothing is measured from it.
+        path: this.compactPath(route.path),
         fetchedAt: this.todayISO(),
       };
 
@@ -735,15 +764,22 @@ const Drive = {
 
     // Only when there IS one. A day card is not the place to explain why
     // a number is missing - the editor says that.
+    // describeParts, not fuel.amount: a day that crosses a border has no
+    // single amount, and reporting one side of it would be worse than
+    // reporting both.
     if (fuel && !fuel.unavailable) {
-      parts.push(`${Format.money(fuel.amount, fuel.currency)} fuel${fuel.assumed ? " (est)" : ""}`);
+      parts.push(`${this.describeParts(fuel.parts)} fuel${fuel.assumed ? " (est)" : ""}`);
     }
 
     const toll = this.tollFor(day);
 
     // A vignette is not this day's cost, so it never appears on a day card.
-    if (toll && !toll.unavailable && !toll.vignette && toll.amount > 0) {
-      parts.push(`${Format.money(toll.amount, toll.currency)} tolls`);
+    if (toll && !toll.unavailable && toll.parts && toll.parts.length > 0) {
+      const tolled = toll.parts.filter((p) => p.amount > 0);
+
+      if (tolled.length > 0) {
+        parts.push(`${this.describeParts(tolled)} tolls`);
+      }
     }
 
     return parts.join(" · ");
@@ -784,6 +820,290 @@ const Drive = {
     });
 
     return { days, km: Math.round(km), minutes: Math.round(minutes), pending };
+  },
+
+  // --- The route's shape (v1.44.0) --------------------------------------
+
+  // A 240km route comes back as a few thousand coordinate pairs. Stored
+  // raw that is ~100KB per driving day in journey.json, which is read on
+  // every page load - eight driving days would make the whole app slower
+  // to open, for a line nobody can see the detail of.
+  //
+  // Ramer-Douglas-Peucker keeps the points that carry the SHAPE and drops
+  // the ones that sit on a straight run. A motorway with a gentle curve
+  // loses almost everything; a mountain pass keeps its hairpins. That is
+  // the opposite of taking every Nth point, which would flatten exactly
+  // the bends worth looking at.
+  //
+  // Tolerance is in degrees, which is not a real distance - but this is
+  // for DRAWING, and at day-map zoom the error is under a pixel. Nothing
+  // measures anything from this path: the kilometres come from the
+  // provider and are stored separately.
+  SIMPLIFY_TOLERANCE: 0.0005,
+
+  MAX_PATH_POINTS: 400,
+
+  simplifyPath(points, tolerance) {
+    if (!Array.isArray(points) || points.length < 3) {
+      return Array.isArray(points) ? points.slice() : [];
+    }
+
+    const keep = new Array(points.length);
+
+    keep[0] = true;
+
+    keep[points.length - 1] = true;
+
+    // Iterative rather than recursive: a long route would otherwise be
+    // thousands of stack frames deep.
+    const stack = [[0, points.length - 1]];
+
+    while (stack.length > 0) {
+      const span = stack.pop();
+
+      const first = span[0];
+
+      const last = span[1];
+
+      let worst = 0;
+
+      let at = -1;
+
+      for (let i = first + 1; i < last; i++) {
+        const d = this.perpendicular(points[i], points[first], points[last]);
+
+        if (d > worst) {
+          worst = d;
+
+          at = i;
+        }
+      }
+
+      if (at !== -1 && worst > tolerance) {
+        keep[at] = true;
+
+        stack.push([first, at]);
+
+        stack.push([at, last]);
+      }
+    }
+
+    return points.filter((point, index) => keep[index]);
+  },
+
+  // Distance from a point to the line through a and b. Plane geometry on
+  // lat/lng, which is wrong over long distances and entirely good enough
+  // for deciding whether a point is worth drawing.
+  perpendicular(point, a, b) {
+    const x = a[0];
+
+    const y = a[1];
+
+    let dx = b[0] - x;
+
+    let dy = b[1] - y;
+
+    if (dx !== 0 || dy !== 0) {
+      const t = ((point[0] - x) * dx + (point[1] - y) * dy) / (dx * dx + dy * dy);
+
+      if (t > 1) {
+        dx = point[0] - b[0];
+
+        dy = point[1] - b[1];
+      } else if (t > 0) {
+        dx = point[0] - (x + dx * t);
+
+        dy = point[1] - (y + dy * t);
+      } else {
+        dx = point[0] - x;
+
+        dy = point[1] - y;
+      }
+    } else {
+      dx = point[0] - x;
+
+      dy = point[1] - y;
+    }
+
+    return Math.sqrt(dx * dx + dy * dy);
+  },
+
+  // Simplify hard enough to stay under the point cap, whatever the route.
+  //
+  // A cap as well as a tolerance because a very long or very twisty day
+  // can survive the first pass with thousands of points still in it, and
+  // the whole purpose here is a bounded file.
+  compactPath(points) {
+    if (!Array.isArray(points) || points.length === 0) {
+      return null;
+    }
+
+    const round = (out) => out.map((p) => [Math.round(p[0] * 1e5) / 1e5, Math.round(p[1] * 1e5) / 1e5]);
+
+    let out = this.simplifyPath(points, this.SIMPLIFY_TOLERANCE);
+
+    if (out.length <= this.MAX_PATH_POINTS) {
+      return round(out);
+    }
+
+    // A long or twisty day survives the first pass with too many points,
+    // and the cap exists so journey.json stays bounded whatever the route.
+    //
+    // BINARY SEARCH, not repeated doubling. Doubling overshoots badly:
+    // one step can take a route from 600 points to 2, throwing away every
+    // bend to save 598 points nobody asked to lose. Searching converges on
+    // a tolerance that lands just under the budget, so a complex day
+    // spends its whole allowance on the detail that fits.
+    let low = this.SIMPLIFY_TOLERANCE;
+
+    let high = this.SIMPLIFY_TOLERANCE;
+
+    // Find an upper bound that is definitely coarse enough.
+    let guard = 0;
+
+    while (this.simplifyPath(points, high).length > this.MAX_PATH_POINTS && guard < 20) {
+      high *= 4;
+
+      guard += 1;
+    }
+
+    // Then close the gap. Sixteen halvings is far finer than the rounding
+    // applied below, so this cannot spin.
+    for (let i = 0; i < 16; i++) {
+      const mid = (low + high) / 2;
+
+      const tried = this.simplifyPath(points, mid);
+
+      if (tried.length > this.MAX_PATH_POINTS) {
+        low = mid;
+      } else {
+        high = mid;
+
+        out = tried;
+      }
+    }
+
+    return round(out);
+  },
+
+  // --- The country split (v1.43.0) -------------------------------------
+
+  // Enough of Europe to cover a driving trip, plus the places these trips
+  // tend to start from. Only used to resolve a rate you named but did not
+  // give a code for - which is every rate saved before the split existed.
+  //
+  // Not a complete ISO list on purpose: an unrecognised name is handled
+  // (you type the code yourself), and a thousand-line table would be worse
+  // than the two-letter box beside the field.
+  COUNTRY_CODES: {
+    "italy": "IT", "italia": "IT",
+    "switzerland": "CH", "suisse": "CH", "schweiz": "CH", "svizzera": "CH",
+    "france": "FR", "germany": "DE", "deutschland": "DE",
+    "austria": "AT", "österreich": "AT", "osterreich": "AT",
+    "spain": "ES", "españa": "ES", "espana": "ES",
+    "portugal": "PT", "netherlands": "NL", "holland": "NL",
+    "belgium": "BE", "luxembourg": "LU", "liechtenstein": "LI",
+    "slovenia": "SI", "croatia": "HR", "czechia": "CZ", "czech republic": "CZ",
+    "slovakia": "SK", "hungary": "HU", "poland": "PL", "denmark": "DK",
+    "sweden": "SE", "norway": "NO", "finland": "FI", "ireland": "IE",
+    "united kingdom": "GB", "uk": "GB", "britain": "GB", "great britain": "GB",
+    "greece": "GR", "monaco": "MC", "san marino": "SM", "andorra": "AD",
+    "united states": "US", "usa": "US", "canada": "CA",
+    "australia": "AU", "new zealand": "NZ",
+  },
+
+  // A rate's ISO code: what you typed, else looked up from the country's
+  // name. The lookup is what lets every rate saved before v1.43.0 take
+  // part in the split without being re-entered.
+  codeOf(rate) {
+    if (!rate) {
+      return "";
+    }
+
+    const said = String(rate.code || "").trim().toUpperCase();
+
+    if (said) {
+      return said;
+    }
+
+    return this.COUNTRY_CODES[String(rate.country || "").trim().toLowerCase()] || "";
+  },
+
+  rateForCode(code) {
+    const wanted = String(code || "").trim().toUpperCase();
+
+    if (!wanted) {
+      return null;
+    }
+
+    return this.settings().rates.find((r) => this.codeOf(r) === wanted) || null;
+  },
+
+  // WHERE THE DAY'S KILOMETRES ACTUALLY WERE.
+  //
+  // The provider reports distance per country when route detail was asked
+  // for, so a day driving out of Italy into Switzerland is priced on each
+  // side of the border rather than entirely at whichever rate you picked.
+  //
+  // Falls back to the day's NAMED country when there is no usable split -
+  // an older route, a response without country codes, or codes that match
+  // no rate you have set. That is the v1.41.0 behaviour, and it is right
+  // whenever the whole day is in one country, which is most days.
+  countryLegs(drive) {
+    const route = drive.route || {};
+
+    const split = route.byCountry;
+
+    if (split && typeof route.km === "number") {
+      const codes = Object.keys(split);
+
+      let covered = 0;
+
+      codes.forEach((code) => {
+        covered += Number(split[code].km) || 0;
+      });
+
+      // Only trusted when it ACCOUNTS FOR THE DISTANCE. A split covering
+      // 180 of 240km would quietly price three quarters of the day and
+      // look exact doing it. Two percent of slack absorbs the rounding the
+      // provider does per segment.
+      const accounted = Math.abs(covered - route.km) <= Math.max(1, route.km * 0.02);
+
+      const known = codes.filter((code) => this.rateForCode(code));
+
+      if (codes.length > 0 && accounted && known.length > 0) {
+        return codes.map((code) => ({
+          code,
+          rate: this.rateForCode(code),
+          km: Number(split[code].km) || 0,
+          tolledKm: typeof split[code].tolledKm === "number" ? split[code].tolledKm : null,
+        }));
+      }
+    }
+
+    const named = drive.country || this.defaultCountry();
+
+    return [{
+      code: null,
+      rate: this.rateFor(named),
+      km: route.km,
+      tolledKm: typeof route.tolledKm === "number" ? route.tolledKm : null,
+    }];
+  },
+
+  // One line for a set of parts: "EUR 25.53", or "EUR 18.00 + CHF 9.10"
+  // when a day crosses a border. Never added together - the app has no
+  // business inventing an exchange rate here, and the Budget converts.
+  describeParts(parts) {
+    const byCurrency = {};
+
+    (parts || []).forEach((part) => {
+      byCurrency[part.currency] = (byCurrency[part.currency] || 0) + part.amount;
+    });
+
+    return Object.keys(byCurrency)
+      .map((c) => Format.money(Math.round(byCurrency[c] * 100) / 100, c))
+      .join(" + ");
   },
 
   // --- Fuel (phase 2) -------------------------------------------------
@@ -940,22 +1260,47 @@ const Drive = {
       return { unavailable: consumption.why };
     }
 
-    const country = drive.country || this.defaultCountry();
+    const legs = this.countryLegs(drive);
 
-    const rate = this.rateFor(country);
+    const parts = [];
 
-    if (!rate || !(Number(rate.fuelPerLitre) > 0)) {
-      return { unavailable: "no fuel price set" };
+    const unpriced = [];
+
+    legs.forEach((leg) => {
+      if (!leg.rate || !(Number(leg.rate.fuelPerLitre) > 0)) {
+        unpriced.push({ code: leg.code, km: Math.round(leg.km * 10) / 10 });
+
+        return;
+      }
+
+      const litres = (leg.km / 100) * consumption.litresPer100km;
+
+      parts.push({
+        code: leg.code,
+        country: leg.rate.country,
+        km: Math.round(leg.km * 10) / 10,
+        litres: Math.round(litres * 10) / 10,
+        amount: Math.round(litres * Number(leg.rate.fuelPerLitre) * 100) / 100,
+        currency: String(leg.rate.currency || "EUR").toUpperCase(),
+        perLitre: Number(leg.rate.fuelPerLitre),
+      });
+    });
+
+    if (parts.length === 0) {
+      return {
+        unavailable: legs.length > 1
+          ? "no fuel price for the countries this day crosses"
+          : "no fuel price set",
+      };
     }
 
-    const litres = (drive.route.km / 100) * consumption.litresPer100km;
-
-    return {
-      litres: Math.round(litres * 10) / 10,
-      amount: Math.round(litres * Number(rate.fuelPerLitre) * 100) / 100,
-      currency: String(rate.currency || "EUR").toUpperCase(),
-      country: rate.country,
-      perLitre: Number(rate.fuelPerLitre),
+    const result = {
+      parts,
+      // Kilometres nobody has a price for. Reported rather than dropped:
+      // silently pricing 180 of 240 km would understate the day and look
+      // exact doing it.
+      unpriced,
+      split: legs.length > 1,
       litresPer100km: consumption.litresPer100km,
       // True when ANY input was assumed rather than entered, so a caller
       // never presents a guessed number as a measured one.
@@ -963,6 +1308,24 @@ const Drive = {
       assumedWhy: consumption.why,
       vehicleName: vehicle.provider || vehicle.mode || "Vehicle",
     };
+
+    // A day inside ONE country keeps the flat shape it has always had.
+    // That is almost every day, and it saves every caller from unpacking a
+    // list of one. A day that crosses a border has no single amount or
+    // currency to report, so it deliberately has neither.
+    if (parts.length === 1) {
+      result.litres = parts[0].litres;
+
+      result.amount = parts[0].amount;
+
+      result.currency = parts[0].currency;
+
+      result.country = parts[0].country;
+
+      result.perLitre = parts[0].perLitre;
+    }
+
+    return result;
   },
 
   // Every driving day's fuel, in one figure per currency.
@@ -998,7 +1361,11 @@ const Drive = {
         anyAssumed = true;
       }
 
-      byCurrency[fuel.currency] = (byCurrency[fuel.currency] || 0) + fuel.amount;
+      // A day that crosses a border contributes to two currencies at once,
+      // which is exactly why this is keyed by currency and not summed.
+      fuel.parts.forEach((part) => {
+        byCurrency[part.currency] = (byCurrency[part.currency] || 0) + part.amount;
+      });
     });
 
     Object.keys(byCurrency).forEach((c) => {
@@ -1049,37 +1416,103 @@ const Drive = {
       return { unavailable: "work out the route first" };
     }
 
-    const rate = this.rateFor(drive.country || this.defaultCountry());
+    const legs = this.countryLegs(drive);
 
-    if (!rate) {
-      return { unavailable: "no country chosen" };
+    const parts = [];
+
+    const vignettes = [];
+
+    let needsRoute = false;
+
+    let noRate = false;
+
+    let noCountry = false;
+
+    legs.forEach((leg) => {
+      if (!leg.rate) {
+        noCountry = true;
+
+        return;
+      }
+
+      const toll = this.tollOf(leg.rate);
+
+      if (toll.type === "vignette") {
+        vignettes.push({
+          country: leg.rate.country,
+          cost: toll.cost,
+          currency: String(leg.rate.currency || "EUR").toUpperCase(),
+        });
+
+        return;
+      }
+
+      if (toll.type !== "perKm" || !toll.rate) {
+        noRate = true;
+
+        return;
+      }
+
+      // The route was worked out before phase 3, so it carries no toll
+      // detail. Saying so beats charging the whole distance at the toll
+      // rate, which would be wrong by a factor of two or three.
+      if (typeof leg.tolledKm !== "number") {
+        needsRoute = true;
+
+        return;
+      }
+
+      parts.push({
+        code: leg.code,
+        country: leg.rate.country,
+        km: Math.round(leg.km * 10) / 10,
+        tolledKm: leg.tolledKm,
+        amount: Math.round(leg.tolledKm * toll.rate * 100) / 100,
+        perKm: toll.rate,
+        currency: String(leg.rate.currency || "EUR").toUpperCase(),
+      });
+    });
+
+    if (parts.length === 0 && vignettes.length === 0) {
+      if (needsRoute) {
+        return { unavailable: "work the route out again to measure the toll roads" };
+      }
+
+      return { unavailable: noRate ? "no toll rate set" : (noCountry ? "no country chosen" : "no toll rate set") };
     }
 
-    const toll = this.tollOf(rate);
+    const result = { parts, vignettes, split: legs.length > 1 };
 
-    if (toll.type === "vignette") {
-      return { vignette: true, country: rate.country, cost: toll.cost, currency: String(rate.currency || "EUR").toUpperCase() };
+    // As with fuel: a day in one country keeps the flat shape every caller
+    // already understands, and a border crossing does not pretend to have
+    // one.
+    if (parts.length === 1 && vignettes.length === 0) {
+      result.code = parts[0].code;
+
+      result.country = parts[0].country;
+
+      result.km = parts[0].km;
+
+      result.tolledKm = parts[0].tolledKm;
+
+      result.amount = parts[0].amount;
+
+      result.perKm = parts[0].perKm;
+
+      result.currency = parts[0].currency;
     }
 
-    if (toll.type !== "perKm" || !toll.rate) {
-      return { unavailable: "no toll rate set" };
+    if (parts.length === 0 && vignettes.length === 1) {
+      result.vignette = true;
+
+      result.country = vignettes[0].country;
+
+      result.cost = vignettes[0].cost;
+
+      result.currency = vignettes[0].currency;
     }
 
-    // The route was worked out before phase 3, so it carries no toll
-    // detail. Saying so beats charging the whole distance at the toll
-    // rate, which would be wrong by a factor of two or three.
-    if (typeof drive.route.tolledKm !== "number") {
-      return { unavailable: "work the route out again to measure the toll roads" };
-    }
-
-    return {
-      tolledKm: drive.route.tolledKm,
-      km: drive.route.km,
-      amount: Math.round(drive.route.tolledKm * toll.rate * 100) / 100,
-      perKm: toll.rate,
-      currency: String(rate.currency || "EUR").toUpperCase(),
-      country: rate.country,
-    };
+    return result;
   },
 
   // Every vignette the trip needs, once each.
@@ -1093,9 +1526,13 @@ const Drive = {
     this.days().forEach((day) => {
       const toll = this.tollFor(day);
 
-      if (toll && toll.vignette) {
-        needed[toll.country] = { country: toll.country, cost: toll.cost, currency: toll.currency };
+      if (!toll || !toll.vignettes) {
+        return;
       }
+
+      toll.vignettes.forEach((v) => {
+        needed[v.country] = v;
+      });
     });
 
     return Object.keys(needed).map((k) => needed[k]);
@@ -1113,7 +1550,7 @@ const Drive = {
     this.days().forEach((day) => {
       const toll = this.tollFor(day);
 
-      if (!toll || toll.vignette) {
+      if (!toll) {
         return;
       }
 
@@ -1123,9 +1560,15 @@ const Drive = {
         return;
       }
 
+      if (!toll.parts || toll.parts.length === 0) {
+        return;
+      }
+
       priced += 1;
 
-      byCurrency[toll.currency] = (byCurrency[toll.currency] || 0) + toll.amount;
+      toll.parts.forEach((part) => {
+        byCurrency[part.currency] = (byCurrency[part.currency] || 0) + part.amount;
+      });
     });
 
     Object.keys(byCurrency).forEach((c) => {

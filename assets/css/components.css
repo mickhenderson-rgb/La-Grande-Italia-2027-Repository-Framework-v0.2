@@ -2415,6 +2415,15 @@ button {
   flex: 0 1 90px;
 }
 
+/* Two characters, so it is sized for two - a full-width box beside the
+   country name would read as another name field. */
+.fuel-rate-code {
+  flex: 0 0 48px;
+  width: 48px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
 /* Sits with the field it labels rather than stacking, and does not stretch
    the way a bare label in a flex row otherwise would. */
 .fuel-rate-default {
