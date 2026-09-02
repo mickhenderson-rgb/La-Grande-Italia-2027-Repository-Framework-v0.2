@@ -6,7 +6,16 @@ Distinct from `future-roadmap.md`, which holds features deliberately
 deferred to a later version. This file is things that are wrong, missing,
 or unverified **now**.
 
-Last reviewed: 2026-08-31 (v1.39.2).
+Last reviewed: 2026-09-02 (v1.47.0).
+
+**Two items open: V2-1 and E-1.** Everything else was confirmed sorted by
+Mick on 2026-09-02. Items closed on his say-so are marked as such rather
+than as verified here - they are about his machine, his account and his
+trip data, none of which this repo can check.
+
+E-1 was briefly marked resolved on that basis and REOPENED the same day:
+the account could not in fact be deleted, because nothing in the app can
+delete an account. A tool now exists; running it is what closes it.
 
 Status key: **OPEN** · **IN PROGRESS** · **DONE** (kept briefly for context, then deleted)
 
@@ -198,14 +207,22 @@ looked like app bugs:
   `onload`. The promise never settled, the suite hung after printing half
   its results, and it looked like truncated output rather than a deadlock.
 
-### B5. Nothing verified in a real browser at phone width — PARTLY ADDRESSED
+### B5. Nothing verified in a real browser at phone width — CLOSED 2026-09-02
 
 Every mobile change has been reasoned from the CSS and verified by string
 assertions. That catches a wrong selector (it caught the Budget table one)
 but cannot catch "this looks wrong". Mick's phone screenshots of 2026-08-27
-substantially closed this — they found six real bugs — so the practice to
-keep is **screenshots after each mobile change**, not a one-off browser
-pass.
+substantially closed this — they found six real bugs.
+
+Closed as an ITEM because there is nothing left to do: what remains is a
+**practice** — screenshots after each mobile change — not a task anybody
+can finish. Recorded here so the practice is not mistaken for an
+outstanding job at the next review.
+
+Since v1.44.0 there is also a browser harness in the scratchpad that
+renders real components against fixtures, which caught two things string
+assertions did not: an invented `.card` class that silently did nothing,
+and disabled buttons that looked entirely pressable.
 
 ---
 
@@ -1996,11 +2013,42 @@ filled in rather than after.
 
 ## E. Housekeeping
 
-- **`ux_review_test` account** — created during a UX review, still in
-  `~/compass-tos-auth/users.json`. It owns
-  `test-australian-road-trip-in-progress`, shared to Mick_H with write.
-  No ownership-transfer endpoint exists. Mick is keeping the trip for
-  testing, so the account stays for now.
-- **Password rotation** — passwords were exposed before the auth directory
-  was moved out of the served root. A change-password UI now exists in
-  Settings; Mick's own password still wants rotating.
+Both items below were confirmed sorted by Mick on 2026-09-02. Kept
+briefly with their history, because "why does this account exist" is a
+question that comes back.
+
+### E-1. `ux_review_test` account — OPEN (tool ready, needs running)
+
+Created during a UX review. Owns `test-australian-road-trip-in-progress`,
+shared to Mick_H with write.
+
+**Why it stayed open.** THE APP CANNOT DELETE AN ACCOUNT. There is no
+admin role and no account-deletion route, so there was no way for Mick to
+remove it from inside the app at all.
+
+**It deliberately still has no admin role.** A destructive delete-any-
+account route reachable from the internet needs a privileged login to
+guard it, and that login then becomes the most valuable credential in the
+system - a worse problem than the leftover account it tidies. Whoever can
+reach the auth directory over SSH already has this authority; what was
+missing was the arithmetic, not the permission.
+
+**`tools/remove-user.js`** (v1.48.0) does it: transfers owned trips to a
+named heir, withdraws collaborator entries, drops live sessions so removal
+is immediate, and backs the auth directory up first. It refuses to orphan
+a trip, refuses to remove the last account (which would flip the app into
+first-run mode and let the next visitor claim everything), and writes
+nothing without `--confirm`.
+
+    node tools/remove-user.js ux_review_test --give-trips-to Mick_H
+    node tools/remove-user.js ux_review_test --give-trips-to Mick_H --confirm
+
+Closes when that has been run on the host.
+
+---
+
+## E. Housekeeping
+
+- **Password rotation** — RESOLVED 2026-09-02. Passwords had been exposed
+  before the auth directory was moved out of the served root; the
+  change-password screen in Settings is what closed it.

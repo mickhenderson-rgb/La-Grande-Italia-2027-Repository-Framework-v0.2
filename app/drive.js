@@ -141,7 +141,17 @@ const Drive = {
 
   // --- The editor ----------------------------------------------------
 
+  // The wrapper is the element FormGuard watches. It is rendered ONCE and
+  // then left alone - see redraw.
   render() {
+    if (!this.draft) {
+      return "";
+    }
+
+    return `<div class="drive-editor" data-guard="drive:${this.draft.dayNumber}">${this.renderInner()}</div>`;
+  },
+
+  renderInner() {
     const draft = this.draft;
 
     if (!draft) {
@@ -155,8 +165,6 @@ const Drive = {
       .join("");
 
     return `
-
-<div class="drive-editor" data-guard="drive:${draft.dayNumber}">
 
     <section class="hero">
 
@@ -253,8 +261,6 @@ const Drive = {
         }
 
     </div>
-
-</div>
 
 `;
   },
@@ -496,7 +502,32 @@ const Drive = {
     this.draft.waypoints[index].label = field.value;
   },
 
+  // REDRAWS ITSELF WITHOUT LOOKING LIKE IT IS LEAVING.
+  //
+  // Render.show calls FormGuard.confirmLeave on EVERY render, so going
+  // through it to redraw a form in place asked "discard your unsaved
+  // changes?" every time you added a stop or worked out a route.
+  //
+  // The false alarm was the smaller half. confirmLeave calls release()
+  // when you say yes - so dismissing it CLEARED the dirty flag, and after
+  // that, genuinely navigating away with unsaved work warned about
+  // nothing. A spurious guard that disables the real one.
+  //
+  // So the contents are replaced and the guarded wrapper is left in place.
+  // Its listeners are delegated, so they keep working on the new children,
+  // and the dirty state survives - which is what should happen: adding a
+  // stop IS an unsaved change.
   redraw() {
+    const holder = document.querySelector(".drive-editor[data-guard]");
+
+    if (holder) {
+      holder.innerHTML = this.renderInner();
+
+      return;
+    }
+
+    // No wrapper yet, so nothing is being redrawn and nothing is being
+    // left - the ordinary first render.
     Render.show(Layout.render(this.render()));
   },
 
