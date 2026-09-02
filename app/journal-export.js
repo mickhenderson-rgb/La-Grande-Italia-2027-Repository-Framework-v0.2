@@ -66,6 +66,11 @@ const JournalExport = {
         </label>
 
         <label class="form-checkbox">
+            <input type="checkbox" id="exp-include-map" checked>
+            Day maps, places and who was there
+        </label>
+
+        <label class="form-checkbox">
             <input type="checkbox" id="exp-only-with-content" checked>
             Skip days with no journal content
         </label>
@@ -117,6 +122,8 @@ const JournalExport = {
     const includeChecklist = document.getElementById("exp-include-checklist").checked;
 
     const includePhotos = document.getElementById("exp-include-photos").checked;
+
+    const includeMap = document.getElementById("exp-include-map").checked;
 
     const onlyWithContent = document.getElementById("exp-only-with-content").checked;
 
@@ -227,6 +234,7 @@ const JournalExport = {
           includeNotes,
           includeChecklist,
           photosHtml,
+          mapHtml: includeMap ? this.renderDayMap(day.day) : "",
         }));
       }
 
@@ -420,9 +428,69 @@ const JournalExport = {
         : ""
     }
 
+    ${options.mapHtml || ""}
+
     ${options.photosHtml}
 
 </section>
+
+`;
+  },
+
+  // THE DAY AS A PICTURE, plus the two lists that make it readable:
+  // where you went, and who was there.
+  //
+  // Inline SVG rather than a live map, because the export is one file
+  // that has to open with no internet and no idea what this app was.
+  //
+  // Silent on a day with nothing to draw. Most days of most trips have
+  // no drive and no placed photographs, and an empty box on every one of
+  // them would be worse than no option at all.
+  renderDayMap(dayNumber) {
+    if (typeof DayMapSvg === "undefined") {
+      return "";
+    }
+
+    const svg = DayMapSvg.render(dayNumber);
+
+    if (!svg) {
+      return "";
+    }
+
+    const places = DayMapSvg.places(dayNumber);
+
+    const people = DayMapSvg.people(dayNumber);
+
+    // Numbered to match the pins, so the list and the picture are
+    // obviously the same thing.
+    const placesHtml = places.length
+      ? `<ol class="export-places">${places.map((p) => `<li>${this.esc(p)}</li>`).join("")}</ol>`
+      : "";
+
+    // Coloured to match their dots, for the same reason.
+    const peopleHtml = people.length
+      ? `<ul class="export-people">${people
+        .map(
+          (person) =>
+            `<li><span class="export-swatch" style="background:${this.esc(person.colour)}"></span>` +
+            `${this.esc(person.name)} <span class="export-attribution">` +
+            `${person.count} location${person.count === 1 ? "" : "s"}</span></li>`,
+        )
+        .join("")}</ul>`
+      : "";
+
+    return `
+
+<div class="export-daymap">
+
+    ${svg}
+
+    <div class="export-daymap-lists">
+        ${placesHtml ? `<div><h3>Where we went</h3>${placesHtml}</div>` : ""}
+        ${peopleHtml ? `<div><h3>Who was there</h3>${peopleHtml}</div>` : ""}
+    </div>
+
+</div>
 
 `;
   },
@@ -455,7 +523,18 @@ const JournalExport = {
   .export-photo img { width: 100%; border-radius: 8px; }
   .export-photo p { font-size: 0.85rem; color: #666; margin: 6px 0 0; }
   .export-attribution { font-size: 0.8rem; color: #999; font-style: italic; margin: 4px 0 0; }
-  @media print { body { margin: 0; } .export-day { page-break-inside: avoid; } }
+  .export-daymap { margin-top: 22px; }
+  .daymap { width: 100%; height: auto; border-radius: 8px; border: 1px solid #e2ded5; display: block; }
+  .export-daymap-lists { display: flex; flex-wrap: wrap; gap: 32px; margin-top: 14px; }
+  .export-daymap-lists h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: #666; margin: 0 0 6px; }
+  .export-places { margin: 0; padding-left: 20px; font-size: 0.92rem; }
+  .export-people { margin: 0; padding: 0; list-style: none; font-size: 0.92rem; }
+  .export-people li { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+  .export-swatch { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  /* A day is one spread: the map, its lists and the photographs belong
+     together, and a page break between the picture and what it means
+     makes both harder to read. */
+  @media print { body { margin: 0; } .export-day { page-break-inside: avoid; } .export-daymap { page-break-inside: avoid; } }
 </style>
 </head>
 <body>
