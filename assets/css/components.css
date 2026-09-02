@@ -2440,3 +2440,15 @@ button {
   flex: none;
   padding: 4px 10px;
 }
+
+/* Unlinked-login note on the Participants roster (v1.47.0). Sits above the
+   list it refers to, quiet enough not to read as an error - nothing is
+   broken, there is just something worth doing. */
+
+.pt-unlinked {
+  margin-bottom: var(--space-3);
+  padding: 10px 14px;
+  background: var(--color-bg-tint);
+  border-radius: var(--radius-sm);
+  line-height: 1.5;
+}

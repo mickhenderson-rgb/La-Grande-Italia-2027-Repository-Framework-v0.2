@@ -83,6 +83,66 @@ const Participants = {
     return Array.isArray(list) ? list : [];
   },
 
+  // EVERY ACCOUNT THAT HAS ACTUALLY TOUCHED THIS TRIP.
+  //
+  // Read out of the data rather than asked for over the network: every
+  // item and every photo records who added it, and that is the set that
+  // matters. It needs no permission - the share list is owner-only - and
+  // it works for whoever is looking.
+  //
+  // Sorted so the list is stable between renders rather than following
+  // whatever order the collections happen to be in.
+  knownAccounts() {
+    const seen = {};
+
+    const note = (who) => {
+      const name = String(who || "").trim();
+
+      if (name) {
+        seen[name] = true;
+      }
+    };
+
+    ["accommodation", "activities", "restaurants", "transport", "flights", "expenses"].forEach((key) => {
+      const data = Project.get(key);
+
+      (data && Array.isArray(data.items) ? data.items : []).forEach((item) => note(item.addedBy));
+    });
+
+    const journal = Project.get("journal");
+
+    (journal && Array.isArray(journal.entries) ? journal.entries : []).forEach((entry) => {
+      (entry.photos || []).forEach((photo) => note(photo.addedBy));
+
+      (entry.trace || []).forEach((point) => note(point.by));
+
+      note(entry.notesAuthor);
+    });
+
+    note(Project.currentUser);
+
+    return Object.keys(seen).sort();
+  },
+
+  // Accounts with photo locations that nobody has claimed.
+  //
+  // THE ACTIONABLE LIST. Until an account is linked, its photos cannot be
+  // told from anyone else's - which is the whole reason a day where the
+  // party split reads as one person in two countries.
+  unlinkedAccounts() {
+    const linked = {};
+
+    this.all().forEach((person) => {
+      const said = String(person.linkedUser || "").trim().toLowerCase();
+
+      if (said) {
+        linked[said] = true;
+      }
+    });
+
+    return this.knownAccounts().filter((account) => !linked[account.toLowerCase()]);
+  },
+
   // The person behind an app login, where they said which login is
   // theirs. linkedUser has been collected since participants existed and
   // never read until now.
@@ -588,9 +648,34 @@ const Participants = {
 
 <h2>On this trip</h2>
 
+${this.renderUnlinkedNote()}
+
 <div class="research-list">${rows}</div>
 
 <button type="button" onclick="Participants.add()">+ Add someone</button>
+
+`;
+  },
+
+  // Silent when there is nothing to do, which is most of the time.
+  //
+  // Deliberately not a Readiness finding: it is not a problem with the
+  // TRIP, it is a thing you can only fix while looking at this page.
+  renderUnlinkedNote() {
+    const loose = this.unlinkedAccounts();
+
+    if (loose.length === 0 || this.all().length === 0) {
+      return "";
+    }
+
+    return `
+
+<p class="form-hint pt-unlinked">
+    ${loose.length === 1 ? "One login has" : `${loose.length} logins have`} added things to this trip and
+    ${loose.length === 1 ? "is" : "are"} not linked to anyone above:
+    <strong>${loose.map((a) => this.esc(a)).join(", ")}</strong>.
+    Until they are, their photo locations cannot be told apart from everyone else's.
+</p>
 
 `;
   },
@@ -734,8 +819,14 @@ const Participants = {
 
             <label class="form-field">
                 App username (optional)
-                <input type="text" id="pt-user" value="${this.esc(p.linkedUser)}" placeholder="Leave blank if they don't use the app">
+                <input type="text" id="pt-user" list="pt-user-options" value="${this.esc(p.linkedUser)}" placeholder="Leave blank if they don't use the app">
+                <datalist id="pt-user-options">
+                    ${this.knownAccounts().map((a) => `<option value="${this.esc(a)}"></option>`).join("")}
+                </datalist>
                 <span class="form-hint">
+                    Suggestions are the accounts that have added something to this
+                    trip. Linking is what lets the map tell this person's photo
+                    locations from everyone else's.
                     Only if this person also has a login and the trip is shared
                     with them. Being on the trip and being able to open it are
                     two different things - neither one implies the other.
