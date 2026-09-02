@@ -1236,6 +1236,146 @@ function geoCacheSet(key, body) {
   geoCache.set(key, { body, ts: Date.now() });
 }
 
+// The same request, kept as BYTES.
+//
+// fetchUpstream concatenates chunks onto a string, which decodes them as
+// UTF-8 and silently mangles anything that is not text. That is fine for
+// the JSON endpoints and would quietly corrupt every PNG.
+function fetchUpstreamBinary(url) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { timeout: 12000 }, (upstream) => {
+      const chunks = [];
+
+      let size = 0;
+
+      upstream.on("data", (chunk) => {
+        size += chunk.length;
+
+        // A basemap for one day is tens of kilobytes. Anything past this
+        // is not an image we asked for, and it would end up base64'd into
+        // a document either way.
+        if (size > 4 * 1024 * 1024) {
+          req.destroy();
+
+          reject(new Error("Upstream image too large."));
+
+          return;
+        }
+
+        chunks.push(chunk);
+      });
+
+      upstream.on("end", () =>
+        resolve({
+          status: upstream.statusCode,
+          buffer: Buffer.concat(chunks),
+          contentType: upstream.headers["content-type"] || "",
+        }));
+    });
+
+    req.on("error", reject);
+
+    req.on("timeout", () => {
+      req.destroy();
+
+      reject(new Error("Upstream timed out."));
+    });
+  });
+}
+
+// A BASEMAP FOR ONE DAY, AS A DATA URI.
+//
+// WHY NOT tile.openstreetmap.org DIRECTLY, which the live map uses.
+//
+// The OSM Foundation's tile policy allows light interactive use and
+// forbids bulk downloading and redistribution. Fetching a hundred tiles
+// per export and BAKING THEM PERMANENTLY into a document that gets
+// shared and printed is both. The live map browsing tiles as you pan is
+// exactly what those servers are for; this is not, and doing it would be
+// taking something donated for something else.
+//
+// Geoapify serves the same OpenStreetMap data under a licence this app
+// already holds a key for, which is why the key exists. It costs a
+// credit per map, cached here for a day like everything else.
+//
+// Returned as base64 rather than as an image response: the caller needs
+// a data URI to embed anyway, and it keeps this endpoint's contract the
+// same JSON shape as every other one.
+async function handleStaticMap(req, res) {
+  if (!GEOAPIFY_KEY) {
+    return sendJSON(res, 503, {
+      error: "Maps are not configured on this server.",
+      code: "GEOAPIFY_NOT_CONFIGURED",
+    });
+  }
+
+  const params = new URL(req.url, "http://localhost").searchParams;
+
+  const num = (name, min, max) => {
+    const value = Number(params.get(name));
+
+    return isFinite(value) && value >= min && value <= max ? value : null;
+  };
+
+  const lat = num("lat", -85, 85);
+
+  const lon = num("lon", -180, 180);
+
+  // Bounded rather than trusted: width and height are what this costs,
+  // in bytes and in credits, and they arrive from a browser.
+  const width = num("width", 64, 1400);
+
+  const height = num("height", 64, 1400);
+
+  const zoom = num("zoom", 1, 18);
+
+  if (lat === null || lon === null || width === null || height === null || zoom === null) {
+    return sendJSON(res, 400, { error: "A centre, zoom and size are required." });
+  }
+
+  const cacheKey = "staticmap:" + [lat, lon, zoom, width, height].join(",");
+
+  const cached = geoCacheGet(cacheKey);
+
+  if (cached) {
+    return sendJSON(res, 200, cached);
+  }
+
+  // osm-carto is the plain OpenStreetMap look, which is what was asked
+  // for and what a reader recognises.
+  const url =
+    "https://maps.geoapify.com/v1/staticmap?style=osm-carto" +
+    "&width=" + Math.round(width) +
+    "&height=" + Math.round(height) +
+    "&center=lonlat:" + lon + "," + lat +
+    "&zoom=" + zoom +
+    "&scaleFactor=2" +
+    "&apiKey=" + encodeURIComponent(GEOAPIFY_KEY);
+
+  try {
+    const upstream = await fetchUpstreamBinary(url);
+
+    if (upstream.status !== 200 || upstream.contentType.indexOf("image") === -1) {
+      console.error("[geoapify] staticmap returned " + upstream.status + " " + upstream.contentType);
+
+      return sendJSON(res, 502, { error: "Map image unavailable.", code: "GEO_UPSTREAM_STATUS" });
+    }
+
+    const payload = {
+      image: "data:" + upstream.contentType.split(";")[0] + ";base64," + upstream.buffer.toString("base64"),
+      attribution: "\u00a9 OpenStreetMap contributors, \u00a9 Geoapify",
+    };
+
+    geoCacheSet(cacheKey, payload);
+
+    return sendJSON(res, 200, payload);
+  } catch (error) {
+    console.error("[geoapify] staticmap failed:", error.message);
+
+    return sendJSON(res, 502, { error: "Map image unavailable.", code: "GEO_UPSTREAM_FAILED" });
+  }
+}
+
 function fetchUpstream(url) {
   return new Promise((resolve, reject) => {
     const req = https.get(url, { timeout: 8000 }, (upstream) => {
@@ -3241,6 +3381,12 @@ const server = http.createServer(async (req, res) => {
   if (geoMatch) {
     if (req.method !== "GET") {
       return sendJSON(res, 405, { error: "Only GET is supported on this route." });
+    }
+
+    // Its own handler: everything else here returns shaped JSON from a
+    // JSON upstream, and this returns an image.
+    if (geoMatch[1] === "staticmap") {
+      return handleStaticMap(req, res);
     }
 
     return handleGeoRoute(req, res, geoMatch[1]);

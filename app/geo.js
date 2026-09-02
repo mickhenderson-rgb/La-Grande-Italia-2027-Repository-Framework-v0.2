@@ -199,6 +199,50 @@ const Geo = {
     return data.route;
   },
 
+  // A BASEMAP IMAGE FOR A FIXED VIEW, as a data URI.
+  //
+  // Used by the exports, which have to carry their maps with them - a
+  // document that fetches tiles when opened is a document that is blank
+  // on a plane and in ten years.
+  //
+  // Cached here as well as on the server: re-exporting the same trip in
+  // one session should not spend the credits twice.
+  async staticMap(view) {
+    const params = {
+      lat: view.lat,
+      lon: view.lng,
+      zoom: view.zoom,
+      width: view.width,
+      height: view.height,
+    };
+
+    const key = this.cacheKey("staticmap", params);
+
+    if (this._cache.has(key)) {
+      return this._cache.get(key);
+    }
+
+    const response = await fetch(`${window.API_BASE}/api/geo/staticmap?${new URLSearchParams(params).toString()}`);
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+
+      if (data.code === "GEOAPIFY_NOT_CONFIGURED") {
+        this.configured = false;
+      }
+
+      // Null rather than a throw: a missing basemap is a plainer picture,
+      // never a failed export.
+      return null;
+    }
+
+    const data = await response.json();
+
+    this._cache.set(key, data);
+
+    return data;
+  },
+
   // Turns a proxy error code into something a person can act on. The
   // distinction matters: "not configured" is a settings problem, a server
   // bug is not something retrying will fix, and only a genuine network

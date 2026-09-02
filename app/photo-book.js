@@ -141,6 +141,11 @@ const PhotoBook = {
         </label>
 
         <label class="form-checkbox">
+            <input type="checkbox" id="pb-include-maps" checked>
+            A map page for each day you travelled
+        </label>
+
+        <label class="form-checkbox">
             <input type="checkbox" id="pb-one-per-page" checked>
             One photo per page, full bleed
             <span class="form-hint">
@@ -227,6 +232,8 @@ const PhotoBook = {
 
     const onePerPage = document.getElementById("pb-one-per-page").checked;
 
+    const includeMaps = document.getElementById("pb-include-maps").checked;
+
     const statusEl = document.getElementById("pb-status");
 
     const bar = document.getElementById("pb-progress-bar");
@@ -293,11 +300,28 @@ const PhotoBook = {
 
       pages.push(this.renderTitlePage(projectData, chosen));
 
+      if (includeMaps && typeof DayMapSvg !== "undefined" && DayMapSvg.prepare) {
+        await DayMapSvg.prepare(
+          chosen.map((d) => d.day),
+          (at, total) => step(`Fetching map ${at} of ${total}…`),
+        );
+      }
+
       for (const day of chosen) {
         const entry = entries.find((e) => e.day === day.day) || { notes: "", photos: [] };
 
         if (includeNotes && entry.notes && entry.notes.trim()) {
           pages.push(this.renderTextPage(day, entry));
+        }
+
+        // BEFORE the photographs, so the day opens with where it went and
+        // the pictures then follow the route.
+        if (includeMaps) {
+          const mapPage = this.renderMapPage(day, entry);
+
+          if (mapPage) {
+            pages.push(mapPage);
+          }
         }
 
         const photos = entry.photos || [];
@@ -458,6 +482,72 @@ const PhotoBook = {
         <div class="pb-notes">${this.paragraphs(entry.notes)}</div>
 
         ${author}
+
+    </div>
+
+</section>
+
+`;
+  },
+
+  // A DAY'S MAP AS A PAGE OF THE BOOK.
+  //
+  // The same builder the journal export uses. It is vector, which is why
+  // it can go in a book at all: a raster map would need to be rendered at
+  // the book's DPI, and this prints as sharp at 13 inches as at 8.
+  //
+  // Returns nothing at all on a day with no route and no placed
+  // photographs. A book of fifty days should not contain thirty empty
+  // maps, and a blank page is expensive in a printed book in a way it
+  // never is on screen.
+  renderMapPage(day, entry) {
+    if (typeof DayMapSvg === "undefined") {
+      return "";
+    }
+
+    const svg = DayMapSvg.render(day.day);
+
+    if (!svg) {
+      return "";
+    }
+
+    const places = DayMapSvg.places(day.day);
+
+    const people = DayMapSvg.people(day.day);
+
+    const title = day.title ? Format.place(day.title) : `Day ${day.day}`;
+
+    const when = day.date ? Format.date(day.date) : "";
+
+    const placesHtml = places.length
+      ? `<div class="pb-map-list"><h3>Where we went</h3><ol>${places
+        .map((name) => `<li>${this.esc(name)}</li>`)
+        .join("")}</ol></div>`
+      : "";
+
+    const peopleHtml = people.length
+      ? `<div class="pb-map-list"><h3>Who was there</h3><ul>${people
+        .map(
+          (person) =>
+            `<li><span class="pb-swatch" style="background:${this.esc(person.colour)}"></span>` +
+            `${this.esc(person.name)}</li>`,
+        )
+        .join("")}</ul></div>`
+      : "";
+
+    return `
+
+<section class="pb-page pb-map">
+
+    <div class="pb-safe">
+
+        <p class="pb-day">Day ${day.day}${when ? ` &middot; ${this.esc(when)}` : ""}</p>
+
+        <h2>${this.esc(title)}</h2>
+
+        <div class="pb-map-figure">${svg}</div>
+
+        <div class="pb-map-lists">${placesHtml}${peopleHtml}</div>
 
     </div>
 
@@ -627,6 +717,26 @@ const PhotoBook = {
   .pb-dates { font-size: 13pt; color: #5a646f; margin-top: 14pt; }
 
   .pb-day { font-size: 9pt; letter-spacing: 0.14em; text-transform: uppercase; color: #7a828c; margin: 0; }
+
+  /* The map page is a column: heading, then the picture taking whatever
+     room is left, then the lists. flex rather than fixed heights, because
+     the page is a different shape in every book size. */
+  .pb-map .pb-safe { display: flex; flex-direction: column; }
+  .pb-map h2 { font-size: 21pt; font-weight: normal; margin: 6pt 0 14pt; }
+
+  /* min-height: 0 lets a flex child actually shrink. Without it the SVG
+     keeps its natural size and pushes the lists off the bottom of the
+     page - which on paper is simply gone, with nothing to scroll. */
+  .pb-map-figure { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  .pb-map-figure svg { max-width: 100%; max-height: 100%; height: auto; width: auto; }
+
+  .pb-map-lists { flex: none; display: flex; gap: 28pt; margin-top: 14pt; }
+  .pb-map-list h3 { font-size: 8.5pt; letter-spacing: 0.12em; text-transform: uppercase; color: #7a828c; margin: 0 0 4pt; font-weight: normal; }
+  .pb-map-list ol { margin: 0; padding-left: 14pt; font-size: 10pt; line-height: 1.5; }
+  .pb-map-list ul { margin: 0; padding: 0; list-style: none; font-size: 10pt; line-height: 1.5; }
+  .pb-map-list li { break-inside: avoid; }
+  .pb-map-list ul li { display: flex; align-items: center; gap: 5pt; }
+  .pb-swatch { width: 7pt; height: 7pt; border-radius: 50%; flex: none; }
   .pb-text h2 { font-size: 21pt; font-weight: normal; margin: 6pt 0 16pt; }
   .pb-notes p { font-size: 11.5pt; line-height: 1.65; margin: 0 0 11pt; }
   .pb-author { font-size: 10pt; color: #7a828c; margin-top: 16pt; }

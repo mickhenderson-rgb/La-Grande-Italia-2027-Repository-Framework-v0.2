@@ -161,6 +161,208 @@ const DayMapSvg = {
     };
   },
 
+  // --- A real basemap underneath (v1.51.0) ------------------------------
+
+  /*
+    WHY THE TILES COME FROM GEOAPIFY AND NOT FROM OPENSTREETMAP DIRECTLY.
+
+    The live map browses tile.openstreetmap.org as you pan, which is what
+    those servers are for. This is a different thing: fetching a basemap
+    per day and BAKING IT PERMANENTLY into a document that gets shared and
+    printed. The OSM Foundation's tile policy allows light interactive use
+    and forbids bulk downloading and redistribution, and this would be
+    both - taking something donated for one purpose and using it for
+    another.
+
+    Geoapify serves the same OpenStreetMap data under a licence this app
+    already holds a key for. It costs a credit per day map, cached for a
+    day on the server, and the attribution rides along in the picture.
+
+    NEVER A DEPENDENCY. No key, no network, an export made on a plane -
+    all of them fall back to the plain ground, which is what every map
+    before this version was. A basemap is context, and context is the
+    thing you can do without.
+  */
+  basemaps: {},
+
+  TILE_SIZE: 256,
+
+  // Global pixel position at a given zoom - the standard Web Mercator
+  // arithmetic every slippy map uses. Shared with the provider, which is
+  // what lets the overlay land exactly on the picture.
+  worldPixel(lat, lng, zoom) {
+    const size = this.TILE_SIZE * Math.pow(2, zoom);
+
+    const clamped = Math.max(-85.05112878, Math.min(85.05112878, lat));
+
+    const sin = Math.sin((clamped * Math.PI) / 180);
+
+    return {
+      x: ((lng + 180) / 360) * size,
+      y: (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * size,
+    };
+  },
+
+  // The largest zoom at which everything still fits inside the picture.
+  //
+  // Largest, not smallest: a bigger number is closer in, so this is the
+  // most detail the day can have without cropping something off.
+  fitZoom(points, width, height) {
+    let best = 1;
+
+    for (let zoom = 18; zoom >= 1; zoom--) {
+      let minX = Infinity;
+
+      let maxX = -Infinity;
+
+      let minY = Infinity;
+
+      let maxY = -Infinity;
+
+      for (let i = 0; i < points.length; i++) {
+        const at = this.worldPixel(points[i].lat, points[i].lng, zoom);
+
+        minX = Math.min(minX, at.x);
+
+        maxX = Math.max(maxX, at.x);
+
+        minY = Math.min(minY, at.y);
+
+        maxY = Math.max(maxY, at.y);
+      }
+
+      // The padding is room for the labels, which sit outside the pins.
+      if (maxX - minX <= width - this.PAD * 2 && maxY - minY <= height - this.PAD * 2) {
+        best = zoom;
+
+        break;
+      }
+    }
+
+    return best;
+  },
+
+  // Centre, zoom and size for a day: everything the provider needs, and
+  // everything the overlay needs to match it.
+  tileView(points, width, height) {
+    const zoom = this.fitZoom(points, width, height);
+
+    let minLat = Infinity;
+
+    let maxLat = -Infinity;
+
+    let minLng = Infinity;
+
+    let maxLng = -Infinity;
+
+    points.forEach((p) => {
+      minLat = Math.min(minLat, p.lat);
+
+      maxLat = Math.max(maxLat, p.lat);
+
+      minLng = Math.min(minLng, p.lng);
+
+      maxLng = Math.max(maxLng, p.lng);
+    });
+
+    // Centred on the middle of the PIXELS, not the middle of the
+    // latitudes - Mercator is not linear, so the two differ, and using
+    // the wrong one drifts the picture off centre on a tall day.
+    const topLeft = this.worldPixel(maxLat, minLng, zoom);
+
+    const bottomRight = this.worldPixel(minLat, maxLng, zoom);
+
+    const midX = (topLeft.x + bottomRight.x) / 2;
+
+    const midY = (topLeft.y + bottomRight.y) / 2;
+
+    const size = this.TILE_SIZE * Math.pow(2, zoom);
+
+    const lng = (midX / size) * 360 - 180;
+
+    const n = Math.PI - (2 * Math.PI * midY) / size;
+
+    const lat = (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+
+    return { lat, lng, zoom, width, height };
+  },
+
+  // The projection that matches a fetched basemap exactly.
+  tileFrame(view) {
+    const centre = this.worldPixel(view.lat, view.lng, view.zoom);
+
+    const originX = centre.x - view.width / 2;
+
+    const originY = centre.y - view.height / 2;
+
+    return {
+      to: (lat, lng) => {
+        const at = this.worldPixel(lat, lng, view.zoom);
+
+        return {
+          x: Math.round((at.x - originX) * 10) / 10,
+          y: Math.round((at.y - originY) * 10) / 10,
+        };
+      },
+      width: view.width,
+      height: view.height,
+      // One global pixel at this zoom, in metres, at this latitude.
+      metresPerPixel:
+        (156543.03392 * Math.cos((view.lat * Math.PI) / 180)) / Math.pow(2, view.zoom),
+    };
+  },
+
+  // Fetches the basemaps for a set of days, ahead of rendering them.
+  //
+  // Separate from render() so that stays SYNCHRONOUS. Both exports build
+  // their documents a page at a time and neither wants to become async
+  // throughout for a picture that is optional.
+  //
+  // Never throws and never rejects. A day whose basemap does not arrive
+  // simply draws on the plain ground.
+  async prepare(dayNumbers, onProgress) {
+    if (typeof Geo === "undefined" || !Geo.staticMap) {
+      return;
+    }
+
+    for (let i = 0; i < dayNumbers.length; i++) {
+      const dayNumber = dayNumbers[i];
+
+      if (this.basemaps[dayNumber]) {
+        continue;
+      }
+
+      const data = this.gather(dayNumber);
+
+      if (!data) {
+        continue;
+      }
+
+      const points = data.path
+        .map((p) => ({ lat: p[0], lng: p[1] }))
+        .concat(data.waypoints)
+        .concat(data.photos.map((p) => ({ lat: p.lat, lng: p.lng })));
+
+      const view = this.tileView(points, this.WIDTH, this.HEIGHT);
+
+      if (typeof onProgress === "function") {
+        onProgress(i + 1, dayNumbers.length);
+      }
+
+      try {
+        const map = await Geo.staticMap(view);
+
+        if (map && map.image) {
+          this.basemaps[dayNumber] = { view, image: map.image, attribution: map.attribution || "" };
+        }
+      } catch (error) {
+        // One day without a basemap is one day on the plain ground, not a
+        // failed export.
+        console.warn(`No basemap for day ${dayNumber}:`, error);
+      }
+    }
+  },
+
   render(dayNumber) {
     const data = this.gather(dayNumber);
 
@@ -173,11 +375,26 @@ const DayMapSvg = {
       .concat(data.waypoints)
       .concat(data.photos.map((p) => ({ lat: p.lat, lng: p.lng })));
 
-    const frame = this.frame(all);
+    // A fetched basemap brings its own projection, and the overlay must
+    // use exactly that one or the route lands beside the roads instead of
+    // on them.
+    const base = this.basemaps[dayNumber] || null;
+
+    const frame = base ? this.tileFrame(base.view) : this.frame(all);
 
     const parts = [];
 
-    parts.push(`<rect x="0" y="0" width="${frame.width}" height="${frame.height}" fill="#f4f1ea"/>`);
+    if (base) {
+      // preserveAspectRatio=none because the image was requested at these
+      // exact dimensions - any fitting here would shift it off the
+      // coordinates the overlay is drawn against.
+      parts.push(
+        `<image href="${base.image}" x="0" y="0" width="${frame.width}" height="${frame.height}"` +
+        ` preserveAspectRatio="none"/>`,
+      );
+    } else {
+      parts.push(`<rect x="0" y="0" width="${frame.width}" height="${frame.height}" fill="#f4f1ea"/>`);
+    }
 
     if (data.path.length > 1) {
       const d = data.path
@@ -260,6 +477,16 @@ const DayMapSvg = {
       });
 
     parts.push(this.scaleBar(frame));
+
+    if (base && base.attribution) {
+      // Required by the licence the tiles come under, and it travels with
+      // the picture rather than living in a caption someone can drop.
+      parts.push(
+        `<text x="${frame.width - 6}" y="${frame.height - 5}" text-anchor="end"` +
+        ` font-family="system-ui, sans-serif" font-size="9" fill="#3a3a3a" opacity="0.8"` +
+        ` paint-order="stroke" stroke="#ffffff" stroke-width="2.5">${this.esc(base.attribution)}</text>`,
+      );
+    }
 
     return `
 

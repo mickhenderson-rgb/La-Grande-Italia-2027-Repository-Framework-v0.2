@@ -187,6 +187,16 @@ const JournalExport = {
     };
 
     try {
+      // The basemaps first, because rendering a day is synchronous and
+      // fetching one is not. Skipped entirely when maps are switched off,
+      // so nothing is spent on a document that will not show them.
+      if (includeMap && typeof DayMapSvg !== "undefined" && DayMapSvg.prepare) {
+        await DayMapSvg.prepare(
+          days.map((d) => d.day),
+          (at, total) => step(`Fetching map ${at} of ${total}…`),
+        );
+      }
+
       for (const day of days) {
         const entry = entries.find((e) => e.day === day.day) || {
           notes: "",
