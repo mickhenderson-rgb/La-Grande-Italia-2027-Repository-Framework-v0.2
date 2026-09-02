@@ -161,6 +161,13 @@ const Dashboard = {
   },
 
   initialise() {
+    // The home screen is the first thing seen in a session, so it is
+    // where a once-per-trip question belongs. It asks nothing outside
+    // Travel phase and nothing after it has been answered.
+    if (typeof Journal !== "undefined" && typeof Journal.offerBreadcrumbs === "function") {
+      Journal.offerBreadcrumbs();
+    }
+
     this.loadLiveWeather();
 
     this.loadLiveCurrency();

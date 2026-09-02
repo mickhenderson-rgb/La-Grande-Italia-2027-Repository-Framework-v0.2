@@ -2553,7 +2553,7 @@ ${unplotted}
       return;
     }
 
-    const points = Journal.traceFor(this.selectedDay);
+    const points = this.tracePoints(this.selectedDay);
 
     if (points.length === 0) {
       return;
@@ -2567,7 +2567,13 @@ ${unplotted}
       const marker = L.marker([point.lat, point.lng], {
         icon: L.divIcon({
           className: "tripmap-pin-wrap",
-          html: `<span class="tm-tracedot is-${point.source}" aria-hidden="true"></span>`,
+          // Coloured by PERSON, not by source. Whose photo it is matters
+          // more than whether it came from a camera or a breadcrumb, and a
+          // hollow centre keeps the two distinguishable without a second
+          // colour dimension nobody can read.
+          html:
+            `<span class="tm-tracedot ${point.source === "device" ? "is-device" : ""}"` +
+            ` style="background: ${this.esc(point.colour || "#2f6fb3")}" aria-hidden="true"></span>`,
           iconSize: [14, 14],
           iconAnchor: [7, 7],
         }),
@@ -2577,13 +2583,96 @@ ${unplotted}
       const when = point.at ? point.at.slice(11, 16) : "";
 
       marker.bindTooltip(
-        [point.source === "photo" ? "📷" : "📍", point.caption || (point.source === "photo" ? "Photo" : "You were here"), when]
+        [
+          point.source === "photo" ? "📷" : "📍",
+          point.personName ? `${point.personName}:` : "",
+          point.caption || (point.source === "photo" ? "Photo" : "Here"),
+          when,
+        ]
           .filter(Boolean)
           .join(" "),
       );
 
       this._driveLayers.push(marker);
     });
+  },
+
+  // Whose photo locations are being shown. Null means everyone.
+  traceWho: null,
+
+  // The day's points, filtered to one person when one is chosen.
+  //
+  // This is the whole point of the per-person work: a day where two of you
+  // went to Zermatt and two stayed in Milan has no single sensible view,
+  // and showing all of it fits the map to both countries at once.
+  tracePoints(dayNumber) {
+    if (typeof Journal === "undefined" || !Journal.traceFor) {
+      return [];
+    }
+
+    const all = Journal.traceFor(dayNumber);
+
+    if (!this.traceWho) {
+      return all;
+    }
+
+    return all.filter((point) => (point.by || "") === this.traceWho);
+  },
+
+  showTraceFor(who) {
+    // Clicking the person already shown goes back to everyone, so the
+    // filter is its own way out.
+    this.traceWho = this.traceWho === who ? null : who;
+
+    this.renderDayPins();
+
+    this.fitDay(this.selectedDay);
+
+    this.renderDayDetail(this.selectedDay);
+  },
+
+  // The chips that switch between people.
+  //
+  // Silent when there is nothing to choose between - one person, or none.
+  // A filter offering a single option is furniture.
+  renderTraceFilter(dayNumber) {
+    if (typeof Journal === "undefined" || !Journal.peopleIn) {
+      return "";
+    }
+
+    const summary = Journal.peopleIn(dayNumber);
+
+    if (summary.people.length < 2) {
+      // One account behind every photo on a day when the party split is
+      // the shared-login case. The app genuinely cannot tell those photos
+      // apart, and saying so beats implying it did.
+      return summary.people.length === 1 && summary.linked === 0
+        ? `<p class="tm-trace-note">Photo locations are all from one login, so they cannot be told apart by person. Link each traveller's login under Participants to separate them.</p>`
+        : "";
+    }
+
+    const chips = summary.people
+      .map(
+        (person) => `
+
+<button type="button" class="tm-trace-chip ${this.traceWho === person.by ? "is-on" : ""}"
+    onclick="TripMap.showTraceFor('${this.jsArg(person.by)}')">
+    <span class="tm-trace-swatch" style="background: ${this.esc(person.colour)}"></span>
+    ${this.esc(person.name)} (${person.count})
+</button>
+
+`,
+      )
+      .join("");
+
+    return `
+
+<div class="tm-trace-filter">
+    <span class="tm-trace-label">Photo locations</span>
+    ${chips}
+</div>
+
+`;
   },
 
   // Every point the day's drive touches, for fitting the map to it.
@@ -2664,11 +2753,10 @@ ${unplotted}
       .concat(this.driveBounds(dayNum))
       // And a day with no drive at all may still have photos, which are
       // the only thing on the map worth fitting to.
-      .concat(
-        typeof Journal !== "undefined" && Journal.traceFor
-          ? Journal.traceFor(dayNum).map((p) => [p.lat, p.lng])
-          : [],
-      );
+      //
+      // The FILTERED set: fitting to everyone on a day the party split
+      // zooms out to cover both countries and helps neither group.
+      .concat(this.tracePoints(dayNum).map((p) => [p.lat, p.lng]));
 
     if (pts.length === 1) {
       this.map.setView(pts[0], 15);
@@ -2726,6 +2814,8 @@ ${unplotted}
 <p class="tripmap-detail-sub">${this.esc(dateLabel)}</p>
 
 ${hint}
+
+${this.renderTraceFilter(dayNum)}
 
 <div class="tripmap-detail-items">
 
@@ -3375,9 +3465,23 @@ ${hint}
 .tm-tracedot { display: block; width: 100%; height: 100%; border-radius: 50%; box-sizing: border-box; border: 2px solid #ffffff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
 
 /* A photograph is the better record - you stopped and looked at something. */
-.tm-tracedot.is-photo { background: #C79C5D; }
+/* A breadcrumb is hollowed out so it reads as the weaker record without
+   needing a second colour - the colour is spent on WHOSE it is. */
+.tm-tracedot.is-device { opacity: 0.75; border-style: dashed; }
 
-.tm-tracedot.is-device { background: #8a8f98; }
+/* The person filter. Panel chrome, so it follows the app theme - unlike
+   the dots themselves, which sit on tiles. */
+.tm-trace-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0; }
+
+.tm-trace-label { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-muted); margin-right: 4px; }
+
+.tm-trace-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 13px; border-radius: var(--radius-pill); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); cursor: pointer; }
+
+.tm-trace-chip.is-on { border-color: var(--color-primary); background: var(--color-primary-tint); font-weight: 600; }
+
+.tm-trace-swatch { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+
+.tm-trace-note { font-size: 13px; color: var(--color-muted); margin: 10px 0; }
 
 @media (max-width: 820px) {
 

@@ -200,7 +200,7 @@ const Settings = {
 
         <div class="manager-card form-card">
 
-            <h2>Journal trace</h2>
+            <h2>Photo locations</h2>
 
             <p class="form-hint">
                 Photos already carry where and when they were taken, and the journal
@@ -210,9 +210,10 @@ const Settings = {
 
             <label class="form-field form-field-wide">
                 <input type="checkbox" id="set-breadcrumbs" ${Journal.breadcrumbsOn() ? "checked" : ""}>
-                Also record where you are when you log a note or a spend
+                Also drop a marker when you open directions, or log a note or a spend
                 <span class="form-hint">
-                    Fills the gaps between photos. Your phone will ask permission the
+                    Fills the gaps between photos - a photo cannot record which way you drove,
+                    because the driver is not the one taking it. Your phone will ask permission the
                     first time. This is not tracking and cannot become it &mdash; a browser
                     only answers while the app is open and awake, so what it records is
                     where you were when you used it.

@@ -1898,7 +1898,32 @@ filtered to a single day rather than showing all. Closed.
 
 ## D3. Agreed, not yet built
 
-### D3-1. The journal trace — photo EXIF + breadcrumbs — DONE, v1.45.0
+### D3-1. Photo locations — EXIF + breadcrumbs — DONE, v1.45.0–1.46.0
+
+**Reworked in v1.46.0 after Mick found a real flaw:** a trip is not one
+person. Two travellers go to Zermatt while two stay in Milan, and merging
+every photo on the day into one time-ordered list describes nobody’s day —
+and a map fitted to all of it shows both countries and helps neither.
+
+Every point now carries WHO recorded it, resolved to a participant through
+`linkedUser` (collected since v1.29.0 and never read until now). The day
+map colours by person and shows one at a time. Where every photo comes
+from a single shared login the app says so rather than implying it told
+the party apart.
+
+Renamed from “trace” to “photo locations”: “trace” implies a continuous
+path, and these are stops. Never drawn as a line — there is a test for it.
+
+**Two capture points added v1.46.0**, both Mick’s suggestions:
+
+- **Opening directions** (Google Maps or Waze, from any day card) drops a
+  point marked `leaving`. The strongest signal the app gets: it is open,
+  and you have just said where you are going. This is the one a photo can
+  never provide — the driver is not the one photographing — and it is what
+  makes reconstructing a route afterwards possible at all.
+- **Asked once, when Travel phase begins.** Not at planning time, which
+  can be a year out. Answered either way and never asked again; Settings
+  is where it changes.
 
 Agreed with Mick 2026-09-02, alongside the day-map route (shipped v1.44.0).
 

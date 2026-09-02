@@ -1328,6 +1328,51 @@ const Journal = {
     };
   },
 
+  // ASKED ONCE, WHEN THE TRIP ACTUALLY STARTS.
+  //
+  // Not at planning time, which can be a year out and where the question
+  // means nothing. Travel phase is the trip beginning, and it is the only
+  // moment where "shall I record where you go?" is a sensible thing to be
+  // asked.
+  //
+  // Once. A declined question that keeps coming back is nagging, so the
+  // answer is recorded either way and Settings is where it changes.
+  offerBreadcrumbs() {
+    const data = Project.get("project");
+
+    if (!data || typeof Phase === "undefined" || Phase.current() !== "Travel") {
+      return;
+    }
+
+    if (data.settings && data.settings.trace && data.settings.trace.asked) {
+      return;
+    }
+
+    if (typeof UI === "undefined" || typeof UI.confirm !== "function") {
+      return;
+    }
+
+    const answer = (yes) => {
+      const held = Project.get("project");
+
+      held.settings = held.settings || {};
+
+      held.settings.trace = { breadcrumbs: yes, asked: true };
+
+      Project.update("project", held);
+    };
+
+    UI.confirm({
+      title: "Record where you go?",
+      message:
+        "Your photos already remember where they were taken. This also drops a marker when you open directions or log a spend, so afterwards you can see which way you actually went - useful when you have driven the same country more than once. Only while the app is open, and you can change it in Settings.",
+      confirmLabel: "Yes, record it",
+      cancelLabel: "No thanks",
+      onConfirm: () => answer(true),
+      onCancel: () => answer(false),
+    });
+  },
+
   // --- Breadcrumbs (v1.45.0) -------------------------------------------
 
   // A LOCATION STAMPED ON SOMETHING YOU LOGGED WHILE THE APP WAS OPEN.
@@ -1353,7 +1398,7 @@ const Journal = {
   // Fire and forget. A breadcrumb is a nicety; the note or the spend it
   // rides along with is the thing that matters, so nothing here is allowed
   // to delay or fail a save.
-  breadcrumb(dayNumber) {
+  breadcrumb(dayNumber, why) {
     if (!this.breadcrumbsOn()) {
       return;
     }
@@ -1363,7 +1408,7 @@ const Journal = {
     }
 
     navigator.geolocation.getCurrentPosition(
-      (position) => this.recordPoint(dayNumber, position),
+      (position) => this.recordPoint(dayNumber, position, why),
       // Declined, or no fix. Neither is worth a message: you did not ask
       // for a breadcrumb, you asked to save a note.
       () => {},
@@ -1373,7 +1418,7 @@ const Journal = {
     );
   },
 
-  recordPoint(dayNumber, position) {
+  recordPoint(dayNumber, position, why) {
     const coords = position && position.coords;
 
     if (!coords || typeof coords.latitude !== "number" || typeof coords.longitude !== "number") {
@@ -1393,12 +1438,22 @@ const Journal = {
       lng: Math.round(coords.longitude * 1e5) / 1e5,
       at: new Date().toISOString().slice(0, 19),
       source: "device",
+      // Whose phone this was. Without it a breadcrumb from Zermatt and a
+      // photo from Milan are indistinguishable.
+      by: Project.currentUser || "",
+      // "leaving" means you opened directions here, which makes this the
+      // start of a leg rather than somewhere you happened to be.
+      why: why === "leaving" ? "leaving" : "",
     };
 
     // Standing in the same cafe logging three things is one place, not
     // three. Roughly 50 metres, which is inside the accuracy of a phone
     // fix indoors anyway.
-    const last = result.entry.trace[result.entry.trace.length - 1];
+    // Compared against YOUR last point, not the day's. Two people in two
+    // countries must not deduplicate each other.
+    const mine = result.entry.trace.filter((p) => (p.by || "") === point.by);
+
+    const last = mine[mine.length - 1];
 
     if (last && Math.abs(last.lat - point.lat) < 0.0005 && Math.abs(last.lng - point.lng) < 0.0005) {
       return;
@@ -1409,11 +1464,26 @@ const Journal = {
     Project.update("journal", result.data);
   },
 
-  // Everywhere the day says you actually were, photos and breadcrumbs
-  // together, in the order it happened.
+  // PHOTO LOCATIONS FOR A DAY, ATTRIBUTED TO WHOEVER RECORDED THEM.
   //
-  // Photos first as the better record, but sorted by time so the day reads
-  // as a sequence rather than as two lists stapled together.
+  // A trip is not one person. Two of you go to Zermatt while two stay in
+  // Milan, and merging everyone's photos into one time-ordered list
+  // describes nobody's day - it reads as one person teleporting between
+  // two countries. Worse, a map fitted to all of it shows both cities and
+  // is useless to either group.
+  //
+  // So every point carries WHO, and callers show one person at a time.
+  // The attribution is the uploading account, resolved to a participant
+  // through the linkedUser they gave.
+  //
+  // WHERE THIS CANNOT HELP: four people sharing one login are one person
+  // as far as any of this can tell. The app says so rather than pretending
+  // otherwise - see peopleIn().
+  //
+  // NOT A ROUTE, and never drawn as a line. The driver is not the one
+  // taking photographs, so these are the places someone stopped and
+  // looked at something - which is worth having, and is not the same
+  // thing as where the car went.
   traceFor(dayNumber) {
     const data = Project.get("journal");
 
@@ -1429,25 +1499,90 @@ const Journal = {
 
     (entry.photos || []).forEach((photo) => {
       if (photo.location && typeof photo.location.lat === "number") {
-        points.push({
+        points.push(this.attribute({
           lat: photo.location.lat,
           lng: photo.location.lng,
           at: photo.takenAt || "",
           source: "photo",
           caption: photo.caption || "",
-        });
+        }, photo.addedBy));
       }
     });
 
     (entry.trace || []).forEach((point) => {
       if (typeof point.lat === "number") {
-        points.push({ lat: point.lat, lng: point.lng, at: point.at || "", source: "device", caption: "" });
+        points.push(this.attribute(
+          {
+            lat: point.lat,
+            lng: point.lng,
+            at: point.at || "",
+            source: "device",
+            caption: point.why === "leaving" ? "Set off from here" : "",
+          },
+          point.by,
+        ));
       }
     });
 
     // An undated point sorts last rather than to the front, where an empty
     // string would otherwise put it.
     return points.sort((a, b) => (a.at || "9999").localeCompare(b.at || "9999"));
+  },
+
+  // Who a point came from, as far as anything can tell.
+  //
+  // The account is what was recorded; the participant is who that is, when
+  // they have said which login is theirs. An unlinked account keeps its
+  // username as the label rather than becoming anonymous - "mick_h" is
+  // still more use than nothing.
+  attribute(point, account) {
+    const who = String(account || "").trim();
+
+    const person = typeof Participants !== "undefined" && Participants.byUser
+      ? Participants.byUser(who)
+      : null;
+
+    point.by = who;
+
+    point.personId = person ? person.id : "";
+
+    point.personName = person ? person.name : who;
+
+    point.colour = person && person.colour
+      ? person.colour
+      : (typeof Participants !== "undefined" ? Participants.COLOURS[0] : "#2f6fb3");
+
+    return point;
+  },
+
+  // The people with photo locations on this day, for a caller that wants
+  // to show one at a time.
+  //
+  // Reports whether anyone could be identified at all: a trip where every
+  // photo comes from one shared login collapses to a single unnamed group,
+  // and the interface should say so rather than imply the party has been
+  // told apart.
+  peopleIn(dayNumber) {
+    const seen = {};
+
+    this.traceFor(dayNumber).forEach((point) => {
+      const key = point.by || "";
+
+      if (!seen[key]) {
+        seen[key] = { by: key, id: point.personId, name: point.personName || "Unknown", colour: point.colour, count: 0 };
+      }
+
+      seen[key].count += 1;
+    });
+
+    const people = Object.keys(seen).map((k) => seen[k]);
+
+    return {
+      people,
+      // One account behind everything is the shared-login case, and is
+      // not the same as a day where only one person took photos.
+      linked: people.filter((p) => p.id).length,
+    };
   },
 
   autoCaption(file) {

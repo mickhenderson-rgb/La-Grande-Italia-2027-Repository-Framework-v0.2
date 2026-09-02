@@ -83,6 +83,23 @@ const Participants = {
     return Array.isArray(list) ? list : [];
   },
 
+  // The person behind an app login, where they said which login is
+  // theirs. linkedUser has been collected since participants existed and
+  // never read until now.
+  //
+  // Null is the ordinary answer, not a failure: most participants have no
+  // login at all, and a trip shared with someone who is not a participant
+  // is perfectly normal.
+  byUser(username) {
+    const wanted = String(username || "").trim().toLowerCase();
+
+    if (!wanted) {
+      return null;
+    }
+
+    return this.all().find((p) => String(p.linkedUser || "").trim().toLowerCase() === wanted) || null;
+  },
+
   find(id) {
     return this.all().filter((p) => p.id === id)[0] || null;
   },
