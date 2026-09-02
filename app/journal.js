@@ -1202,10 +1202,12 @@ const Journal = {
 
     const caption = this.autoCaption(file);
 
+    const taken = await this.locationOf(file);
+
     const addResponse = await fetch(`${window.API_BASE}/api/journal/${Data.currentProjectFolder}/${dayNumber}/photo`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, caption, archiveUrl }),
+      body: JSON.stringify({ url, caption, archiveUrl, location: taken.location, takenAt: taken.takenAt }),
     });
 
     if (!addResponse.ok) {
@@ -1299,6 +1301,153 @@ const Journal = {
     const result = await response.json();
 
     return result.url;
+  },
+
+  // WHERE AND WHEN A PHOTO WAS TAKEN, READ BEFORE THE CANVAS EATS IT.
+  //
+  // resizeImage draws onto a canvas and reads back with toDataURL, which
+  // produces a clean JPEG carrying NO metadata at all. So this has to
+  // happen on the original File, and it has to happen first.
+  //
+  // Never fatal. A photo with no location is an ordinary photo, and
+  // losing the picture over a missing header would be absurd.
+  async locationOf(file) {
+    if (typeof Exif === "undefined") {
+      return { location: null, takenAt: "" };
+    }
+
+    const found = await Exif.read(file);
+
+    if (!found) {
+      return { location: null, takenAt: "" };
+    }
+
+    return {
+      location: found.lat === null ? null : { lat: found.lat, lng: found.lng, source: "photo" },
+      takenAt: found.takenAt || "",
+    };
+  },
+
+  // --- Breadcrumbs (v1.45.0) -------------------------------------------
+
+  // A LOCATION STAMPED ON SOMETHING YOU LOGGED WHILE THE APP WAS OPEN.
+  //
+  // Photos carry their own coordinates, which is the better record - they
+  // mark the places worth stopping at. Breadcrumbs fill the gaps: the
+  // lunch you logged a spend for and did not photograph.
+  //
+  // OFF UNTIL YOU TURN IT ON. Asking for someone's location the first time
+  // they jot a note, unprompted, is not a thing to spring on anyone - and
+  // the setting is where the explanation lives.
+  //
+  // This is NOT tracking, and cannot become it: a browser only answers
+  // while the page is open and awake. iOS suspends the JS the moment the
+  // screen locks. What this records is where you were when you used the
+  // app, which is exactly what it claims.
+  breadcrumbsOn() {
+    const data = Project.get("project");
+
+    return !!(data && data.settings && data.settings.trace && data.settings.trace.breadcrumbs);
+  },
+
+  // Fire and forget. A breadcrumb is a nicety; the note or the spend it
+  // rides along with is the thing that matters, so nothing here is allowed
+  // to delay or fail a save.
+  breadcrumb(dayNumber) {
+    if (!this.breadcrumbsOn()) {
+      return;
+    }
+
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => this.recordPoint(dayNumber, position),
+      // Declined, or no fix. Neither is worth a message: you did not ask
+      // for a breadcrumb, you asked to save a note.
+      () => {},
+      // A stale fix is fine for "roughly where was I" and avoids spinning
+      // up the GPS for a minute to place a coffee.
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 },
+    );
+  },
+
+  recordPoint(dayNumber, position) {
+    const coords = position && position.coords;
+
+    if (!coords || typeof coords.latitude !== "number" || typeof coords.longitude !== "number") {
+      return;
+    }
+
+    const result = this.ensureEntry(dayNumber);
+
+    if (!result) {
+      return;
+    }
+
+    result.entry.trace = Array.isArray(result.entry.trace) ? result.entry.trace : [];
+
+    const point = {
+      lat: Math.round(coords.latitude * 1e5) / 1e5,
+      lng: Math.round(coords.longitude * 1e5) / 1e5,
+      at: new Date().toISOString().slice(0, 19),
+      source: "device",
+    };
+
+    // Standing in the same cafe logging three things is one place, not
+    // three. Roughly 50 metres, which is inside the accuracy of a phone
+    // fix indoors anyway.
+    const last = result.entry.trace[result.entry.trace.length - 1];
+
+    if (last && Math.abs(last.lat - point.lat) < 0.0005 && Math.abs(last.lng - point.lng) < 0.0005) {
+      return;
+    }
+
+    result.entry.trace.push(point);
+
+    Project.update("journal", result.data);
+  },
+
+  // Everywhere the day says you actually were, photos and breadcrumbs
+  // together, in the order it happened.
+  //
+  // Photos first as the better record, but sorted by time so the day reads
+  // as a sequence rather than as two lists stapled together.
+  traceFor(dayNumber) {
+    const data = Project.get("journal");
+
+    const entries = data && Array.isArray(data.entries) ? data.entries : [];
+
+    const entry = entries.find((e) => e.day === dayNumber);
+
+    if (!entry) {
+      return [];
+    }
+
+    const points = [];
+
+    (entry.photos || []).forEach((photo) => {
+      if (photo.location && typeof photo.location.lat === "number") {
+        points.push({
+          lat: photo.location.lat,
+          lng: photo.location.lng,
+          at: photo.takenAt || "",
+          source: "photo",
+          caption: photo.caption || "",
+        });
+      }
+    });
+
+    (entry.trace || []).forEach((point) => {
+      if (typeof point.lat === "number") {
+        points.push({ lat: point.lat, lng: point.lng, at: point.at || "", source: "device", caption: "" });
+      }
+    });
+
+    // An undated point sorts last rather than to the front, where an empty
+    // string would otherwise put it.
+    return points.sort((a, b) => (a.at || "9999").localeCompare(b.at || "9999"));
   },
 
   autoCaption(file) {

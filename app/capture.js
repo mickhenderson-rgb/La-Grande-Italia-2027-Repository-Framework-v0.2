@@ -188,6 +188,16 @@ const Capture = {
 
     Project.update("journal", result.data);
 
+    // After the save, never before it: a breadcrumb is a nicety and the
+    // note is the thing that matters.
+    //
+    // Checked for rather than assumed: the service worker is cache-first,
+    // so a fresh capture.js can briefly run against a journal.js from the
+    // previous version.
+    if (typeof Journal.breadcrumb === "function") {
+      Journal.breadcrumb(this.dayNumber);
+    }
+
     this.close();
   },
 
@@ -269,6 +279,10 @@ const Capture = {
           data.items.push(result.item);
         }
 
+        if (typeof Journal !== "undefined" && typeof Journal.breadcrumb === "function") {
+          Journal.breadcrumb(this.dayNumber);
+        }
+
         this.close();
       })
       .catch((error) => {
@@ -300,10 +314,13 @@ const Capture = {
 
       const caption = Journal.autoCaption(file);
 
+      // Read from the File, before resizeImage's canvas discards it.
+      const taken = await Journal.locationOf(file);
+
       const addResponse = await fetch(`${window.API_BASE}/api/journal/${Data.currentProjectFolder}/${this.dayNumber}/photo`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, caption }),
+        body: JSON.stringify({ url, caption, location: taken.location, takenAt: taken.takenAt }),
       });
 
       if (!addResponse.ok) {

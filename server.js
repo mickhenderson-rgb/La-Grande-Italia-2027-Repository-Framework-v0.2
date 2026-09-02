@@ -469,6 +469,12 @@ async function handleJournalPhotoAdd(req, res, projectId, day) {
       // back to the display copy.
       archiveUrl: body.archiveUrl || "",
       caption: body.caption || "",
+      // Where and when the photo was taken, read out of its own EXIF by
+      // the browser before the resize discarded it. Both optional: a
+      // screenshot, a picture someone sent you, or a phone with location
+      // switched off simply has neither.
+      location: sanitisePoint(body.location),
+      takenAt: typeof body.takenAt === "string" ? body.takenAt.slice(0, 19) : "",
       addedBy: req.authUser || "",
     };
 
@@ -484,6 +490,37 @@ async function handleJournalPhotoAdd(req, res, projectId, day) {
 
     return sendJSON(res, 500, { error: "Could not save the photo entry." });
   }
+}
+
+// A coordinate pair from a browser, trusted no further than its shape.
+//
+// Written once and used by both the photo entry and the breadcrumb
+// endpoint, so neither can drift into accepting something the other
+// rejects.
+function sanitisePoint(point) {
+  if (!point || typeof point !== "object") {
+    return null;
+  }
+
+  var lat = Number(point.lat);
+
+  var lng = Number(point.lng);
+
+  if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+    return null;
+  }
+
+  if (lat === 0 && lng === 0) {
+    return null;
+  }
+
+  return {
+    lat: Math.round(lat * 1e5) / 1e5,
+    lng: Math.round(lng * 1e5) / 1e5,
+    // Free text from a client is not allowed to become a field name
+    // downstream, so it is constrained to the two sources that exist.
+    source: point.source === "device" ? "device" : "photo",
+  };
 }
 
 async function handleJournalPhotoRemove(req, res, projectId, day, photoId) {

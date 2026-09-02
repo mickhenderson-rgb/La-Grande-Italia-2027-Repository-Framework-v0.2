@@ -1898,7 +1898,7 @@ filtered to a single day rather than showing all. Closed.
 
 ## D3. Agreed, not yet built
 
-### D3-1. The journal trace — photo EXIF + breadcrumbs — OPEN, WITH A DEADLINE
+### D3-1. The journal trace — photo EXIF + breadcrumbs — DONE, v1.45.0
 
 Agreed with Mick 2026-09-02, alongside the day-map route (shipped v1.44.0).
 
@@ -1916,7 +1916,24 @@ Two sources, both agreed:
    photo) logged while the app is open, filling the gaps where nothing
    was photographed. Needs a location permission prompt.
 
-**THE DEADLINE, AND WHY IT IS IRREVERSIBLE.** Photos are resized through
+**SHIPPED v1.45.0, and the deadline was met.** app/exif.js reads the
+location and timestamp from the File before Journal.resizeImage can
+discard them. Breadcrumbs are off until switched on in Settings. The day
+map draws both, as dots rather than pins.
+
+**KNOWN LIMITATION, accepted knowingly.** A guard in test-tonight.js had
+previously recorded a decision NOT to parse EXIF, for a real reason: iOS
+has a separate photo-library location permission, and without it the
+picker hands over photos with the GPS stripped. The trace will therefore
+be patchy on an iPhone, in a way the app cannot detect or explain. The
+decision was reversed on 2026-09-02 with that known — a partial record is
+worth having and photos are the only source of one — and the guard was
+restated to protect what makes it safe: a missing location is an ORDINARY
+answer everywhere, never an error, and nothing claims the trace is
+complete. Check iOS Settings → Privacy → Location Services → Camera
+before the trip.
+
+**THE ORIGINAL DEADLINE, AND WHY IT WAS IRREVERSIBLE.** Photos are resized through
 `canvas.toDataURL()` (`app/journal.js` DISPLAY_MAX_PX / ARCHIVE_MAX_PX),
 **which strips all EXIF including GPS**. Any photo captured before the
 reader is added has no location and never will — exactly the same shape

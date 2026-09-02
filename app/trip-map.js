@@ -2539,6 +2539,53 @@ ${unplotted}
     });
   },
 
+  // WHERE YOU ACTUALLY WERE, over the road you planned to take.
+  //
+  // The drive is the PLAN. This is the record: photo locations and, if
+  // you turned them on, breadcrumbs. They are different things and are
+  // drawn differently - a detour to a winery appears here and in no
+  // planned route.
+  //
+  // Small hollow dots rather than pins: these are not places you chose
+  // on a map, they are where you turned out to be.
+  renderDayTrace() {
+    if (!this.map || !window.L || typeof Journal === "undefined" || !Journal.traceFor) {
+      return;
+    }
+
+    const points = Journal.traceFor(this.selectedDay);
+
+    if (points.length === 0) {
+      return;
+    }
+
+    const L = window.L;
+
+    this._driveLayers = this._driveLayers || [];
+
+    points.forEach((point) => {
+      const marker = L.marker([point.lat, point.lng], {
+        icon: L.divIcon({
+          className: "tripmap-pin-wrap",
+          html: `<span class="tm-tracedot is-${point.source}" aria-hidden="true"></span>`,
+          iconSize: [14, 14],
+          iconAnchor: [7, 7],
+        }),
+        keyboard: false,
+      }).addTo(this.map);
+
+      const when = point.at ? point.at.slice(11, 16) : "";
+
+      marker.bindTooltip(
+        [point.source === "photo" ? "📷" : "📍", point.caption || (point.source === "photo" ? "Photo" : "You were here"), when]
+          .filter(Boolean)
+          .join(" "),
+      );
+
+      this._driveLayers.push(marker);
+    });
+  },
+
   // Every point the day's drive touches, for fitting the map to it.
   driveBounds(dayNum) {
     if (typeof Drive === "undefined") {
@@ -2578,6 +2625,8 @@ ${unplotted}
     // happened to call this.
     this.renderDayDrive();
 
+    this.renderDayTrace();
+
     this._dayMarkers = [];
 
     this.getItemsForDay(this.selectedDay).forEach((entry) => {
@@ -2612,7 +2661,14 @@ ${unplotted}
       .filter(Boolean)
       // Without the road, a driving day with one hotel on it zooms to
       // that hotel and puts the entire drive off screen.
-      .concat(this.driveBounds(dayNum));
+      .concat(this.driveBounds(dayNum))
+      // And a day with no drive at all may still have photos, which are
+      // the only thing on the map worth fitting to.
+      .concat(
+        typeof Journal !== "undefined" && Journal.traceFor
+          ? Journal.traceFor(dayNum).map((p) => [p.lat, p.lng])
+          : [],
+      );
 
     if (pts.length === 1) {
       this.map.setView(pts[0], 15);
@@ -3310,6 +3366,18 @@ ${hint}
 .tm-drivepin.is-start { background: #ffffff; color: #7A5C3E; border-color: #7A5C3E; }
 
 .tm-drivepin.is-end { background: #2e7d4f; }
+
+/* WHERE YOU ACTUALLY WERE. Deliberately not a pin: a pin is somewhere you
+   chose on a map, and these are places you turned out to be. Small, hollow
+   and quiet, so the day is still legible with forty of them on it.
+
+   FIXED colours, like everything else drawn on tiles. */
+.tm-tracedot { display: block; width: 100%; height: 100%; border-radius: 50%; box-sizing: border-box; border: 2px solid #ffffff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
+
+/* A photograph is the better record - you stopped and looked at something. */
+.tm-tracedot.is-photo { background: #C79C5D; }
+
+.tm-tracedot.is-device { background: #8a8f98; }
 
 @media (max-width: 820px) {
 

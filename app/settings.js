@@ -200,6 +200,35 @@ const Settings = {
 
         <div class="manager-card form-card">
 
+            <h2>Journal trace</h2>
+
+            <p class="form-hint">
+                Photos already carry where and when they were taken, and the journal
+                uses that automatically &mdash; nothing to switch on, and nothing leaves
+                your trip.
+            </p>
+
+            <label class="form-field form-field-wide">
+                <input type="checkbox" id="set-breadcrumbs" ${Journal.breadcrumbsOn() ? "checked" : ""}>
+                Also record where you are when you log a note or a spend
+                <span class="form-hint">
+                    Fills the gaps between photos. Your phone will ask permission the
+                    first time. This is not tracking and cannot become it &mdash; a browser
+                    only answers while the app is open and awake, so what it records is
+                    where you were when you used it.
+                </span>
+            </label>
+
+            <div class="planner-buttons">
+
+                <button type="button" class="btn-primary" onclick="Settings.saveTrace()">Save</button>
+
+            </div>
+
+        </div>
+
+        <div class="manager-card form-card">
+
             <h2>Fuel prices</h2>
 
             <p class="form-hint">
@@ -394,6 +423,24 @@ const Settings = {
 
       UI.warn("Couldn't reach the server. Check the connection and try again.", { slot: "set-name-msg" });
     }
+  },
+
+  saveTrace() {
+    const projectData = Project.get("project");
+
+    const box = document.getElementById("set-breadcrumbs");
+
+    if (!projectData || !box) {
+      return;
+    }
+
+    projectData.settings = projectData.settings || {};
+
+    projectData.settings.trace = { breadcrumbs: box.checked };
+
+    Project.update("project", projectData);
+
+    UI.ok(box.checked ? "Breadcrumbs on. Your phone will ask permission the first time." : "Breadcrumbs off.");
   },
 
   // --- Fuel prices ---------------------------------------------------
