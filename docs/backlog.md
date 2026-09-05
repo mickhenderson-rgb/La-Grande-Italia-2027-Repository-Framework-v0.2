@@ -2033,7 +2033,8 @@ system - a worse problem than the leftover account it tidies. Whoever can
 reach the auth directory over SSH already has this authority; what was
 missing was the arithmetic, not the permission.
 
-**`tools/remove-user.js`** (v1.48.0) does it: transfers owned trips to a
+**`tools/remove-user.js`** (v1.48.0) does it — one of five operator
+tools now documented in `tools/README.md`. It: transfers owned trips to a
 named heir, withdraws collaborator entries, drops live sessions so removal
 is immediate, and backs the auth directory up first. It refuses to orphan
 a trip, refuses to remove the last account (which would flip the app into

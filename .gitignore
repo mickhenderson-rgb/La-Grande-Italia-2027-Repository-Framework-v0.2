@@ -7,5 +7,9 @@ data/auth/
 # `git pull` never collides with live data on disk. Lives only on the server.
 data/projects/
 
+# Trips moved aside by tools/trips.js. Same reason as above, and they
+# are somebody's journal until they are deliberately deleted.
+data/projects-removed/
+
 # Node
 node_modules/
